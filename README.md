@@ -21,11 +21,19 @@ Portable Claude Code custom skills. Symlinked into `~/.claude/commands/`.
 
 ## Setup
 
-Symlink the `x/` subfolder into Claude Code commands (admin PowerShell):
+Clone this repo, then symlink the `x/` subfolder into your Claude Code commands directory:
 
+**Windows** (admin PowerShell):
 ```powershell
-New-Item -ItemType SymbolicLink -Path "$env:USERPROFILE\.claude\commands\x" -Target "D:\x-skills\x"
+New-Item -ItemType SymbolicLink -Path "$env:USERPROFILE\.claude\commands\x" -Target "C:\path\to\x-skills\x"
 ```
+
+**macOS / Linux**:
+```bash
+ln -s /path/to/x-skills/x ~/.claude/commands/x
+```
+
+After linking, the `/x:*` commands are available in any Claude Code session.
 
 ## Design decisions
 
