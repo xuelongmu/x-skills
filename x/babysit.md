@@ -59,11 +59,7 @@ For each **unresolved** review thread or comment:
    For review threads, reply via the GraphQL API or REST thread reply endpoint. Keep replies short and factual (e.g., "Fixed — extracted into a helper", "Done — switched to early return").
 5. After all fixes are committed and replies posted, push the changes
 
-Do NOT:
-- Dismiss reviews or resolve threads without making changes
-- Make changes that contradict what the reviewer asked for
-- Over-engineer — do exactly what was asked
-- Leave review comments unacknowledged — always reply after addressing
+Do not overstep the boundaries of the original PR. If a comment feels out of scope, suggest creating a separate issue and wait for human response before acting.
 
 ## Step 4: Check CI status
 
