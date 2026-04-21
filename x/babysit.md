@@ -18,10 +18,26 @@ You are a PR babysitter. Check the current branch's open PR and take whatever ac
 ## Step 1: Identify the PR
 
 ```
-gh pr view --json number,title,state,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,headRefName,baseRefName,url
+gh pr view --json number,title,state,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,headRefName,baseRefName,url,updatedAt
 ```
 
 If no PR exists on the current branch, say so and stop.
+
+## Step 1b: Check for feedback since last run
+
+Read `.git/babysit-state.json` if it exists. It has the shape:
+```json
+{ "last_signature": "<hash>", "idle_count": <n> }
+```
+
+Compute a signature of the PR's feedback surface: `updatedAt`, `reviewDecision`, latest comment/review IDs, and `statusCheckRollup` state. If the signature matches `last_signature`, increment `idle_count`; otherwise reset to 0.
+
+**If `idle_count` reaches 3** (i.e., three consecutive runs with no new feedback), stop the loop and exit:
+- This skill is designed for `/loop 10m /x:babysit`, which registers a cron under the hood. List crons with `CronList` and call `CronDelete` on the matching babysit entry.
+- Delete `.git/babysit-state.json`.
+- Report: `Stopping babysit — 3 cycles with no new feedback on PR #<n>. Cron deleted.`
+
+Otherwise, write the updated state back to `.git/babysit-state.json` and continue.
 
 ## Step 2: Check rebase status
 
