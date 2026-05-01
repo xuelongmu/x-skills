@@ -18,6 +18,7 @@ description: Keep a pull request healthy without merging it; use when Codex need
 - `gh` CLI is installed and authenticated.
 - You are on the PR branch.
 - The sibling `land` skill is installed because this skill reuses `../land/land_watch.py`.
+- Run watcher commands from the PR repository working directory. The watcher script may live in `$CODEX_HOME/skills/land` or `~/.codex/skills/land`; `gh` resolves repository context from the process cwd.
 
 ## Steps
 
@@ -32,7 +33,7 @@ description: Keep a pull request healthy without merging it; use when Codex need
    ```sh
    python "$LAND_SKILL_DIR/land_watch.py"
    ```
-   Resolve `LAND_SKILL_DIR` to the installed sibling `land` skill directory, but run the command from the PR repository working directory so `gh` uses the right repo. Use `python3` instead of `python` when that is the available launcher.
+   Resolve `LAND_SKILL_DIR` to the installed sibling `land` skill directory, for example `${CODEX_HOME:-$HOME/.codex}/skills/land`, but run the command from the PR repository working directory so `gh` uses the right repo. Use `python3` instead of `python` when that is the available launcher.
 6. If the watcher exits `2`, fetch top-level comments, inline review comments, review summaries, unresolved threads when available, latest checks, and bot feedback. Classify each item, address actionable feedback, commit, push, and rerun the watcher.
 7. If the watcher exits `3`, inspect failing checks with `gh pr checks` and `gh run view --log`, fix the failure when concrete, commit, push, and rerun the watcher.
 8. If the watcher exits `4`, refresh local state from the remote branch and rerun the watcher.

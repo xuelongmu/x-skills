@@ -59,6 +59,8 @@ When installing from this repo with a Codex skill installer, use these skill pat
 .codex/skills/land
 ```
 
+The skills can live in the user's Codex home directory while operating on any repository. The watcher script path should resolve from the installed skill directory, but the command should run from the target PR repository working directory. `gh` resolves `{owner}`, `{repo}`, PRs, and checks from that cwd.
+
 For local development, symlink the skill directory into Codex's skills directory instead.
 
 **Windows** (admin PowerShell):
