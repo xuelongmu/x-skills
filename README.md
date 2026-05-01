@@ -16,12 +16,18 @@ Portable PR workflow skills for Claude Code and Codex.
 
 ## Usage
 
+### Claude Code
+
 ```
 /x:pr                     # create PR
 /x:slack-pr               # share to #zerogen with Vercel preview
 /x:slack-pr frontend      # share to #frontend instead
-/loop 5m /x:babysit       # keep PR ready without merging
+/loop 5m /x:babysit       # keep PR ready without merging (Claude Code only)
 ```
+
+### Codex
+
+Use the `babysit` skill directly when you want Codex to keep the current PR ready without merging. Codex does not support Claude Code `/loop` semantics; the bundled watcher blocks while it monitors checks, feedback, PR head changes, and the 10-minute post-green wait.
 
 ## Setup
 
@@ -45,11 +51,28 @@ After linking, the `/x:*` commands are available in any Claude Code session.
 
 Install or copy the `.codex/skills/babysit/` directory as a Codex skill. The skill includes `scripts/land_watch.py`, based on Symphony's merged watcher, which monitors feedback, checks, and PR head changes, then waits 10 minutes after green checks before reporting readiness.
 
-When installing from this repo with a Codex skill installer, use the skill path:
+When installing from this repo with a Codex skill installer, use this skill path:
 
 ```
 .codex/skills/babysit
 ```
+
+For local development, symlink the skill directory into Codex's skills directory instead.
+
+**Windows** (admin PowerShell):
+```powershell
+$codexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE ".codex" }
+New-Item -ItemType Directory -Force -Path (Join-Path $codexHome "skills")
+New-Item -ItemType SymbolicLink -Path (Join-Path $codexHome "skills\babysit") -Target "C:\path\to\x-skills\.codex\skills\babysit"
+```
+
+**macOS / Linux**:
+```bash
+mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
+ln -s /path/to/x-skills/.codex/skills/babysit "${CODEX_HOME:-$HOME/.codex}/skills/babysit"
+```
+
+Restart Codex after installing or linking the skill.
 
 ## Design decisions
 
@@ -59,5 +82,6 @@ When installing from this repo with a Codex skill installer, use the skill path:
 - `/x:babysit` waits 10 minutes after green checks for late feedback before reporting ready
 - `/x:babysit` never merges, enables auto-merge, or deletes the branch; it prints the merge command when ready
 - Codex `babysit` is packaged as a real skill directory because Codex installers expect `SKILL.md`
+- Codex `babysit` does not rely on `/loop`; the Python watcher owns the monitoring wait
 - `/x:slack-pr` sends as a draft so user can review before posting
 - Vercel bot comments use the **issues** endpoint (`/issues/{n}/comments`), not `/pulls/{n}/comments`
