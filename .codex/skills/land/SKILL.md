@@ -101,8 +101,8 @@ updates in parallel:
 python3 "$LAND_SKILL_DIR/land_watch.py"
 ```
 
-Resolve `LAND_SKILL_DIR` to this installed skill directory. Prefer the current
-repo's `.codex/skills/land` when present; otherwise use
+Resolve `LAND_SKILL_DIR` to this installed skill directory before running the
+watcher. Prefer the current repo's `.codex/skills/land` when present; otherwise use
 `${CODEX_HOME:-$HOME/.codex}/skills/land` or
 `%USERPROFILE%\.codex\skills\land`. Run the command from the PR repository
 working directory so `gh` uses the right repo.

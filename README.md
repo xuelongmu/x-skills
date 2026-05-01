@@ -50,7 +50,11 @@ After linking, the `/x:*` commands are available in any Claude Code session.
 
 ### Codex
 
-Install or copy the `.codex/skills/babysit/` and `.codex/skills/land/` directories as Codex skills. The `land` skill owns `land_watch.py`, based on Symphony's merged watcher. `babysit` reuses that sibling watcher, so install both skills together in the same scope.
+Recommended: ask Codex to install the `babysit` and `land` skills from this repo:
+
+> Install the `babysit` and `land` skills from `https://github.com/xuelongmu/x-skills`. Use skill paths `.codex/skills/land` and `.codex/skills/babysit`.
+
+Codex's skill installer copies GitHub skill directories into `${CODEX_HOME:-$HOME/.codex}/skills`, so this does not require a persistent local checkout or symlinks. Install both skills together because `babysit` reuses `land/land_watch.py`.
 
 When installing from this repo with a Codex skill installer, use these skill paths:
 
@@ -59,14 +63,31 @@ When installing from this repo with a Codex skill installer, use these skill pat
 .codex/skills/land
 ```
 
-Install scopes:
+Install modes:
 
-- Home/global: install into `${CODEX_HOME:-$HOME/.codex}/skills/` so the skills are available in any repo.
-- Project-local: install into `<repo>/.codex/skills/` so the skills travel with that repo.
+- Recommended global install: copy into `${CODEX_HOME:-$HOME/.codex}/skills/` via Codex's skill installer so the skills are available in any repo.
+- Optional project-local install: copy into `<repo>/.codex/skills/` when the skills should travel with one repo.
+- Development only: symlink from this repo into home or project `.codex/skills` while editing the skills.
 
 The watcher script path should resolve from the installed `land` skill directory. Prefer project-local `<repo>/.codex/skills/land` when present; otherwise use the home/global `land` skill. Run the watcher command from the target PR repository working directory. `gh` resolves `{owner}`, `{repo}`, PRs, and checks from that cwd.
 
-For local development, symlink the skill directories instead of copying them.
+For project-local copy installs, copy both skill directories from this repo into the target repo:
+
+**Windows** (PowerShell from the target repo root):
+```powershell
+New-Item -ItemType Directory -Force -Path ".codex\skills"
+Copy-Item -Recurse -Force "C:\path\to\x-skills\.codex\skills\babysit" ".codex\skills\babysit"
+Copy-Item -Recurse -Force "C:\path\to\x-skills\.codex\skills\land" ".codex\skills\land"
+```
+
+**macOS / Linux** (from the target repo root):
+```bash
+mkdir -p .codex/skills
+cp -R /path/to/x-skills/.codex/skills/babysit .codex/skills/babysit
+cp -R /path/to/x-skills/.codex/skills/land .codex/skills/land
+```
+
+For local skill development, symlink the skill directories instead of copying them.
 
 Home/global symlinks:
 
