@@ -79,7 +79,7 @@ fi
 # checks, and PR head changes in parallel. After checks pass, it keeps polling
 # feedback for 10 minutes. A Codex review is not required to arrive; no
 # actionable feedback during the 10-minute wait is enough to proceed.
-if ! python3 .codex/skills/land/land_watch.py; then
+if ! python3 "$LAND_SKILL_DIR/land_watch.py"; then
   # Exit code 2 means review feedback must be handled.
   # Exit code 3 means checks failed or never appeared.
   # Exit code 4 means the PR head changed and local state must be refreshed.
@@ -96,8 +96,11 @@ Preferred: use the asyncio watcher to monitor review comments, CI, and head
 updates in parallel:
 
 ```
-python3 .codex/skills/land/land_watch.py
+python3 "$LAND_SKILL_DIR/land_watch.py"
 ```
+
+Resolve `LAND_SKILL_DIR` to this skill directory, but run the command from
+the PR repository working directory so `gh` uses the right repo.
 
 Exit codes:
 

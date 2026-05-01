@@ -9,7 +9,7 @@ description: Keep a pull request healthy without merging it; use when Codex need
 
 - Keep the current branch PR conflict-free, reviewed, and green.
 - Address actionable review feedback and CI failures.
-- Wait 10 minutes after green checks for late feedback.
+- Reuse the `land` skill's watcher to wait 10 minutes after green checks for late feedback.
 - Stop with a readiness report and merge command.
 - Never merge, squash-merge, delete branches, or enable auto-merge.
 
@@ -17,6 +17,7 @@ description: Keep a pull request healthy without merging it; use when Codex need
 
 - `gh` CLI is installed and authenticated.
 - You are on the PR branch.
+- The sibling `land` skill is installed because this skill reuses `../land/land_watch.py`.
 
 ## Steps
 
@@ -27,11 +28,11 @@ description: Keep a pull request healthy without merging it; use when Codex need
 2. If the working tree has uncommitted changes, commit the intended scope and push before monitoring.
 3. Check whether the PR is behind or conflicting with its base branch.
 4. If behind or conflicting, merge the base branch, resolve conflicts, validate, commit, and push.
-5. Run the bundled watcher from this skill directory:
+5. Run the shared watcher from the sibling `land` skill:
    ```sh
-   python scripts/land_watch.py
+   python "$LAND_SKILL_DIR/land_watch.py"
    ```
-   Use `python3` instead of `python` when that is the available launcher.
+   Resolve `LAND_SKILL_DIR` to the installed sibling `land` skill directory, but run the command from the PR repository working directory so `gh` uses the right repo. Use `python3` instead of `python` when that is the available launcher.
 6. If the watcher exits `2`, fetch top-level comments, inline review comments, review summaries, unresolved threads when available, latest checks, and bot feedback. Classify each item, address actionable feedback, commit, push, and rerun the watcher.
 7. If the watcher exits `3`, inspect failing checks with `gh pr checks` and `gh run view --log`, fix the failure when concrete, commit, push, and rerun the watcher.
 8. If the watcher exits `4`, refresh local state from the remote branch and rerun the watcher.
@@ -51,7 +52,7 @@ description: Keep a pull request healthy without merging it; use when Codex need
 
 ## Watcher Semantics
 
-The bundled watcher monitors feedback, checks, and PR head changes in parallel. It returns success only after the PR is conflict-free, checks are green, and 10 minutes pass after green checks with no outstanding feedback.
+The shared `land` watcher monitors feedback, checks, and PR head changes in parallel. It returns success only after the PR is conflict-free, checks are green, and 10 minutes pass after green checks with no outstanding feedback.
 
 A Codex review is not required to arrive. Absence of new actionable feedback for the full 10-minute post-green wait is acceptable.
 
