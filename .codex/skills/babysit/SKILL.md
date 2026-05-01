@@ -29,7 +29,7 @@ description: Keep a pull request healthy without merging it; use when Codex need
 4. If behind or conflicting, merge the base branch, resolve conflicts, validate, commit, and push.
 5. Run the bundled watcher from this skill directory:
    ```sh
-   python scripts/babysit_watch.py
+   python scripts/land_watch.py
    ```
    Use `python3` instead of `python` when that is the available launcher.
 6. If the watcher exits `2`, fetch top-level comments, inline review comments, review summaries, unresolved threads when available, latest checks, and bot feedback. Classify each item, address actionable feedback, commit, push, and rerun the watcher.

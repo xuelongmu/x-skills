@@ -3,31 +3,34 @@ import asyncio
 import json
 import random
 import re
-import sys
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
-POLL_SECONDS = 30
+POLL_SECONDS = 10
 CHECKS_APPEAR_TIMEOUT_SECONDS = 120
 FEEDBACK_GRACE_SECONDS = 600
-MAX_GH_RETRIES = 5
-BASE_GH_BACKOFF_SECONDS = 2
-
 CODEX_BOTS = {
     "chatgpt-codex-connector[bot]",
     "github-actions[bot]",
     "codex-gc-app[bot]",
     "app/codex-gc-app",
 }
+MAX_GH_RETRIES = 5
+BASE_GH_BACKOFF_SECONDS = 2
 
-CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
+
+def monotonic_seconds() -> float:
+    return asyncio.get_running_loop().time()
+
+
+async def sleep(seconds: int | float) -> None:
+    await asyncio.sleep(seconds)
 
 
 @dataclass
 class PrInfo:
     number: int
-    title: str
     url: str
     head_sha: str
     mergeable: str | None
@@ -42,14 +45,6 @@ class WatchExit(Exception):
     def __init__(self, code: int):
         super().__init__(code)
         self.code = code
-
-
-def monotonic_seconds() -> float:
-    return asyncio.get_running_loop().time()
-
-
-async def sleep(seconds: int | float) -> None:
-    await asyncio.sleep(seconds)
 
 
 def is_rate_limit_error(error: str) -> bool:
@@ -87,12 +82,11 @@ async def get_pr_info() -> PrInfo:
         "pr",
         "view",
         "--json",
-        "number,title,url,headRefOid,mergeable,mergeStateStatus",
+        "number,url,headRefOid,mergeable,mergeStateStatus",
     )
     parsed = json.loads(data)
     return PrInfo(
         number=parsed["number"],
-        title=parsed["title"],
         url=parsed["url"],
         head_sha=parsed["headRefOid"],
         mergeable=parsed.get("mergeable"),
@@ -135,9 +129,25 @@ async def get_review_comments(pr_number: int) -> list[dict[str, Any]]:
 
 
 async def get_reviews(pr_number: int) -> list[dict[str, Any]]:
-    return await get_paginated_list(
-        f"repos/{{owner}}/{{repo}}/pulls/{pr_number}/reviews",
-    )
+    page = 1
+    reviews: list[dict[str, Any]] = []
+    while True:
+        data = await run_gh(
+            "api",
+            "--method",
+            "GET",
+            f"repos/{{owner}}/{{repo}}/pulls/{pr_number}/reviews",
+            "-f",
+            "per_page=100",
+            "-f",
+            f"page={page}",
+        )
+        batch = json.loads(data)
+        if not batch:
+            break
+        reviews.extend(batch)
+        page += 1
+    return reviews
 
 
 async def get_check_runs(head_sha: str) -> list[dict[str, Any]]:
@@ -167,18 +177,15 @@ async def get_check_runs(head_sha: str) -> list[dict[str, Any]]:
 
 
 def parse_time(value: str) -> datetime:
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    normalized = value.replace("Z", "+00:00")
+    return datetime.fromisoformat(normalized)
+
+
+CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
 
 
 def sanitize_terminal_output(value: str) -> str:
     return CONTROL_CHARS_RE.sub("", value)
-
-
-def item_time(item: dict[str, Any]) -> datetime | None:
-    timestamp = item.get("updated_at") or item.get("created_at") or item.get("submitted_at")
-    if not timestamp:
-        return None
-    return parse_time(timestamp)
 
 
 def check_timestamp(check: dict[str, Any]) -> datetime | None:
@@ -197,8 +204,11 @@ def dedupe_check_runs(check_runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if name not in latest_by_name:
             latest_by_name[name] = check
             continue
-        existing_timestamp = check_timestamp(latest_by_name[name])
-        if timestamp is not None and (existing_timestamp is None or timestamp > existing_timestamp):
+        existing = latest_by_name[name]
+        existing_timestamp = check_timestamp(existing)
+        if timestamp is None:
+            continue
+        if existing_timestamp is None or timestamp > existing_timestamp:
             latest_by_name[name] = check
     return list(latest_by_name.values())
 
@@ -206,10 +216,11 @@ def dedupe_check_runs(check_runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def summarize_checks(check_runs: list[dict[str, Any]]) -> tuple[bool, bool, list[str]]:
     if not check_runs:
         return True, False, ["no checks reported"]
+    check_runs = dedupe_check_runs(check_runs)
     pending = False
     failed = False
     failures: list[str] = []
-    for check in dedupe_check_runs(check_runs):
+    for check in check_runs:
         status = check.get("status")
         conclusion = check.get("conclusion")
         name = check.get("name", "unknown")
@@ -222,17 +233,65 @@ def summarize_checks(check_runs: list[dict[str, Any]]) -> tuple[bool, bool, list
     return pending, failed, failures
 
 
-def user_login(item: dict[str, Any]) -> str:
-    return (item.get("user") or {}).get("login") or ""
+def latest_review_request_at(comments: list[dict[str, Any]]) -> datetime | None:
+    latest: datetime | None = None
+    for comment in comments:
+        if is_codex_bot_user(comment.get("user", {})):
+            continue
+        body = comment.get("body") or ""
+        if "@codex review" not in body:
+            continue
+        timestamp = comment_time(comment)
+        if timestamp is None:
+            continue
+        if latest is None or timestamp > latest:
+            latest = timestamp
+    return latest
+
+
+def filter_codex_comments(
+    comments: list[dict[str, Any]],
+    review_requested_at: datetime | None,
+) -> list[dict[str, Any]]:
+    latest_codex_reply = latest_codex_reply_by_thread(comments)
+    latest_issue_ack = latest_codex_issue_reply_time(comments)
+    codex_comments = [c for c in comments if is_codex_bot_user(c.get("user", {}))]
+    filtered: list[dict[str, Any]] = []
+    for comment in codex_comments:
+        created_time = comment_time(comment)
+        if created_time is None:
+            continue
+        if review_requested_at is not None and created_time <= review_requested_at:
+            continue
+        is_threaded = bool(
+            comment.get("in_reply_to_id") or comment.get("pull_request_review_id")
+        )
+        if not is_threaded:
+            if latest_issue_ack is not None and created_time <= latest_issue_ack:
+                continue
+        else:
+            thread_root = thread_root_id(comment)
+            last_reply = None
+            if thread_root is not None:
+                last_reply = latest_codex_reply.get(thread_root)
+            if last_reply and last_reply > created_time:
+                continue
+        filtered.append(comment)
+    return filtered
 
 
 def is_codex_bot_user(user: dict[str, Any]) -> bool:
-    return (user.get("login") or "") in CODEX_BOTS
+    login = user.get("login") or ""
+    return login in CODEX_BOTS
 
 
 def is_bot_user(user: dict[str, Any]) -> bool:
     login = user.get("login") or ""
-    return is_codex_bot_user(user) or user.get("type") == "Bot" or login.endswith("[bot]")
+    if is_codex_bot_user(user):
+        return True
+    if user.get("type") == "Bot":
+        return True
+    return login.endswith("[bot]")
 
 
 def is_codex_reply_body(body: str) -> bool:
@@ -243,48 +302,18 @@ def is_codex_review_body(body: str) -> bool:
     return body.startswith("## Codex Review")
 
 
-def thread_root_id(comment: dict[str, Any]) -> int | None:
-    return comment.get("in_reply_to_id") or comment.get("id")
-
-
-def latest_codex_issue_reply_time(comments: list[dict[str, Any]]) -> datetime | None:
+def latest_codex_issue_reply_time(
+    comments: list[dict[str, Any]],
+) -> datetime | None:
     latest: datetime | None = None
     for comment in comments:
         body = (comment.get("body") or "").strip()
         if not is_codex_reply_body(body):
             continue
-        created_time = item_time(comment)
-        if created_time is not None and (latest is None or created_time > latest):
-            latest = created_time
-    return latest
-
-
-def latest_codex_reply_by_thread(comments: list[dict[str, Any]]) -> dict[int, datetime]:
-    latest: dict[int, datetime] = {}
-    for comment in comments:
-        body = (comment.get("body") or "").strip()
-        if not is_codex_reply_body(body):
+        created_time = comment_time(comment)
+        if created_time is None:
             continue
-        thread_root = thread_root_id(comment)
-        created_time = item_time(comment)
-        if thread_root is None or created_time is None:
-            continue
-        existing = latest.get(thread_root)
-        if existing is None or created_time > existing:
-            latest[thread_root] = created_time
-    return latest
-
-
-def latest_review_request_at(comments: list[dict[str, Any]]) -> datetime | None:
-    latest: datetime | None = None
-    for comment in comments:
-        if is_bot_user(comment.get("user", {})):
-            continue
-        body = comment.get("body") or ""
-        if "@codex review" not in body:
-            continue
-        created_time = item_time(comment)
-        if created_time is not None and (latest is None or created_time > latest):
+        if latest is None or created_time > latest:
             latest = created_time
     return latest
 
@@ -293,115 +322,152 @@ def filter_human_issue_comments(comments: list[dict[str, Any]]) -> list[dict[str
     latest_ack = latest_codex_issue_reply_time(comments)
     filtered: list[dict[str, Any]] = []
     for comment in comments:
-        user = comment.get("user", {})
+        if is_bot_user(comment.get("user", {})):
+            continue
         body = (comment.get("body") or "").strip()
-        if is_bot_user(user) or is_codex_reply_body(body) or is_codex_review_body(body):
+        if is_codex_reply_body(body):
+            continue
+        if is_codex_review_body(body):
             continue
         if "@codex review" in body:
             continue
-        created_time = item_time(comment)
-        if latest_ack is not None and created_time is not None and created_time <= latest_ack:
+        created_time = comment_time(comment)
+        if (
+            latest_ack is not None
+            and created_time is not None
+            and created_time <= latest_ack
+        ):
             continue
         filtered.append(comment)
     return filtered
 
 
-def filter_codex_review_issue_comments(comments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def filter_codex_review_issue_comments(
+    comments: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     latest_ack = latest_codex_issue_reply_time(comments)
     filtered: list[dict[str, Any]] = []
     for comment in comments:
         body = (comment.get("body") or "").strip()
         if not is_codex_review_body(body):
             continue
-        created_time = item_time(comment)
-        if latest_ack is not None and created_time is not None and created_time <= latest_ack:
+        created_time = comment_time(comment)
+        if (
+            latest_ack is not None
+            and created_time is not None
+            and created_time <= latest_ack
+        ):
             continue
         filtered.append(comment)
     return filtered
 
 
-def filter_human_review_comments(comments: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    latest_replies = latest_codex_reply_by_thread(comments)
-    filtered: list[dict[str, Any]] = []
+def thread_root_id(comment: dict[str, Any]) -> int | None:
+    return comment.get("in_reply_to_id") or comment.get("id")
+
+
+def comment_time(comment: dict[str, Any]) -> datetime | None:
+    timestamp = comment.get("updated_at") or comment.get("created_at")
+    if not timestamp:
+        return None
+    return parse_time(timestamp)
+
+
+def latest_codex_reply_by_thread(
+    comments: list[dict[str, Any]],
+) -> dict[int, datetime]:
+    latest: dict[int, datetime] = {}
     for comment in comments:
-        user = comment.get("user", {})
         body = (comment.get("body") or "").strip()
-        if is_bot_user(user) or is_codex_reply_body(body):
+        if not is_codex_reply_body(body):
             continue
         thread_root = thread_root_id(comment)
-        created_time = item_time(comment)
-        last_reply = latest_replies.get(thread_root) if thread_root is not None else None
-        if last_reply is not None and created_time is not None and created_time <= last_reply:
+        created_time = comment_time(comment)
+        if thread_root is None or created_time is None:
             continue
-        filtered.append(comment)
-    return filtered
+        existing = latest.get(thread_root)
+        if existing is None or created_time > existing:
+            latest[thread_root] = created_time
+    return latest
 
 
-def filter_codex_comments(
+def filter_human_review_comments(
     comments: list[dict[str, Any]],
-    review_requested_at: datetime | None,
 ) -> list[dict[str, Any]]:
-    latest_thread_replies = latest_codex_reply_by_thread(comments)
-    latest_issue_ack = latest_codex_issue_reply_time(comments)
+    latest_codex_reply = latest_codex_reply_by_thread(comments)
     filtered: list[dict[str, Any]] = []
     for comment in comments:
-        if not is_codex_bot_user(comment.get("user", {})):
+        if is_bot_user(comment.get("user", {})):
             continue
-        created_time = item_time(comment)
-        if created_time is None:
+        body = (comment.get("body") or "").strip()
+        if is_codex_reply_body(body):
             continue
-        if review_requested_at is not None and created_time <= review_requested_at:
+        thread_root = thread_root_id(comment)
+        created_time = comment_time(comment)
+        last_codex_reply = None
+        if thread_root is not None:
+            last_codex_reply = latest_codex_reply.get(thread_root)
+        if last_codex_reply and created_time and created_time <= last_codex_reply:
             continue
-        is_threaded = bool(comment.get("in_reply_to_id") or comment.get("pull_request_review_id"))
-        if not is_threaded and latest_issue_ack is not None and created_time <= latest_issue_ack:
-            continue
-        if is_threaded:
-            thread_root = thread_root_id(comment)
-            last_reply = latest_thread_replies.get(thread_root) if thread_root is not None else None
-            if last_reply is not None and created_time <= last_reply:
-                continue
         filtered.append(comment)
     return filtered
+
+
+def is_blocking_review(
+    review: dict[str, Any],
+    review_requested_at: datetime | None,
+) -> bool:
+    created_at = review.get("submitted_at") or review.get("created_at")
+    if not created_at:
+        return False
+    user_login = review.get("user", {}).get("login")
+    created_time = parse_time(created_at)
+    if (
+        user_login in CODEX_BOTS
+        and review_requested_at is not None
+        and created_time <= review_requested_at
+    ):
+        return False
+    body = (review.get("body") or "").strip()
+    state = review.get("state")
+    if user_login in CODEX_BOTS:
+        return state == "CHANGES_REQUESTED"
+    if body.startswith("[codex]") or state in ("APPROVED", "DISMISSED"):
+        return False
+    blocking = False
+    if body or state == "CHANGES_REQUESTED":
+        blocking = True
+    elif state == "COMMENTED":
+        blocking = False
+    elif state:
+        blocking = state not in ("APPROVED", "DISMISSED")
+    return blocking
 
 
 def review_timestamp(review: dict[str, Any]) -> datetime | None:
     created_at = review.get("submitted_at") or review.get("created_at")
-    return parse_time(created_at) if created_at else None
+    if not created_at:
+        return None
+    return parse_time(created_at)
 
 
 def dedupe_reviews(reviews: list[dict[str, Any]]) -> list[dict[str, Any]]:
     latest_by_user: dict[str, dict[str, Any]] = {}
     for review in reviews:
-        login = user_login(review)
-        if not login:
+        user_login = review.get("user", {}).get("login")
+        if not user_login:
             continue
         timestamp = review_timestamp(review)
-        existing = latest_by_user.get(login)
-        if existing is None:
-            latest_by_user[login] = review
+        if user_login not in latest_by_user:
+            latest_by_user[user_login] = review
             continue
+        existing = latest_by_user[user_login]
         existing_timestamp = review_timestamp(existing)
-        if timestamp is not None and (existing_timestamp is None or timestamp > existing_timestamp):
-            latest_by_user[login] = review
+        if timestamp is None:
+            continue
+        if existing_timestamp is None or timestamp > existing_timestamp:
+            latest_by_user[user_login] = review
     return list(latest_by_user.values())
-
-
-def is_blocking_review(review: dict[str, Any], review_requested_at: datetime | None) -> bool:
-    timestamp = review_timestamp(review)
-    login = user_login(review)
-    if timestamp is None:
-        return False
-    if login in CODEX_BOTS and review_requested_at is not None and timestamp <= review_requested_at:
-        return False
-    state = review.get("state")
-    body = (review.get("body") or "").strip()
-    if login in CODEX_BOTS:
-        return state == "CHANGES_REQUESTED"
-    if is_codex_reply_body(body) or state in ("APPROVED", "DISMISSED"):
-        return False
-    if body or state == "CHANGES_REQUESTED":
-        return True
-    return bool(state and state not in ("APPROVED", "DISMISSED", "COMMENTED"))
 
 
 def filter_blocking_reviews(
@@ -415,9 +481,18 @@ def filter_blocking_reviews(
     ]
 
 
+def is_merge_conflicting(pr: PrInfo) -> bool:
+    return pr.mergeable == "CONFLICTING" or pr.merge_state == "DIRTY"
+
+
 async def fetch_review_context(
     pr_number: int,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], datetime | None]:
+) -> tuple[
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    datetime | None,
+]:
     issue_comments = await get_issue_comments(pr_number)
     review_request_at = latest_review_request_at(issue_comments)
     review_comments = await get_review_comments(pr_number)
@@ -425,7 +500,7 @@ async def fetch_review_context(
     return issue_comments, review_comments, reviews, review_request_at
 
 
-def raise_on_feedback(
+def raise_on_human_feedback(
     issue_comments: list[dict[str, Any]],
     review_comments: list[dict[str, Any]],
     reviews: list[dict[str, Any]],
@@ -434,45 +509,62 @@ def raise_on_feedback(
     human_issue_comments = filter_human_issue_comments(issue_comments)
     codex_review_comments = filter_codex_review_issue_comments(issue_comments)
     human_review_comments = filter_human_review_comments(review_comments)
-    blocking_reviews = filter_blocking_reviews(reviews, review_request_at)
-    if human_issue_comments or human_review_comments or codex_review_comments or blocking_reviews:
-        print("Review feedback detected. Address or explicitly defer before reporting ready.")
+    if human_issue_comments or human_review_comments or codex_review_comments:
+        print("Review comments detected. Address before merge.")
         print(
-            "Counts: "
-            f"issue={len(human_issue_comments)}, "
-            f"review_comments={len(human_review_comments)}, "
-            f"codex_reviews={len(codex_review_comments)}, "
-            f"review_states={len(blocking_reviews)}",
+            "Reminder: decide whether feedback stays in scope; defer if needed "
+            "and note in your root-level update.",
+        )
+        raise WatchExit(2)
+    blocking_reviews = filter_blocking_reviews(reviews, review_request_at)
+    if blocking_reviews:
+        print("Review states/comments detected. Address before merge.")
+        print(
+            "Reminder: keep PR title/description aligned with the full scope "
+            "when changes expand.",
         )
         raise WatchExit(2)
 
 
-async def wait_for_feedback(pr_number: int, checks_done: asyncio.Event) -> None:
+async def wait_for_codex(pr_number: int, checks_done: asyncio.Event) -> None:
     print("Waiting for review feedback...", flush=True)
     feedback_grace_started_at: float | None = None
     while True:
-        issue_comments, review_comments, reviews, review_request_at = await fetch_review_context(pr_number)
-        raise_on_feedback(issue_comments, review_comments, reviews, review_request_at)
-        bot_comments = filter_codex_comments(issue_comments, review_request_at)
-        bot_comments.extend(filter_codex_comments(review_comments, review_request_at))
+        (
+            issue_comments,
+            review_comments,
+            reviews,
+            review_request_at,
+        ) = await fetch_review_context(pr_number)
+        bot_issue_comments = filter_codex_comments(issue_comments, review_request_at)
+        bot_review_comments = filter_codex_comments(review_comments, review_request_at)
+        bot_comments = bot_issue_comments + bot_review_comments
+        raise_on_human_feedback(
+            issue_comments,
+            review_comments,
+            reviews,
+            review_request_at,
+        )
         if bot_comments:
-            earliest = datetime.min.replace(tzinfo=timezone.utc)
-            latest = max(bot_comments, key=lambda comment: item_time(comment) or earliest)
+            latest = max(
+                bot_comments,
+                key=lambda comment: parse_time(comment["created_at"]),
+            )
             body = sanitize_terminal_output(latest.get("body") or "").strip()
-            print("Bot feedback detected. Address before reporting ready.")
             if body:
+                print("Codex left comments. Address feedback before merge.")
                 print(body)
-            raise WatchExit(2)
+                raise WatchExit(2)
         if checks_done.is_set():
             now = monotonic_seconds()
             if feedback_grace_started_at is None:
                 feedback_grace_started_at = now
                 print(
-                    f"Checks passed; waiting {FEEDBACK_GRACE_SECONDS}s for late feedback...",
+                    f"Checks passed; waiting {FEEDBACK_GRACE_SECONDS}s for review feedback before merge...",
                     flush=True,
                 )
             elif now - feedback_grace_started_at >= FEEDBACK_GRACE_SECONDS:
-                print("Feedback wait complete; no outstanding feedback detected.", flush=True)
+                print("Feedback wait complete; no review feedback detected.", flush=True)
                 return
         await sleep(POLL_SECONDS)
 
@@ -485,7 +577,9 @@ async def wait_for_checks(head_sha: str, checks_done: asyncio.Event) -> None:
         if not check_runs:
             empty_seconds += POLL_SECONDS
             if empty_seconds >= CHECKS_APPEAR_TIMEOUT_SECONDS:
-                print("No checks detected after 120s; verify CI configuration.")
+                print(
+                    "No checks detected after 120s; check CI configuration",
+                )
                 raise WatchExit(3)
             await sleep(POLL_SECONDS)
             continue
@@ -497,40 +591,41 @@ async def wait_for_checks(head_sha: str, checks_done: asyncio.Event) -> None:
                 print(f"- {failure}")
             raise WatchExit(3)
         if not pending:
-            print("Checks passed", flush=True)
+            print("Checks passed")
             checks_done.set()
             return
         await sleep(POLL_SECONDS)
 
 
-def is_merge_conflicting(pr: PrInfo) -> bool:
-    return pr.mergeable == "CONFLICTING" or pr.merge_state == "DIRTY"
-
-
-async def watch_pr() -> PrInfo:
+async def watch_pr() -> None:
     pr = await get_pr_info()
     if is_merge_conflicting(pr):
-        print("PR has merge conflicts or a dirty merge state. Sync the base branch and rerun.")
+        print(
+            "PR has merge conflicts. Resolve/rebase against main and push before "
+            "running land_watch again.",
+        )
         raise WatchExit(5)
-
     head_sha = pr.head_sha
     checks_done = asyncio.Event()
-    feedback_task = asyncio.create_task(wait_for_feedback(pr.number, checks_done))
+    codex_task = asyncio.create_task(wait_for_codex(pr.number, checks_done))
     checks_task = asyncio.create_task(wait_for_checks(head_sha, checks_done))
 
     async def head_monitor() -> None:
         while True:
             current = await get_pr_info()
             if is_merge_conflicting(current):
-                print("PR became conflicting or dirty. Sync the base branch and rerun.")
+                print(
+                    "PR has merge conflicts. Resolve/rebase against main and push "
+                    "before running land_watch again.",
+                )
                 raise WatchExit(5)
             if current.head_sha != head_sha:
-                print("PR head changed. Refresh local state and rerun.")
+                print("PR head updated; pull/amend/force-push to retrigger CI")
                 raise WatchExit(4)
             await sleep(POLL_SECONDS)
 
     monitor_task = asyncio.create_task(head_monitor())
-    success_task = asyncio.gather(feedback_task, checks_task)
+    success_task = asyncio.gather(codex_task, checks_task)
 
     done, pending = await asyncio.wait(
         [monitor_task, success_task],
@@ -544,24 +639,12 @@ async def watch_pr() -> PrInfo:
         exc = task.exception()
         if exc:
             raise exc
-    return pr
-
-
-async def main() -> int:
-    pr = await watch_pr()
-    print(f"PR #{pr.number}: {pr.title}")
-    print("Status: checks green; post-green feedback wait complete")
-    print("Ready: yes")
-    print(f"Merge: gh pr merge {pr.number} --squash")
-    print("Blocking: none")
-    return 0
 
 
 if __name__ == "__main__":
     try:
-        raise SystemExit(asyncio.run(main()))
+        asyncio.run(watch_pr())
     except WatchExit as exc:
         raise SystemExit(exc.code) from None
-    except RuntimeError as exc:
-        print(str(exc), file=sys.stderr)
-        raise SystemExit(1) from None
+    except SystemExit as exc:
+        raise SystemExit(exc.code) from None

@@ -43,7 +43,7 @@ After linking, the `/x:*` commands are available in any Claude Code session.
 
 ### Codex
 
-Install or copy the `.codex/skills/babysit/` directory as a Codex skill. The skill includes `scripts/babysit_watch.py`, which monitors feedback, checks, and PR head changes, then waits 10 minutes after green checks before reporting readiness.
+Install or copy the `.codex/skills/babysit/` directory as a Codex skill. The skill includes `scripts/land_watch.py`, based on Symphony's merged watcher, which monitors feedback, checks, and PR head changes, then waits 10 minutes after green checks before reporting readiness.
 
 When installing from this repo with a Codex skill installer, use the skill path:
 
