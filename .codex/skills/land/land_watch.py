@@ -11,10 +11,13 @@ POLL_SECONDS = 10
 CHECKS_APPEAR_TIMEOUT_SECONDS = 120
 FEEDBACK_GRACE_SECONDS = 600
 CODEX_BOTS = {
+    "chatgpt-codex-connector",
     "chatgpt-codex-connector[bot]",
-    "github-actions[bot]",
     "codex-gc-app[bot]",
     "app/codex-gc-app",
+}
+CODEX_BRIDGE_BOTS = {
+    "github-actions[bot]",
 }
 MAX_GH_RETRIES = 5
 BASE_GH_BACKOFF_SECONDS = 2
@@ -182,6 +185,10 @@ def parse_time(value: str) -> datetime:
 
 
 CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
+CODEX_REVIEW_HEADING_RE = re.compile(
+    r"^#{2,3}\s*(?:[^\w#]+\s*)?Codex Review\b",
+    re.IGNORECASE,
+)
 
 
 def sanitize_terminal_output(value: str) -> str:
@@ -252,10 +259,17 @@ def latest_review_request_at(comments: list[dict[str, Any]]) -> datetime | None:
 def filter_codex_comments(
     comments: list[dict[str, Any]],
     review_requested_at: datetime | None,
+    codex_review_ids: set[int] | None = None,
 ) -> list[dict[str, Any]]:
+    if codex_review_ids is None:
+        codex_review_ids = set()
     latest_codex_reply = latest_codex_reply_by_thread(comments)
     latest_issue_ack = latest_codex_issue_reply_time(comments)
-    codex_comments = [c for c in comments if is_codex_bot_user(c.get("user", {}))]
+    codex_comments = [
+        c
+        for c in comments
+        if is_codex_feedback_comment(c, codex_review_ids)
+    ]
     filtered: list[dict[str, Any]] = []
     for comment in codex_comments:
         created_time = comment_time(comment)
@@ -285,6 +299,11 @@ def is_codex_bot_user(user: dict[str, Any]) -> bool:
     return login in CODEX_BOTS
 
 
+def is_codex_bridge_bot_user(user: dict[str, Any]) -> bool:
+    login = user.get("login") or ""
+    return login in CODEX_BRIDGE_BOTS
+
+
 def is_bot_user(user: dict[str, Any]) -> bool:
     login = user.get("login") or ""
     if is_codex_bot_user(user):
@@ -299,7 +318,26 @@ def is_codex_reply_body(body: str) -> bool:
 
 
 def is_codex_review_body(body: str) -> bool:
-    return body.startswith("## Codex Review")
+    for line in body.strip().splitlines()[:5]:
+        if CODEX_REVIEW_HEADING_RE.match(line.strip()):
+            return True
+    return False
+
+
+def is_codex_feedback_comment(
+    comment: dict[str, Any],
+    codex_review_ids: set[int],
+) -> bool:
+    review_id = comment.get("pull_request_review_id")
+    if review_id in codex_review_ids:
+        return True
+    user = comment.get("user", {})
+    if is_codex_bot_user(user):
+        return True
+    if is_codex_bridge_bot_user(user):
+        body = (comment.get("body") or "").strip()
+        return is_codex_reply_body(body) or is_codex_review_body(body)
+    return False
 
 
 def latest_codex_issue_reply_time(
@@ -420,28 +458,60 @@ def is_blocking_review(
     created_at = review.get("submitted_at") or review.get("created_at")
     if not created_at:
         return False
-    user_login = review.get("user", {}).get("login")
     created_time = parse_time(created_at)
+    codex_review = is_codex_review(review)
     if (
-        user_login in CODEX_BOTS
+        codex_review
         and review_requested_at is not None
         and created_time <= review_requested_at
     ):
         return False
     body = (review.get("body") or "").strip()
     state = review.get("state")
-    if user_login in CODEX_BOTS:
+    if codex_review:
         return state == "CHANGES_REQUESTED"
     if body.startswith("[codex]") or state in ("APPROVED", "DISMISSED"):
         return False
-    blocking = False
-    if body or state == "CHANGES_REQUESTED":
-        blocking = True
-    elif state == "COMMENTED":
-        blocking = False
-    elif state:
-        blocking = state not in ("APPROVED", "DISMISSED")
-    return blocking
+    if state == "CHANGES_REQUESTED":
+        return True
+    if state == "COMMENTED":
+        return False
+    if body:
+        return True
+    if state:
+        return True
+    return False
+
+
+def is_codex_review(review: dict[str, Any]) -> bool:
+    user = review.get("user", {})
+    if is_codex_bot_user(user):
+        return True
+    if not is_codex_bridge_bot_user(user):
+        return False
+    body = (review.get("body") or "").strip()
+    return is_codex_reply_body(body) or is_codex_review_body(body)
+
+
+def codex_review_ids_after_request(
+    reviews: list[dict[str, Any]],
+    review_requested_at: datetime | None,
+) -> set[int]:
+    ids: set[int] = set()
+    for review in reviews:
+        if not is_codex_review(review):
+            continue
+        timestamp = review_timestamp(review)
+        if (
+            review_requested_at is not None
+            and timestamp is not None
+            and timestamp <= review_requested_at
+        ):
+            continue
+        review_id = review.get("id")
+        if isinstance(review_id, int):
+            ids.add(review_id)
+    return ids
 
 
 def review_timestamp(review: dict[str, Any]) -> datetime | None:
@@ -536,8 +606,16 @@ async def wait_for_codex(pr_number: int, checks_done: asyncio.Event) -> None:
             reviews,
             review_request_at,
         ) = await fetch_review_context(pr_number)
+        codex_review_ids = codex_review_ids_after_request(
+            reviews,
+            review_request_at,
+        )
         bot_issue_comments = filter_codex_comments(issue_comments, review_request_at)
-        bot_review_comments = filter_codex_comments(review_comments, review_request_at)
+        bot_review_comments = filter_codex_comments(
+            review_comments,
+            review_request_at,
+            codex_review_ids,
+        )
         bot_comments = bot_issue_comments + bot_review_comments
         raise_on_human_feedback(
             issue_comments,
