@@ -23,7 +23,8 @@ description:
 
 - `gh` CLI is authenticated.
 - You are on the PR branch with a clean working tree.
-- Run watcher commands from the PR repository working directory. The watcher script may live in `$CODEX_HOME/skills/land` or `~/.codex/skills/land`; `gh` resolves repository context from the process cwd.
+- This skill may be installed project-locally in `.codex/skills/land` or globally in `$CODEX_HOME/skills/land` / `~/.codex/skills/land`.
+- Run watcher commands from the PR repository working directory. The watcher script path comes from this installed skill directory, but `gh` resolves repository context from the process cwd.
 
 ## Steps
 
@@ -100,9 +101,11 @@ updates in parallel:
 python3 "$LAND_SKILL_DIR/land_watch.py"
 ```
 
-Resolve `LAND_SKILL_DIR` to this skill directory, for example
-`${CODEX_HOME:-$HOME/.codex}/skills/land`, but run the command from the PR
-repository working directory so `gh` uses the right repo.
+Resolve `LAND_SKILL_DIR` to this installed skill directory. Prefer the current
+repo's `.codex/skills/land` when present; otherwise use
+`${CODEX_HOME:-$HOME/.codex}/skills/land` or
+`%USERPROFILE%\.codex\skills\land`. Run the command from the PR repository
+working directory so `gh` uses the right repo.
 
 Exit codes:
 

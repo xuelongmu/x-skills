@@ -50,7 +50,7 @@ After linking, the `/x:*` commands are available in any Claude Code session.
 
 ### Codex
 
-Install or copy the `.codex/skills/babysit/` and `.codex/skills/land/` directories as Codex skills. The `land` skill owns `land_watch.py`, based on Symphony's merged watcher. `babysit` reuses that sibling watcher, so install both skills together.
+Install or copy the `.codex/skills/babysit/` and `.codex/skills/land/` directories as Codex skills. The `land` skill owns `land_watch.py`, based on Symphony's merged watcher. `babysit` reuses that sibling watcher, so install both skills together in the same scope.
 
 When installing from this repo with a Codex skill installer, use these skill paths:
 
@@ -59,9 +59,16 @@ When installing from this repo with a Codex skill installer, use these skill pat
 .codex/skills/land
 ```
 
-The skills can live in the user's Codex home directory while operating on any repository. The watcher script path should resolve from the installed skill directory, but the command should run from the target PR repository working directory. `gh` resolves `{owner}`, `{repo}`, PRs, and checks from that cwd.
+Install scopes:
 
-For local development, symlink the skill directory into Codex's skills directory instead.
+- Home/global: install into `${CODEX_HOME:-$HOME/.codex}/skills/` so the skills are available in any repo.
+- Project-local: install into `<repo>/.codex/skills/` so the skills travel with that repo.
+
+The watcher script path should resolve from the installed `land` skill directory. Prefer project-local `<repo>/.codex/skills/land` when present; otherwise use the home/global `land` skill. Run the watcher command from the target PR repository working directory. `gh` resolves `{owner}`, `{repo}`, PRs, and checks from that cwd.
+
+For local development, symlink the skill directories instead of copying them.
+
+Home/global symlinks:
 
 **Windows** (admin PowerShell):
 ```powershell
@@ -76,6 +83,22 @@ New-Item -ItemType SymbolicLink -Path (Join-Path $codexHome "skills\land") -Targ
 mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
 ln -s /path/to/x-skills/.codex/skills/babysit "${CODEX_HOME:-$HOME/.codex}/skills/babysit"
 ln -s /path/to/x-skills/.codex/skills/land "${CODEX_HOME:-$HOME/.codex}/skills/land"
+```
+
+Project-local symlinks from the target repo root:
+
+**Windows** (admin PowerShell):
+```powershell
+New-Item -ItemType Directory -Force -Path ".codex\skills"
+New-Item -ItemType SymbolicLink -Path ".codex\skills\babysit" -Target "C:\path\to\x-skills\.codex\skills\babysit"
+New-Item -ItemType SymbolicLink -Path ".codex\skills\land" -Target "C:\path\to\x-skills\.codex\skills\land"
+```
+
+**macOS / Linux**:
+```bash
+mkdir -p .codex/skills
+ln -s /path/to/x-skills/.codex/skills/babysit .codex/skills/babysit
+ln -s /path/to/x-skills/.codex/skills/land .codex/skills/land
 ```
 
 Restart Codex after installing or linking the skill.
