@@ -340,13 +340,22 @@ def is_codex_feedback_comment(
     return False
 
 
+def is_codex_ack_comment(comment: dict[str, Any]) -> bool:
+    body = (comment.get("body") or "").strip()
+    return is_codex_reply_body(body) and is_codex_feedback_comment(comment, set())
+
+
+def is_codex_review_issue_comment(comment: dict[str, Any]) -> bool:
+    body = (comment.get("body") or "").strip()
+    return is_codex_review_body(body) and is_codex_feedback_comment(comment, set())
+
+
 def latest_codex_issue_reply_time(
     comments: list[dict[str, Any]],
 ) -> datetime | None:
     latest: datetime | None = None
     for comment in comments:
-        body = (comment.get("body") or "").strip()
-        if not is_codex_reply_body(body):
+        if not is_codex_ack_comment(comment):
             continue
         created_time = comment_time(comment)
         if created_time is None:
@@ -363,10 +372,6 @@ def filter_human_issue_comments(comments: list[dict[str, Any]]) -> list[dict[str
         if is_bot_user(comment.get("user", {})):
             continue
         body = (comment.get("body") or "").strip()
-        if is_codex_reply_body(body):
-            continue
-        if is_codex_review_body(body):
-            continue
         if "@codex review" in body:
             continue
         created_time = comment_time(comment)
@@ -386,8 +391,7 @@ def filter_codex_review_issue_comments(
     latest_ack = latest_codex_issue_reply_time(comments)
     filtered: list[dict[str, Any]] = []
     for comment in comments:
-        body = (comment.get("body") or "").strip()
-        if not is_codex_review_body(body):
+        if not is_codex_review_issue_comment(comment):
             continue
         created_time = comment_time(comment)
         if (
@@ -405,7 +409,7 @@ def thread_root_id(comment: dict[str, Any]) -> int | None:
 
 
 def comment_time(comment: dict[str, Any]) -> datetime | None:
-    timestamp = comment.get("updated_at") or comment.get("created_at")
+    timestamp = comment.get("created_at") or comment.get("createdAt")
     if not timestamp:
         return None
     return parse_time(timestamp)
@@ -416,8 +420,7 @@ def latest_codex_reply_by_thread(
 ) -> dict[int, datetime]:
     latest: dict[int, datetime] = {}
     for comment in comments:
-        body = (comment.get("body") or "").strip()
-        if not is_codex_reply_body(body):
+        if not is_codex_ack_comment(comment):
             continue
         thread_root = thread_root_id(comment)
         created_time = comment_time(comment)
@@ -436,9 +439,6 @@ def filter_human_review_comments(
     filtered: list[dict[str, Any]] = []
     for comment in comments:
         if is_bot_user(comment.get("user", {})):
-            continue
-        body = (comment.get("body") or "").strip()
-        if is_codex_reply_body(body):
             continue
         thread_root = thread_root_id(comment)
         created_time = comment_time(comment)
@@ -470,7 +470,7 @@ def is_blocking_review(
     state = review.get("state")
     if codex_review:
         return state == "CHANGES_REQUESTED"
-    if body.startswith("[codex]") or state in ("APPROVED", "DISMISSED"):
+    if state in ("APPROVED", "DISMISSED"):
         return False
     if state == "CHANGES_REQUESTED":
         return True
