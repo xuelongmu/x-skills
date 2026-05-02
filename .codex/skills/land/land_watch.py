@@ -278,20 +278,27 @@ def check_timestamp(check: dict[str, Any]) -> datetime | None:
 
 
 def dedupe_check_runs(check_runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    latest_by_name: dict[str, dict[str, Any]] = {}
+    latest_by_key: dict[tuple[str, str], dict[str, Any]] = {}
     for check in check_runs:
-        name = check.get("name", "unknown")
+        key = check_run_key(check)
         timestamp = check_timestamp(check)
-        if name not in latest_by_name:
-            latest_by_name[name] = check
+        if key not in latest_by_key:
+            latest_by_key[key] = check
             continue
-        existing = latest_by_name[name]
+        existing = latest_by_key[key]
         existing_timestamp = check_timestamp(existing)
         if timestamp is None:
             continue
         if existing_timestamp is None or timestamp > existing_timestamp:
-            latest_by_name[name] = check
-    return list(latest_by_name.values())
+            latest_by_key[key] = check
+    return list(latest_by_key.values())
+
+
+def check_run_key(check: dict[str, Any]) -> tuple[str, str]:
+    app = check.get("app") or {}
+    app_key = app.get("id") or app.get("slug") or app.get("name") or "unknown-app"
+    name = check.get("name") or "unknown"
+    return str(app_key), str(name)
 
 
 def summarize_checks(check_runs: list[dict[str, Any]]) -> tuple[bool, bool, list[str]]:
@@ -789,15 +796,25 @@ async def wait_for_codex(pr_number: int, checks_done: asyncio.Event) -> None:
             elif now - feedback_grace_started_at >= FEEDBACK_GRACE_SECONDS:
                 print("Feedback wait complete; no review feedback detected.", flush=True)
                 return
+        elif feedback_grace_started_at is not None:
+            feedback_grace_started_at = None
+            print(
+                "Checks are no longer green; restarting feedback grace after checks pass.",
+                flush=True,
+            )
         await sleep(POLL_SECONDS)
 
 
 async def wait_for_checks(head_sha: str, checks_done: asyncio.Event) -> None:
     print("Waiting for CI checks...", flush=True)
     empty_seconds = 0
+    checks_were_green = False
     while True:
         check_runs = await get_check_runs(head_sha)
         if not check_runs:
+            if checks_done.is_set():
+                checks_done.clear()
+                checks_were_green = False
             empty_seconds += POLL_SECONDS
             if empty_seconds >= CHECKS_APPEAR_TIMEOUT_SECONDS:
                 print(
@@ -813,10 +830,18 @@ async def wait_for_checks(head_sha: str, checks_done: asyncio.Event) -> None:
             for failure in failures:
                 print(f"- {failure}")
             raise WatchExit(3)
+        if pending:
+            if checks_done.is_set():
+                checks_done.clear()
+                checks_were_green = False
+                print("Checks are pending again; continuing to monitor")
+            await sleep(POLL_SECONDS)
+            continue
         if not pending:
-            print("Checks passed")
+            if not checks_were_green:
+                print("Checks passed")
             checks_done.set()
-            return
+            checks_were_green = True
         await sleep(POLL_SECONDS)
 
 
@@ -848,10 +873,9 @@ async def watch_pr() -> None:
             await sleep(POLL_SECONDS)
 
     monitor_task = asyncio.create_task(head_monitor())
-    success_task = asyncio.gather(codex_task, checks_task)
 
     done, pending = await asyncio.wait(
-        [monitor_task, success_task],
+        [monitor_task, codex_task, checks_task],
         return_when=asyncio.FIRST_COMPLETED,
     )
     for task in pending:
