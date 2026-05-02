@@ -11,13 +11,15 @@ from typing import Any
 POLL_SECONDS = 10
 CHECKS_APPEAR_TIMEOUT_SECONDS = 120
 FEEDBACK_GRACE_SECONDS = 600
-CODEX_BOTS = {
+CODEX_BOT_LOGINS = {
     "chatgpt-codex-connector",
     "chatgpt-codex-connector[bot]",
     "codex-gc-app[bot]",
     "app/codex-gc-app",
 }
-CODEX_BRIDGE_BOTS = {
+# Bridge authors are trusted only after the comment body or parent review
+# proves the comment is Codex feedback.
+CODEX_REVIEW_BRIDGE_LOGINS = {
     "github-actions[bot]",
 }
 MAX_GH_RETRIES = 5
@@ -160,6 +162,49 @@ async def get_authenticated_user_login() -> str | None:
     return login or None
 
 
+async def get_repo_owner_name() -> tuple[str, str]:
+    data = await run_gh("repo", "view", "--json", "owner,name")
+    parsed = json.loads(data)
+    return parsed["owner"]["login"], parsed["name"]
+
+
+async def get_active_review_thread_comment_node_ids(pr_number: int) -> set[str]:
+    owner, repo = await get_repo_owner_name()
+    cursor: str | None = None
+    active_comment_ids: set[str] = set()
+    while True:
+        args = [
+            "api",
+            "graphql",
+            "-f",
+            f"query={REVIEW_THREADS_QUERY}",
+            "-F",
+            f"owner={owner}",
+            "-F",
+            f"repo={repo}",
+            "-F",
+            f"number={pr_number}",
+        ]
+        if cursor:
+            args.extend(["-F", f"cursor={cursor}"])
+        data = await run_gh(*args)
+        payload = json.loads(data)
+        threads = payload["data"]["repository"]["pullRequest"]["reviewThreads"]
+        for thread in threads.get("nodes") or []:
+            if thread.get("isResolved") or thread.get("isOutdated"):
+                continue
+            comments = thread.get("comments", {}).get("nodes") or []
+            for comment in comments:
+                node_id = comment.get("id")
+                if node_id:
+                    active_comment_ids.add(node_id)
+        page_info = threads["pageInfo"]
+        if not page_info["hasNextPage"]:
+            break
+        cursor = page_info["endCursor"]
+    return active_comment_ids
+
+
 async def get_check_runs(head_sha: str) -> list[dict[str, Any]]:
     page = 1
     check_runs: list[dict[str, Any]] = []
@@ -196,6 +241,24 @@ CODEX_REVIEW_HEADING_RE = re.compile(
     r"^#{2,3}\s*(?:[^\w#]+\s*)?Codex Review\b",
     re.IGNORECASE,
 )
+REVIEW_THREADS_QUERY = """
+query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      reviewThreads(first: 100, after: $cursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          isResolved
+          isOutdated
+          comments(first: 100) {
+            nodes { id }
+          }
+        }
+      }
+    }
+  }
+}
+"""
 
 
 def sanitize_terminal_output(value: str) -> str:
@@ -314,14 +377,25 @@ def filter_codex_comments(
     return filtered
 
 
+def filter_active_review_thread_comments(
+    comments: list[dict[str, Any]],
+    active_comment_node_ids: set[str],
+) -> list[dict[str, Any]]:
+    return [
+        comment
+        for comment in comments
+        if comment.get("node_id") in active_comment_node_ids
+    ]
+
+
 def is_codex_bot_user(user: dict[str, Any]) -> bool:
     login = user.get("login") or ""
-    return login in CODEX_BOTS
+    return login in CODEX_BOT_LOGINS
 
 
 def is_codex_bridge_bot_user(user: dict[str, Any]) -> bool:
     login = user.get("login") or ""
-    return login in CODEX_BRIDGE_BOTS
+    return login in CODEX_REVIEW_BRIDGE_LOGINS
 
 
 def is_bot_user(user: dict[str, Any]) -> bool:
@@ -598,11 +672,15 @@ async def fetch_review_context(
     list[dict[str, Any]],
     datetime | None,
     set[str],
+    set[str],
 ]:
     issue_comments = await get_issue_comments(pr_number)
     review_request_at = latest_review_request_at(issue_comments)
     review_comments = await get_review_comments(pr_number)
     reviews = await get_reviews(pr_number)
+    active_review_comment_node_ids = await get_active_review_thread_comment_node_ids(
+        pr_number,
+    )
     authenticated_login = await get_authenticated_user_login()
     trusted_ack_logins = {authenticated_login} if authenticated_login else set()
     return (
@@ -610,6 +688,7 @@ async def fetch_review_context(
         review_comments,
         reviews,
         review_request_at,
+        active_review_comment_node_ids,
         trusted_ack_logins,
     )
 
@@ -659,8 +738,13 @@ async def wait_for_codex(pr_number: int, checks_done: asyncio.Event) -> None:
             review_comments,
             reviews,
             review_request_at,
+            active_review_comment_node_ids,
             trusted_ack_logins,
         ) = await fetch_review_context(pr_number)
+        active_review_comments = filter_active_review_thread_comments(
+            review_comments,
+            active_review_comment_node_ids,
+        )
         codex_review_ids = codex_review_ids_after_request(
             reviews,
             review_request_at,
@@ -671,7 +755,7 @@ async def wait_for_codex(pr_number: int, checks_done: asyncio.Event) -> None:
             trusted_ack_logins=trusted_ack_logins,
         )
         bot_review_comments = filter_codex_comments(
-            review_comments,
+            active_review_comments,
             review_request_at,
             codex_review_ids,
             trusted_ack_logins,
@@ -679,7 +763,7 @@ async def wait_for_codex(pr_number: int, checks_done: asyncio.Event) -> None:
         bot_comments = bot_issue_comments + bot_review_comments
         raise_on_human_feedback(
             issue_comments,
-            review_comments,
+            active_review_comments,
             reviews,
             review_request_at,
             trusted_ack_logins,
