@@ -3,6 +3,7 @@ import asyncio
 import json
 import random
 import re
+import sys
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -153,6 +154,12 @@ async def get_reviews(pr_number: int) -> list[dict[str, Any]]:
     return reviews
 
 
+async def get_authenticated_user_login() -> str | None:
+    data = await run_gh("api", "user", "--jq", ".login")
+    login = data.strip()
+    return login or None
+
+
 async def get_check_runs(head_sha: str) -> list[dict[str, Any]]:
     page = 1
     check_runs: list[dict[str, Any]] = []
@@ -192,7 +199,11 @@ CODEX_REVIEW_HEADING_RE = re.compile(
 
 
 def sanitize_terminal_output(value: str) -> str:
-    return CONTROL_CHARS_RE.sub("", value)
+    sanitized = CONTROL_CHARS_RE.sub("", value)
+    encoding = sys.stdout.encoding
+    if encoding:
+        sanitized = sanitized.encode(encoding, errors="replace").decode(encoding)
+    return sanitized
 
 
 def check_timestamp(check: dict[str, Any]) -> datetime | None:
@@ -260,11 +271,20 @@ def filter_codex_comments(
     comments: list[dict[str, Any]],
     review_requested_at: datetime | None,
     codex_review_ids: set[int] | None = None,
+    trusted_ack_logins: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     if codex_review_ids is None:
         codex_review_ids = set()
-    latest_codex_reply = latest_codex_reply_by_thread(comments)
-    latest_issue_ack = latest_codex_issue_reply_time(comments)
+    if trusted_ack_logins is None:
+        trusted_ack_logins = set()
+    latest_codex_reply = latest_codex_reply_by_thread(
+        comments,
+        trusted_ack_logins,
+    )
+    latest_issue_ack = latest_codex_issue_reply_time(
+        comments,
+        trusted_ack_logins,
+    )
     codex_comments = [
         c
         for c in comments
@@ -345,6 +365,19 @@ def is_codex_ack_comment(comment: dict[str, Any]) -> bool:
     return is_codex_reply_body(body) and is_codex_feedback_comment(comment, set())
 
 
+def is_trusted_codex_ack_comment(
+    comment: dict[str, Any],
+    trusted_ack_logins: set[str],
+) -> bool:
+    body = (comment.get("body") or "").strip()
+    if not is_codex_reply_body(body):
+        return False
+    if is_codex_feedback_comment(comment, set()):
+        return True
+    login = comment.get("user", {}).get("login")
+    return bool(login and login in trusted_ack_logins)
+
+
 def is_codex_review_issue_comment(comment: dict[str, Any]) -> bool:
     body = (comment.get("body") or "").strip()
     return is_codex_review_body(body) and is_codex_feedback_comment(comment, set())
@@ -352,10 +385,11 @@ def is_codex_review_issue_comment(comment: dict[str, Any]) -> bool:
 
 def latest_codex_issue_reply_time(
     comments: list[dict[str, Any]],
+    trusted_ack_logins: set[str],
 ) -> datetime | None:
     latest: datetime | None = None
     for comment in comments:
-        if not is_codex_ack_comment(comment):
+        if not is_trusted_codex_ack_comment(comment, trusted_ack_logins):
             continue
         created_time = comment_time(comment)
         if created_time is None:
@@ -365,8 +399,11 @@ def latest_codex_issue_reply_time(
     return latest
 
 
-def filter_human_issue_comments(comments: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    latest_ack = latest_codex_issue_reply_time(comments)
+def filter_human_issue_comments(
+    comments: list[dict[str, Any]],
+    trusted_ack_logins: set[str],
+) -> list[dict[str, Any]]:
+    latest_ack = latest_codex_issue_reply_time(comments, trusted_ack_logins)
     filtered: list[dict[str, Any]] = []
     for comment in comments:
         if is_bot_user(comment.get("user", {})):
@@ -387,8 +424,9 @@ def filter_human_issue_comments(comments: list[dict[str, Any]]) -> list[dict[str
 
 def filter_codex_review_issue_comments(
     comments: list[dict[str, Any]],
+    trusted_ack_logins: set[str],
 ) -> list[dict[str, Any]]:
-    latest_ack = latest_codex_issue_reply_time(comments)
+    latest_ack = latest_codex_issue_reply_time(comments, trusted_ack_logins)
     filtered: list[dict[str, Any]] = []
     for comment in comments:
         if not is_codex_review_issue_comment(comment):
@@ -417,10 +455,11 @@ def comment_time(comment: dict[str, Any]) -> datetime | None:
 
 def latest_codex_reply_by_thread(
     comments: list[dict[str, Any]],
+    trusted_ack_logins: set[str],
 ) -> dict[int, datetime]:
     latest: dict[int, datetime] = {}
     for comment in comments:
-        if not is_codex_ack_comment(comment):
+        if not is_trusted_codex_ack_comment(comment, trusted_ack_logins):
             continue
         thread_root = thread_root_id(comment)
         created_time = comment_time(comment)
@@ -434,8 +473,9 @@ def latest_codex_reply_by_thread(
 
 def filter_human_review_comments(
     comments: list[dict[str, Any]],
+    trusted_ack_logins: set[str],
 ) -> list[dict[str, Any]]:
-    latest_codex_reply = latest_codex_reply_by_thread(comments)
+    latest_codex_reply = latest_codex_reply_by_thread(comments, trusted_ack_logins)
     filtered: list[dict[str, Any]] = []
     for comment in comments:
         if is_bot_user(comment.get("user", {})):
@@ -562,12 +602,21 @@ async def fetch_review_context(
     list[dict[str, Any]],
     list[dict[str, Any]],
     datetime | None,
+    set[str],
 ]:
     issue_comments = await get_issue_comments(pr_number)
     review_request_at = latest_review_request_at(issue_comments)
     review_comments = await get_review_comments(pr_number)
     reviews = await get_reviews(pr_number)
-    return issue_comments, review_comments, reviews, review_request_at
+    authenticated_login = await get_authenticated_user_login()
+    trusted_ack_logins = {authenticated_login} if authenticated_login else set()
+    return (
+        issue_comments,
+        review_comments,
+        reviews,
+        review_request_at,
+        trusted_ack_logins,
+    )
 
 
 def raise_on_human_feedback(
@@ -575,10 +624,20 @@ def raise_on_human_feedback(
     review_comments: list[dict[str, Any]],
     reviews: list[dict[str, Any]],
     review_request_at: datetime | None,
+    trusted_ack_logins: set[str],
 ) -> None:
-    human_issue_comments = filter_human_issue_comments(issue_comments)
-    codex_review_comments = filter_codex_review_issue_comments(issue_comments)
-    human_review_comments = filter_human_review_comments(review_comments)
+    human_issue_comments = filter_human_issue_comments(
+        issue_comments,
+        trusted_ack_logins,
+    )
+    codex_review_comments = filter_codex_review_issue_comments(
+        issue_comments,
+        trusted_ack_logins,
+    )
+    human_review_comments = filter_human_review_comments(
+        review_comments,
+        trusted_ack_logins,
+    )
     if human_issue_comments or human_review_comments or codex_review_comments:
         print("Review comments detected. Address before merge.")
         print(
@@ -605,16 +664,22 @@ async def wait_for_codex(pr_number: int, checks_done: asyncio.Event) -> None:
             review_comments,
             reviews,
             review_request_at,
+            trusted_ack_logins,
         ) = await fetch_review_context(pr_number)
         codex_review_ids = codex_review_ids_after_request(
             reviews,
             review_request_at,
         )
-        bot_issue_comments = filter_codex_comments(issue_comments, review_request_at)
+        bot_issue_comments = filter_codex_comments(
+            issue_comments,
+            review_request_at,
+            trusted_ack_logins=trusted_ack_logins,
+        )
         bot_review_comments = filter_codex_comments(
             review_comments,
             review_request_at,
             codex_review_ids,
+            trusted_ack_logins,
         )
         bot_comments = bot_issue_comments + bot_review_comments
         raise_on_human_feedback(
@@ -622,6 +687,7 @@ async def wait_for_codex(pr_number: int, checks_done: asyncio.Event) -> None:
             review_comments,
             reviews,
             review_request_at,
+            trusted_ack_logins,
         )
         if bot_comments:
             latest = max(
