@@ -360,11 +360,6 @@ def is_codex_feedback_comment(
     return False
 
 
-def is_codex_ack_comment(comment: dict[str, Any]) -> bool:
-    body = (comment.get("body") or "").strip()
-    return is_codex_reply_body(body) and is_codex_feedback_comment(comment, set())
-
-
 def is_trusted_codex_ack_comment(
     comment: dict[str, Any],
     trusted_ack_logins: set[str],
