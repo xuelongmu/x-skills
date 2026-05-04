@@ -206,19 +206,11 @@ async def get_active_review_thread_comment_node_ids(pr_number: int) -> set[str]:
 
 
 async def get_check_runs(head_sha: str) -> list[dict[str, Any]]:
+    endpoint = f"repos/{{owner}}/{{repo}}/commits/{head_sha}/check-runs"
     page = 1
     check_runs: list[dict[str, Any]] = []
     while True:
-        data = await run_gh(
-            "api",
-            "--method",
-            "GET",
-            f"repos/{{owner}}/{{repo}}/commits/{head_sha}/check-runs",
-            "-f",
-            "per_page=100",
-            "-f",
-            f"page={page}",
-        )
+        data = await run_gh(*check_runs_page_args(endpoint, page))
         payload = json.loads(data)
         batch = payload.get("check_runs", [])
         if not batch:
@@ -229,6 +221,19 @@ async def get_check_runs(head_sha: str) -> list[dict[str, Any]]:
             break
         page += 1
     return check_runs
+
+
+def check_runs_page_args(endpoint: str, page: int) -> list[str]:
+    return [
+        "api",
+        "--method",
+        "GET",
+        endpoint,
+        "-f",
+        "per_page=100",
+        "-f",
+        f"page={page}",
+    ]
 
 
 async def get_commit_status_checks(head_sha: str) -> list[dict[str, Any]]:
