@@ -193,16 +193,49 @@ async def get_active_review_thread_comment_node_ids(pr_number: int) -> set[str]:
         for thread in threads.get("nodes") or []:
             if thread.get("isResolved") or thread.get("isOutdated"):
                 continue
-            comments = thread.get("comments", {}).get("nodes") or []
-            for comment in comments:
-                node_id = comment.get("id")
-                if node_id:
-                    active_comment_ids.add(node_id)
+            active_comment_ids.update(
+                await get_review_thread_comment_node_ids(thread),
+            )
         page_info = threads["pageInfo"]
         if not page_info["hasNextPage"]:
             break
         cursor = page_info["endCursor"]
     return active_comment_ids
+
+
+async def get_review_thread_comment_node_ids(
+    thread: dict[str, Any],
+) -> set[str]:
+    thread_id = thread.get("id")
+    comments = thread.get("comments") or {}
+    comment_ids = comment_node_ids(comments.get("nodes") or [])
+    page_info = comments.get("pageInfo") or {}
+    cursor = page_info.get("endCursor") if page_info.get("hasNextPage") else None
+    while thread_id and cursor:
+        data = await run_gh(
+            "api",
+            "graphql",
+            "-f",
+            f"query={REVIEW_THREAD_COMMENTS_QUERY}",
+            "-F",
+            f"threadId={thread_id}",
+            "-F",
+            f"cursor={cursor}",
+        )
+        payload = json.loads(data)
+        comments_page = payload["data"]["node"]["comments"]
+        comment_ids.update(comment_node_ids(comments_page.get("nodes") or []))
+        page_info = comments_page["pageInfo"]
+        cursor = page_info["endCursor"] if page_info["hasNextPage"] else None
+    return comment_ids
+
+
+def comment_node_ids(comments: list[dict[str, Any]]) -> set[str]:
+    return {
+        comment["id"]
+        for comment in comments
+        if comment.get("id")
+    }
 
 
 async def get_check_runs(head_sha: str) -> list[dict[str, Any]]:
@@ -291,12 +324,26 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
       reviewThreads(first: 100, after: $cursor) {
         pageInfo { hasNextPage endCursor }
         nodes {
+          id
           isResolved
           isOutdated
           comments(first: 100) {
+            pageInfo { hasNextPage endCursor }
             nodes { id }
           }
         }
+      }
+    }
+  }
+}
+"""
+REVIEW_THREAD_COMMENTS_QUERY = """
+query($threadId: ID!, $cursor: String) {
+  node(id: $threadId) {
+    ... on PullRequestReviewThread {
+      comments(first: 100, after: $cursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes { id }
       }
     }
   }
