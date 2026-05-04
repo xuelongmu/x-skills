@@ -28,7 +28,7 @@ Portable PR workflow skills for Claude Code and Codex.
 
 ### Codex
 
-Use the `babysit` skill directly when you want Codex to keep the current PR ready without merging. Use the `land` skill when you want Codex to keep the PR healthy and merge it once checks and feedback gates pass. Codex does not support Claude Code `/loop` semantics; the shared watcher blocks while it monitors checks, feedback, PR head changes, and the 10-minute post-green wait.
+Use the `babysit` skill directly when you want Codex to keep the current PR ready without merging. Use the `land` skill when you want Codex to keep the PR healthy and merge it once checks and feedback gates pass. Codex does not support Claude Code `/loop` semantics; a single babysit run uses the shared watcher for checks, feedback, PR head changes, and the 10-minute post-green wait. For continuous babysitting across turns, ask Codex to create or update a cron automation for the PR.
 
 ## Setup
 
@@ -132,7 +132,8 @@ Restart Codex after installing or linking the skill.
 - `/x:babysit` waits 10 minutes after green checks for late feedback before reporting ready
 - `/x:babysit` never merges, enables auto-merge, or deletes the branch; it prints the merge command when ready
 - Codex `babysit` is packaged as a real skill directory because Codex installers expect `SKILL.md`
-- Codex `babysit` does not rely on `/loop`; it reuses the `land` Python watcher for the monitoring wait
+- Codex `babysit` does not rely on `/loop`; it reuses the `land` Python watcher for the monitoring wait, and uses Codex cron automation when the user asks for continuous monitoring
+- Codex `babysit` should leave `[codex]` GitHub replies after addressing or explicitly deferring feedback, but should not resolve review threads unless asked
 - Codex `land` owns the shared watcher and does merge after the same feedback/check gates pass
 - `/x:slack-pr` sends as a draft so user can review before posting
 - Vercel bot comments use the **issues** endpoint (`/issues/{n}/comments`), not `/pulls/{n}/comments`
