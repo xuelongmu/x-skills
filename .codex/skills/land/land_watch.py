@@ -231,6 +231,44 @@ async def get_check_runs(head_sha: str) -> list[dict[str, Any]]:
     return check_runs
 
 
+async def get_commit_status_checks(head_sha: str) -> list[dict[str, Any]]:
+    data = await run_gh(
+        "api",
+        "--method",
+        "GET",
+        f"repos/{{owner}}/{{repo}}/commits/{head_sha}/status",
+    )
+    payload = json.loads(data)
+    return [
+        normalize_commit_status(status)
+        for status in payload.get("statuses", [])
+    ]
+
+
+async def get_ci_results(head_sha: str) -> list[dict[str, Any]]:
+    check_runs = await get_check_runs(head_sha)
+    commit_statuses = await get_commit_status_checks(head_sha)
+    return check_runs + commit_statuses
+
+
+def normalize_commit_status(status: dict[str, Any]) -> dict[str, Any]:
+    state = status.get("state")
+    completed = state != "pending"
+    creator = status.get("creator") or {}
+    creator_login = creator.get("login") or "commit-status"
+    return {
+        "name": status.get("context") or "legacy-status",
+        "status": "completed" if completed else "in_progress",
+        "conclusion": "success" if state == "success" else state,
+        "started_at": status.get("created_at"),
+        "completed_at": status.get("updated_at") if completed else None,
+        "app": {
+            "id": f"commit-status:{creator_login}",
+            "name": creator_login,
+        },
+    }
+
+
 def parse_time(value: str) -> datetime:
     normalized = value.replace("Z", "+00:00")
     return datetime.fromisoformat(normalized)
@@ -810,7 +848,7 @@ async def wait_for_checks(head_sha: str, checks_done: asyncio.Event) -> None:
     empty_seconds = 0
     checks_were_green = False
     while True:
-        check_runs = await get_check_runs(head_sha)
+        check_runs = await get_ci_results(head_sha)
         if not check_runs:
             if checks_done.is_set():
                 checks_done.clear()
