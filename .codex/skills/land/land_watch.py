@@ -681,7 +681,7 @@ def is_blocking_review(
     if state == "CHANGES_REQUESTED":
         return True
     if state == "COMMENTED":
-        return False
+        return bool(body)
     if body:
         return True
     if state:
