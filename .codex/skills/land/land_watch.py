@@ -669,6 +669,7 @@ def filter_human_review_comments(
 def is_blocking_review(
     review: dict[str, Any],
     review_requested_at: datetime | None,
+    latest_ack: datetime | None,
 ) -> bool:
     created_at = review.get("submitted_at") or review.get("created_at")
     if not created_at:
@@ -690,6 +691,8 @@ def is_blocking_review(
     if state == "CHANGES_REQUESTED":
         return True
     if state == "COMMENTED":
+        if latest_ack is not None and created_time <= latest_ack:
+            return False
         return bool(body)
     if body:
         return True
@@ -784,11 +787,12 @@ def dedupe_reviews(reviews: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def filter_blocking_reviews(
     reviews: list[dict[str, Any]],
     review_requested_at: datetime | None,
+    latest_ack: datetime | None,
 ) -> list[dict[str, Any]]:
     return [
         review
         for review in dedupe_reviews(reviews)
-        if is_blocking_review(review, review_requested_at)
+        if is_blocking_review(review, review_requested_at, latest_ack)
     ]
 
 
@@ -851,7 +855,12 @@ def raise_on_human_feedback(
             "and note in your root-level update.",
         )
         raise WatchExit(2)
-    blocking_reviews = filter_blocking_reviews(reviews, review_request_at)
+    latest_ack = latest_codex_issue_reply_time(issue_comments, trusted_ack_logins)
+    blocking_reviews = filter_blocking_reviews(
+        reviews,
+        review_request_at,
+        latest_ack,
+    )
     if blocking_reviews:
         print("Review states/comments detected. Address before merge.")
         print(
