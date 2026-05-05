@@ -86,6 +86,7 @@ if ! python3 "$LAND_SKILL_DIR/land_watch.py"; then
   # Exit code 2 means review feedback must be handled.
   # Exit code 3 means checks failed.
   # Exit code 4 means the PR head changed and local state must be refreshed.
+  # Exit code 5 means the PR is behind, conflicting, or dirty.
   exit 1
 fi
 

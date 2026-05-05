@@ -73,7 +73,7 @@ Exit codes:
 - `2`: review or bot feedback must be handled
 - `3`: CI checks failed
 - `4`: PR head changed and local state must be refreshed
-- `5`: PR has merge conflicts or a dirty merge state
+- `5`: PR is behind its base, has merge conflicts, or has a dirty merge state
 
 ## Output
 

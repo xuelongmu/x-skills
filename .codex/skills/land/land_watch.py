@@ -793,7 +793,7 @@ def filter_blocking_reviews(
 
 
 def is_merge_conflicting(pr: PrInfo) -> bool:
-    return pr.mergeable == "CONFLICTING" or pr.merge_state == "DIRTY"
+    return pr.mergeable == "CONFLICTING" or pr.merge_state in ("BEHIND", "DIRTY")
 
 
 async def fetch_review_context(
@@ -980,7 +980,7 @@ async def watch_pr() -> None:
     pr = await get_pr_info()
     if is_merge_conflicting(pr):
         print(
-            "PR has merge conflicts. Resolve/rebase against main and push before "
+            "PR is behind, conflicting, or dirty. Merge/rebase against main and push before "
             "running land_watch again.",
         )
         raise WatchExit(5)
@@ -994,7 +994,7 @@ async def watch_pr() -> None:
             current = await get_pr_info()
             if is_merge_conflicting(current):
                 print(
-                    "PR has merge conflicts. Resolve/rebase against main and push "
+                    "PR is behind, conflicting, or dirty. Merge/rebase against main and push "
                     "before running land_watch again.",
                 )
                 raise WatchExit(5)
