@@ -883,7 +883,7 @@ async def wait_for_codex(pr_number: int, checks_done: asyncio.Event) -> None:
             if feedback_grace_started_at is None:
                 feedback_grace_started_at = now
                 print(
-                    f"Checks passed; waiting {FEEDBACK_GRACE_SECONDS}s for review feedback before merge...",
+                    f"Checks satisfied; waiting {FEEDBACK_GRACE_SECONDS}s for review feedback before merge...",
                     flush=True,
                 )
             elif now - feedback_grace_started_at >= FEEDBACK_GRACE_SECONDS:
@@ -902,21 +902,27 @@ async def wait_for_checks(head_sha: str, checks_done: asyncio.Event) -> None:
     print("Waiting for CI checks...", flush=True)
     empty_seconds = 0
     checks_were_green = False
+    reported_missing = False
     while True:
         check_runs = await get_ci_results(head_sha)
         if not check_runs:
             if checks_done.is_set():
                 checks_done.clear()
                 checks_were_green = False
+                reported_missing = False
             empty_seconds += POLL_SECONDS
             if empty_seconds >= CHECKS_APPEAR_TIMEOUT_SECONDS:
-                print(
-                    "No checks detected after 120s; check CI configuration",
-                )
-                raise WatchExit(3)
+                if not reported_missing:
+                    print(
+                        "No checks detected after 120s; continuing to monitor feedback and checks.",
+                        flush=True,
+                    )
+                    reported_missing = True
+                checks_done.set()
             await sleep(POLL_SECONDS)
             continue
         empty_seconds = 0
+        reported_missing = False
         pending, failed, failures = summarize_checks(check_runs)
         if failed:
             print("Checks failed:")

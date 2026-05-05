@@ -78,12 +78,13 @@ if [ "$mergeable" = "CONFLICTING" ]; then
 fi
 
 # Preferred: use the Async Watch Helper below. It watches review feedback,
-# checks, and PR head changes in parallel. After checks pass, it keeps polling
-# feedback for 10 minutes. A Codex review is not required to arrive; no
-# actionable feedback during the 10-minute wait is enough to proceed.
+# checks, and PR head changes in parallel. After checks pass (or when no CI
+# checks are detected), it keeps polling feedback for 10 minutes. A Codex
+# review is not required to arrive; no actionable feedback during the 10-minute
+# wait is enough to proceed.
 if ! python3 "$LAND_SKILL_DIR/land_watch.py"; then
   # Exit code 2 means review feedback must be handled.
-  # Exit code 3 means checks failed or never appeared.
+  # Exit code 3 means checks failed.
   # Exit code 4 means the PR head changed and local state must be refreshed.
   exit 1
 fi

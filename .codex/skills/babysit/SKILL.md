@@ -64,14 +64,14 @@ description: Keep a pull request healthy without merging it; use when Codex need
 
 ## Watcher Semantics
 
-The shared `land` watcher monitors feedback, checks, and PR head changes in parallel. It returns success only after the PR is conflict-free, checks are green, and 10 minutes pass after green checks with no outstanding feedback.
+The shared `land` watcher monitors feedback, checks, and PR head changes in parallel. It returns success only after the PR is conflict-free and a 10-minute feedback grace window completes with no outstanding feedback. CI checks and review feedback are monitored independently; when no CI checks are detected, the watcher still runs the feedback grace window while continuing to poll for checks.
 
 A Codex review is not required to arrive. Absence of new actionable feedback for the full 10-minute post-green wait is acceptable.
 
 Exit codes:
 
 - `2`: review or bot feedback must be handled
-- `3`: CI checks failed or never appeared
+- `3`: CI checks failed
 - `4`: PR head changed and local state must be refreshed
 - `5`: PR has merge conflicts or a dirty merge state
 
