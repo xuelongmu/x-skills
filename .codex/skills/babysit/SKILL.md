@@ -29,6 +29,13 @@ description: Keep a pull request healthy without merging it; use when Codex need
    gh pr view --json number,title,url,headRefName,baseRefName,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup
    ```
 2. If the user asks to keep watching, continuously babysit, check back later, or monitor over time, create or update a Codex cron automation for this PR. Use the current repo cwd, include the PR number and branch in the automation prompt, tell it not to merge, and have it run this babysit workflow. Prefer updating an existing matching automation over creating a duplicate.
+
+   For that continuous automation flow, stop after **3 consecutive runs** with **no new actionable feedback**:
+
+   - Persist state in `.git/babysit-state.json` with shape `{"last_signature":"...","idle_count":0}`.
+   - Compute `last_signature` from the PR feedback surface (for example: `updatedAt`, `reviewDecision`, latest comment/review IDs, and `statusCheckRollup` conclusions).
+   - If the signature is unchanged vs the last run, increment `idle_count`; otherwise reset it to 0.
+   - When `idle_count >= 3`, stop babysitting (disable/delete the cron automation if applicable), delete `.git/babysit-state.json`, and report: `Stopping babysit — 3 cycles with no new feedback on PR #<n>.`
 3. If the working tree has uncommitted changes, commit the intended scope and push before monitoring.
 4. Check whether the PR is behind or conflicting with its base branch.
 5. If behind or conflicting, merge the base branch, resolve conflicts, validate, commit, and push.
