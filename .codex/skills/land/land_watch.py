@@ -275,14 +275,20 @@ async def get_commit_status_checks(head_sha: str) -> list[dict[str, Any]]:
         "--method",
         "GET",
         "--paginate",
+        "--slurp",
         f"repos/{{owner}}/{{repo}}/commits/{head_sha}/statuses",
         "-f",
         "per_page=100",
     )
-    payload = json.loads(data)
+    pages = json.loads(data)
+    statuses = [
+        status
+        for page in pages
+        for status in page
+    ]
     return [
         normalize_commit_status(status)
-        for status in payload
+        for status in statuses
     ]
 
 
