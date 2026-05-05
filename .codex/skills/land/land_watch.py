@@ -5,7 +5,7 @@ import random
 import re
 import sys
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 POLL_SECONDS = 10
@@ -731,22 +731,48 @@ def review_timestamp(review: dict[str, Any]) -> datetime | None:
 
 
 def dedupe_reviews(reviews: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    latest_by_user: dict[str, dict[str, Any]] = {}
+    reviews_by_user: dict[str, list[dict[str, Any]]] = {}
     for review in reviews:
         user_login = review.get("user", {}).get("login")
         if not user_login:
             continue
-        timestamp = review_timestamp(review)
-        if user_login not in latest_by_user:
-            latest_by_user[user_login] = review
-            continue
-        existing = latest_by_user[user_login]
-        existing_timestamp = review_timestamp(existing)
-        if timestamp is None:
-            continue
-        if existing_timestamp is None or timestamp > existing_timestamp:
-            latest_by_user[user_login] = review
-    return list(latest_by_user.values())
+        reviews_by_user.setdefault(user_login, []).append(review)
+
+    effective_reviews: list[dict[str, Any]] = []
+    for user_reviews in reviews_by_user.values():
+        ordered = sorted(
+            user_reviews,
+            key=lambda review: review_timestamp(review)
+            or datetime.min.replace(tzinfo=timezone.utc),
+        )
+        latest = ordered[-1]
+        outstanding_change_request: dict[str, Any] | None = None
+        latest_comment: dict[str, Any] | None = None
+        latest_terminal: dict[str, Any] | None = None
+        for review in ordered:
+            state = review.get("state")
+            if state == "CHANGES_REQUESTED":
+                outstanding_change_request = review
+                latest_comment = None
+                continue
+            if state in ("APPROVED", "DISMISSED"):
+                outstanding_change_request = None
+                latest_comment = None
+                latest_terminal = review
+                continue
+            if state == "COMMENTED":
+                latest_comment = review
+                continue
+            latest_terminal = review
+        if outstanding_change_request is not None:
+            effective_reviews.append(outstanding_change_request)
+        elif latest_comment is not None:
+            effective_reviews.append(latest_comment)
+        elif latest_terminal is not None:
+            effective_reviews.append(latest_terminal)
+        else:
+            effective_reviews.append(latest)
+    return effective_reviews
 
 
 def filter_blocking_reviews(
