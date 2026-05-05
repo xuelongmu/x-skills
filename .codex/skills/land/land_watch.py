@@ -310,7 +310,7 @@ def normalize_commit_status(status: dict[str, Any]) -> dict[str, Any]:
         "started_at": status.get("created_at"),
         "completed_at": status.get("updated_at") if completed else None,
         "app": {
-            "id": f"commit-status:{creator_login}",
+            "id": "commit-status",
             "name": creator_login,
         },
     }
