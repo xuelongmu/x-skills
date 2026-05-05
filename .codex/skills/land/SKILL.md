@@ -125,8 +125,9 @@ acceptable.
 - If checks fail, pull details with `gh pr checks` and `gh run view --log`, then
   fix locally, commit with the `commit` skill, push with the `push` skill, and
   re-run the watch.
-- Use judgment to identify flaky failures. If a failure is a flake (e.g., a
-  timeout on only one platform), you may proceed without fixing it.
+- Treat every reported CI failure as blocking. If a failure looks flaky (for
+  example, a timeout on one platform), rerun or re-watch until the check is
+  green before proceeding.
 - If CI pushes an auto-fix commit (authored by GitHub Actions), it does not
   trigger a fresh CI run. Detect the updated PR head, pull locally, merge
   `origin/main` if needed, add a real author commit, and force-push to retrigger
