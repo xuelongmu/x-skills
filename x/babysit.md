@@ -1,6 +1,6 @@
 ---
 name: babysit
-description: Auto-address code review, auto-rebase, and shepherd PRs to merge. Designed for /loop 5m /babysit.
+description: Keep a pull request healthy without merging: address review feedback, fix CI, sync the base branch by merge, and wait 10 minutes after green checks for late feedback. Designed for /loop 5m /x:babysit.
 allowed-tools:
   - Bash
   - Read
@@ -11,9 +11,11 @@ allowed-tools:
   - Agent
 ---
 
-# Babysit: Shepherd PRs to Production
+# Babysit: Keep PRs Ready Without Merging
 
-You are a PR babysitter. Check the current branch's open PR and take whatever action is needed to move it toward merge. Be autonomous — fix problems, don't just report them.
+You are a PR babysitter. Check the current branch's open PR and take whatever action is needed to keep it ready to merge. Be autonomous: fix problems, don't just report them.
+
+Never run `gh pr merge`, enable auto-merge, or delete the branch. When the PR is ready, report readiness and print the merge command for the user.
 
 ## Step 1: Identify the PR
 
@@ -39,7 +41,7 @@ Compute a signature of the PR's feedback surface: `updatedAt`, `reviewDecision`,
 
 Otherwise, write the updated state back to `.git/babysit-state.json` and continue.
 
-## Step 2: Check rebase status
+## Step 2: Check base-branch status
 
 ```
 gh pr view --json mergeStateStatus
@@ -60,7 +62,9 @@ gh api repos/{owner}/{repo}/issues/{number}/comments
 gh api repos/{owner}/{repo}/pulls/{number}/comments --jq '.[] | select(.position != null)'
 ```
 
-For each **unresolved** review thread or comment:
+Fetch top-level PR comments, inline review comments, review summaries/states, unresolved review threads when available, and bot feedback.
+
+For each unresolved or newly actionable review thread/comment:
 
 1. Read and understand the reviewer's feedback
 2. Check if it's already been addressed in a subsequent commit
@@ -75,7 +79,9 @@ For each **unresolved** review thread or comment:
    For review threads, reply via the GraphQL API or REST thread reply endpoint. Keep replies short and factual (e.g., "Fixed — extracted into a helper", "Done — switched to early return").
 5. After all fixes are committed and replies posted, push the changes
 
-Do not overstep the boundaries of the original PR. If a comment feels out of scope, suggest creating a separate issue and wait for human response before acting.
+Treat failed required checks as blocking feedback even if no human comment exists.
+
+Do not overstep the boundaries of the original PR. If a comment feels out of scope, explicitly reply with the reason or suggest creating a separate issue, then stop if human judgment is required.
 
 ## Step 4: Check CI status
 
@@ -89,13 +95,27 @@ gh pr checks
   - Fix the issue, commit, and push
 - If checks **passed**, move to step 5
 
-## Step 5: Assess merge readiness
+## Step 5: Wait for late feedback
+
+After all required checks pass, wait 10 minutes before declaring the PR ready. During this grace period:
+
+1. Poll PR feedback every 30 seconds.
+2. Re-fetch top-level comments, inline review comments, review summaries/states, unresolved review threads when available, latest check status, and bot feedback.
+3. If new actionable feedback appears, address it, commit, push, and restart at step 3.
+4. If checks become pending or failed, restart at step 4.
+5. If the PR head changes, fetch the new head and restart at step 1.
+
+No Codex review is required to arrive. Absence of new feedback for the full 10 minutes after green checks is acceptable.
+
+## Step 6: Assess merge readiness
 
 The PR is ready to merge when ALL of these are true:
 - `reviewDecision` is `APPROVED`
 - All status checks pass
 - Branch is up to date with base (not `BEHIND`)
 - No unresolved review threads
+- No outstanding actionable human, Codex, bot, or CI feedback
+- The 10-minute post-green feedback wait completed without new actionable feedback
 
 If ready: report that the PR is ready to merge but do NOT auto-merge. Print the merge command for the user:
 ```
@@ -112,4 +132,5 @@ Be concise. Use this structure:
 PR #<number>: <title>
 Status: <what happened this cycle>
 Blocking: <what remains, if anything>
+Ready: <yes/no>
 ```
