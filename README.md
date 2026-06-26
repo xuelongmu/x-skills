@@ -12,6 +12,7 @@ Portable PR workflow skills for Claude Code and Codex.
 | `/x:pr` | Create a GitHub PR with auto-generated title, summary, and test plan | none |
 | `/x:slack-pr` | Post existing PR to Slack with Vercel preview link | `[channel]` (default: `#zerogen`) |
 | `/x:babysit` | Address review comments, fix CI, wait 10 minutes after green checks, and report merge readiness without merging | none |
+| `/x:codex-watch` | Push-notify when Codex 👍s the PR body and CI is green — you merge it yourself | none |
 | Codex `babysit` | Codex-installable PR babysitter that reuses the `land` watcher | none |
 | Codex `land` | Codex-installable PR lander with the shared watcher, CI handling, and squash-merge flow | none |
 
@@ -24,6 +25,7 @@ Portable PR workflow skills for Claude Code and Codex.
 /x:slack-pr               # share to #zerogen with Vercel preview
 /x:slack-pr frontend      # share to #frontend instead
 /loop 5m /x:babysit       # keep PR ready without merging (Claude Code only)
+/loop 5m /x:codex-watch   # ping me when Codex approves; I'll merge myself
 ```
 
 ### Codex
@@ -137,3 +139,5 @@ Restart Codex after installing or linking the skill.
 - Codex `land` owns the shared watcher and does merge after the same feedback/check gates pass
 - `/x:slack-pr` sends as a draft so user can review before posting
 - Vercel bot comments use the **issues** endpoint (`/issues/{n}/comments`), not `/pulls/{n}/comments`
+- `/x:codex-watch` keys off the 👍 **reaction** on the PR body (the issues reactions endpoint), since GitHub emits no webhook for reactions — so it polls on a loop
+- `/x:codex-watch` notifies once per ready-commit via a `codex-ok:<sha>` label and never merges, leaving the merge to the human
