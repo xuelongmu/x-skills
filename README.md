@@ -15,6 +15,7 @@ Portable PR workflow skills for Claude Code and Codex.
 | `/x:codex-watch` | Push-notify when Codex 👍s the PR body and CI is green — you merge it yourself | none |
 | Codex `babysit` | Codex-installable PR babysitter that reuses the `land` watcher | none |
 | Codex `land` | Codex-installable PR lander with the shared watcher, CI handling, and squash-merge flow | none |
+| Codex `author-ao-orchestrator` | Draft and validate multi-issue Agent Orchestrator project prompts | project brief or draft prompt |
 
 ## Usage
 
@@ -52,17 +53,18 @@ After linking, the `/x:*` commands are available in any Claude Code session.
 
 ### Codex
 
-Recommended: ask Codex to install the `babysit` and `land` skills from this repo:
+Recommended: ask Codex to install the skills you need from this repo:
 
-> Install the `babysit` and `land` skills from `https://github.com/xuelongmu/x-skills`. Use skill paths `.codex/skills/land` and `.codex/skills/babysit`.
+> Install the `babysit`, `land`, and `author-ao-orchestrator` skills from `https://github.com/xuelongmu/x-skills`. Use the corresponding paths under `.codex/skills/`.
 
-Codex's skill installer copies GitHub skill directories into `${CODEX_HOME:-$HOME/.codex}/skills`, so this does not require a persistent local checkout or symlinks. Install both skills together because `babysit` reuses `land/land_watch.py`.
+Codex's skill installer copies GitHub skill directories into `${CODEX_HOME:-$HOME/.codex}/skills`, so this does not require a persistent local checkout or symlinks. When installing `babysit`, install `land` with it because `babysit` reuses `land/land_watch.py`; `author-ao-orchestrator` is independent.
 
 When installing from this repo with a Codex skill installer, use these skill paths:
 
 ```
 .codex/skills/babysit
 .codex/skills/land
+.codex/skills/author-ao-orchestrator
 ```
 
 Install modes:
