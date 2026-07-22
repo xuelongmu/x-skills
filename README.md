@@ -14,7 +14,7 @@ Portable PR workflow skills for Claude Code and Codex.
 | `/x:babysit` | Address review comments, fix CI, wait 10 minutes after green checks, and report merge readiness without merging | none |
 | `/x:codex-watch` | Push-notify when Codex 👍s the PR body and CI is green — you merge it yourself | none |
 | Codex `babysit` | Codex-installable PR babysitter that reuses the `land` watcher | none |
-| Codex `land` | Codex-installable PR lander with the shared watcher, CI handling, and squash-merge flow | none |
+| Codex `land` | Codex-installable PR lander with the shared watcher, CI handling, and the repository's customary merge flow | none |
 
 ## Usage
 
@@ -136,7 +136,7 @@ Restart Codex after installing or linking the skill.
 - Codex `babysit` is packaged as a real skill directory because Codex installers expect `SKILL.md`
 - Codex `babysit` does not rely on `/loop`; it reuses the `land` Python watcher for the monitoring wait, and uses Codex cron automation when the user asks for continuous monitoring
 - Codex `babysit` should leave `[codex]` GitHub replies after addressing or explicitly deferring feedback, but should not resolve review threads unless asked
-- Codex `land` owns the shared watcher and does merge after the same feedback/check gates pass
+- Codex `land` owns the shared watcher and uses the codebase's customary merge method after the same feedback/check gates pass
 - `/x:slack-pr` sends as a draft so user can review before posting
 - Vercel bot comments use the **issues** endpoint (`/issues/{n}/comments`), not `/pulls/{n}/comments`
 - `/x:codex-watch` keys off the 👍 **reaction** on the PR body (the issues reactions endpoint), since GitHub emits no webhook for reactions — so it polls on a loop
