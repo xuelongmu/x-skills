@@ -91,7 +91,7 @@ if ! python3 "$LAND_SKILL_DIR/land_watch.py"; then
 fi
 
 # Run the customary enabled method:
-# merge:  gh pr merge --merge --subject "$pr_title" --body "$pr_body"
+# merge:  gh pr merge --merge
 # rebase: gh pr merge --rebase
 # squash: gh pr merge --squash --subject "$pr_title" --body "$pr_body"
 ```
