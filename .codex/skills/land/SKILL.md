@@ -1,9 +1,9 @@
 ---
 name: land
 description:
-  Land a PR by monitoring conflicts, resolving them, waiting for checks, and
-  squash-merging when green; use when asked to land, merge, or shepherd a PR to
-  completion.
+  Land a PR by resolving conflicts, keeping CI green, handling feedback, and
+  using the repository's customary merge method; use when asked to land, merge,
+  or shepherd a PR to completion.
 ---
 
 # Land
@@ -12,8 +12,7 @@ description:
 
 - Ensure the PR is conflict-free with main.
 - Keep CI green and fix failures when they occur.
-- Squash-merge the PR only after checks pass and the 10-minute post-green
-  feedback wait completes with no outstanding feedback.
+- Use the repository's customary merge method: merge commit, rebase, or squash.
 - Do not yield to the user until the PR is merged; keep the watcher loop running
   unless blocked.
 - No need to delete remote branches after merge; the repo auto-deletes head
@@ -41,9 +40,10 @@ description:
    minutes before merging.
 8. If checks fail, pull logs, fix the issue, commit with the `commit` skill,
    push with the `push` skill, and re-run checks.
-9. When all checks are green, review feedback is addressed, and the 10-minute
-   post-green feedback wait has completed, squash-merge and delete the branch
-   using the PR title/body for the merge subject/body.
+9. After all merge gates pass, use the repository's customary method: prefer
+   explicit guidance, otherwise infer from recent merge history. Confirm the
+   method is enabled; if ambiguous, ask instead of guessing. Do not manually
+   delete the remote branch.
 10. **Context guard:** Before implementing review feedback, confirm it does not
     conflict with the user’s stated intent or task context. If it conflicts,
     respond inline with a justification and ask the user before changing code.
@@ -90,8 +90,10 @@ if ! python3 "$LAND_SKILL_DIR/land_watch.py"; then
   exit 1
 fi
 
-# Squash-merge (remote branches auto-delete on merge in this repo)
-gh pr merge --squash --subject "$pr_title" --body "$pr_body"
+# Run the customary enabled method:
+# merge:  gh pr merge --merge
+# rebase: gh pr merge --rebase
+# squash: gh pr merge --squash --subject "$pr_title" --body "$pr_body"
 ```
 
 ## Async Watch Helper
