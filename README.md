@@ -13,6 +13,7 @@ Portable PR workflow skills for Claude Code and Codex.
 | `/x:slack-pr` | Post existing PR to Slack with Vercel preview link | `[channel]` (default: `#zerogen`) |
 | `/x:babysit` | Address review comments, fix CI, wait 10 minutes after green checks, and report merge readiness without merging | none |
 | `/x:codex-watch` | Push-notify when Codex 👍s the PR body and CI is green — you merge it yourself | none |
+| `/x:author-ao-orchestrator` | Draft and validate multi-issue Agent Orchestrator project prompts | project brief, issue range, or draft prompt |
 | Codex `babysit` | Codex-installable PR babysitter that reuses the `land` watcher | none |
 | Codex `land` | Codex-installable PR lander with the shared watcher, CI handling, and squash-merge flow | none |
 | Codex `author-ao-orchestrator` | Draft and validate multi-issue Agent Orchestrator project prompts | project brief or draft prompt |
@@ -25,6 +26,7 @@ Portable PR workflow skills for Claude Code and Codex.
 /x:pr                     # create PR
 /x:slack-pr               # share to #zerogen with Vercel preview
 /x:slack-pr frontend      # share to #frontend instead
+/x:author-ao-orchestrator <project brief, issues, or draft>
 /loop 5m /x:babysit       # keep PR ready without merging (Claude Code only)
 /loop 5m /x:codex-watch   # ping me when Codex approves; I'll merge myself
 ```
@@ -135,6 +137,7 @@ Restart Codex after installing or linking the skill.
 - `/x:babysit` replies to review comments after addressing them
 - `/x:babysit` waits 10 minutes after green checks for late feedback before reporting ready
 - `/x:babysit` never merges, enables auto-merge, or deletes the branch; it prints the merge command when ready
+- `/x:author-ao-orchestrator` is authoring-only and does not mutate live project state unless separately requested
 - Codex `babysit` is packaged as a real skill directory because Codex installers expect `SKILL.md`
 - Codex `babysit` does not rely on `/loop`; it reuses the `land` Python watcher for the monitoring wait, and uses Codex cron automation when the user asks for continuous monitoring
 - Codex `babysit` should leave `[codex]` GitHub replies after addressing or explicitly deferring feedback, but should not resolve review threads unless asked
