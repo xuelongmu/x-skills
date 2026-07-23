@@ -1,0 +1,4 @@
+interface:
+  display_name: "Author AO Orchestrator"
+  short_description: "Draft and validate AO project prompts"
+  default_prompt: "Use $author-ao-orchestrator to draft and validate an Agent Orchestrator project prompt."

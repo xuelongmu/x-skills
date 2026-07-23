@@ -13,8 +13,10 @@ Portable PR workflow skills for Claude Code and Codex.
 | `/x:slack-pr` | Post existing PR to Slack with Vercel preview link | `[channel]` (default: `#zerogen`) |
 | `/x:babysit` | Address review comments, fix CI, wait 10 minutes after green checks, and report merge readiness without merging | none |
 | `/x:codex-watch` | Push-notify when Codex 👍s the PR body and CI is green — you merge it yourself | none |
+| `/x:author-ao-orchestrator` | Draft and validate multi-issue Agent Orchestrator project prompts | project brief, issue range, or draft prompt |
 | Codex `babysit` | Codex-installable PR babysitter that reuses the `land` watcher | none |
 | Codex `land` | Codex-installable PR lander with the shared watcher, CI handling, and the repository's customary merge flow | none |
+| Codex `author-ao-orchestrator` | Draft and validate multi-issue Agent Orchestrator project prompts | project brief or draft prompt |
 
 ## Usage
 
@@ -24,6 +26,7 @@ Portable PR workflow skills for Claude Code and Codex.
 /x:pr                     # create PR
 /x:slack-pr               # share to #zerogen with Vercel preview
 /x:slack-pr frontend      # share to #frontend instead
+/x:author-ao-orchestrator <project brief, issues, or draft>
 /loop 5m /x:babysit       # keep PR ready without merging (Claude Code only)
 /loop 5m /x:codex-watch   # ping me when Codex approves; I'll merge myself
 ```
@@ -52,17 +55,18 @@ After linking, the `/x:*` commands are available in any Claude Code session.
 
 ### Codex
 
-Recommended: ask Codex to install the `babysit` and `land` skills from this repo:
+Recommended: ask Codex to install the skills you need from this repo:
 
-> Install the `babysit` and `land` skills from `https://github.com/xuelongmu/x-skills`. Use skill paths `.codex/skills/land` and `.codex/skills/babysit`.
+> Install the `babysit`, `land`, and `author-ao-orchestrator` skills from `https://github.com/xuelongmu/x-skills`. Use the corresponding paths under `.codex/skills/`.
 
-Codex's skill installer copies GitHub skill directories into `${CODEX_HOME:-$HOME/.codex}/skills`, so this does not require a persistent local checkout or symlinks. Install both skills together because `babysit` reuses `land/land_watch.py`.
+Codex's skill installer copies GitHub skill directories into `${CODEX_HOME:-$HOME/.codex}/skills`, so this does not require a persistent local checkout or symlinks. When installing `babysit`, install `land` with it because `babysit` reuses `land/land_watch.py`; `author-ao-orchestrator` is independent.
 
 When installing from this repo with a Codex skill installer, use these skill paths:
 
 ```
 .codex/skills/babysit
 .codex/skills/land
+.codex/skills/author-ao-orchestrator
 ```
 
 Install modes:
@@ -133,6 +137,7 @@ Restart Codex after installing or linking the skill.
 - `/x:babysit` replies to review comments after addressing them
 - `/x:babysit` waits 10 minutes after green checks for late feedback before reporting ready
 - `/x:babysit` never merges, enables auto-merge, or deletes the branch; it prints the merge command when ready
+- `/x:author-ao-orchestrator` is authoring-only and does not mutate live project state unless separately requested
 - Codex `babysit` is packaged as a real skill directory because Codex installers expect `SKILL.md`
 - Codex `babysit` does not rely on `/loop`; it reuses the `land` Python watcher for the monitoring wait, and uses Codex cron automation when the user asks for continuous monitoring
 - Codex `babysit` should leave `[codex]` GitHub replies after addressing or explicitly deferring feedback, but should not resolve review threads unless asked
