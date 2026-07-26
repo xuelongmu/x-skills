@@ -3,6 +3,8 @@
 Portable PR workflow skills for Claude Code and Codex.
 
 - Claude Code commands live in `x/` and are symlinked into `~/.claude/commands/`.
+- Claude Code skills live in `.claude/skills/` and can be copied or symlinked
+  into `~/.claude/skills/`.
 - Codex skills live in `.codex/skills/` and can be copied or installed as skill directories.
 
 ## Skills
@@ -14,9 +16,11 @@ Portable PR workflow skills for Claude Code and Codex.
 | `/x:babysit` | Address review comments, fix CI, wait 10 minutes after green checks, and report merge readiness without merging | none |
 | `/x:codex-watch` | Push-notify when Codex 👍s the PR body and CI is green — you merge it yourself | none |
 | `/x:author-ao-orchestrator` | Draft and validate multi-issue Agent Orchestrator project prompts | project brief, issue range, or draft prompt |
+| Claude `browser-evidence` | Verify browser flows and capture trustworthy UI evidence | flow or claim to verify |
 | Codex `babysit` | Codex-installable PR babysitter that reuses the `land` watcher | none |
 | Codex `land` | Codex-installable PR lander with the shared watcher, CI handling, and the repository's customary merge flow | none |
 | Codex `author-ao-orchestrator` | Draft and validate multi-issue Agent Orchestrator project prompts | project brief or draft prompt |
+| Codex `browser-evidence` | Verify browser flows and capture trustworthy UI evidence | flow or claim to verify |
 
 ## Usage
 
@@ -30,6 +34,9 @@ Portable PR workflow skills for Claude Code and Codex.
 /loop 5m /x:babysit       # keep PR ready without merging (Claude Code only)
 /loop 5m /x:codex-watch   # ping me when Codex approves; I'll merge myself
 ```
+
+Use the `browser-evidence` skill when you want Claude Code to drive a running
+app, verify a flow, and capture screenshots or other browser-visible evidence.
 
 ### Codex
 
@@ -53,11 +60,30 @@ ln -s /path/to/x-skills/x ~/.claude/commands/x
 
 After linking, the `/x:*` commands are available in any Claude Code session.
 
+Install the browser evidence skill separately:
+
+**Windows** (admin PowerShell):
+```powershell
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.claude\skills"
+New-Item -ItemType SymbolicLink `
+  -Path "$env:USERPROFILE\.claude\skills\browser-evidence" `
+  -Target "C:\path\to\x-skills\.claude\skills\browser-evidence"
+```
+
+**macOS / Linux**:
+```bash
+mkdir -p ~/.claude/skills
+ln -s /path/to/x-skills/.claude/skills/browser-evidence \
+  ~/.claude/skills/browser-evidence
+```
+
 ### Codex
 
 Recommended: ask Codex to install the skills you need from this repo:
 
-> Install the `babysit`, `land`, and `author-ao-orchestrator` skills from `https://github.com/xuelongmu/x-skills`. Use the corresponding paths under `.codex/skills/`.
+> Install the `babysit`, `land`, `author-ao-orchestrator`, and `browser-evidence`
+> skills from `https://github.com/xuelongmu/x-skills`. Use the corresponding
+> paths under `.codex/skills/`.
 
 Codex's skill installer copies GitHub skill directories into `${CODEX_HOME:-$HOME/.codex}/skills`, so this does not require a persistent local checkout or symlinks. When installing `babysit`, install `land` with it because `babysit` reuses `land/land_watch.py`; `author-ao-orchestrator` is independent.
 
@@ -67,6 +93,7 @@ When installing from this repo with a Codex skill installer, use these skill pat
 .codex/skills/babysit
 .codex/skills/land
 .codex/skills/author-ao-orchestrator
+.codex/skills/browser-evidence
 ```
 
 Install modes:
