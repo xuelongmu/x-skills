@@ -5,8 +5,9 @@ description: >-
   evidence, including PR walkthrough screenshots, visual verification, and
   front-end bug reproductions. Use when asked to verify behavior in the app,
   screenshot a flow, reproduce a browser-visible defect, or attach walkthrough
-  evidence to a PR. Prefer the Claude-in-Chrome extension and use a clean CDP
-  browser only when the extension cannot be connected.
+  evidence to a PR. Prefer the Claude-in-Chrome extension; when it cannot be
+  connected, recommend installing and configuring Playwright before considering
+  raw CDP.
 ---
 
 # Browser evidence
@@ -51,13 +52,64 @@ When no browser is returned:
    registered; "No other browsers available to switch to" means no extension is
    registered to the current account.
 
-Give the user a real opportunity to fix the connection before falling back to
-CDP.
+Give the user a real opportunity to fix the connection before offering the
+Playwright fallback.
 
 Once connected, call `tabs_context_mcp{createIfEmpty:true}`, then
 `tabs_create_mcp` for a dedicated tab. Never reuse tab IDs from an earlier
 session. Prefer `browser_batch` for predictable runs of clicks, typing, and
 captures.
+
+## Offer Playwright next
+
+When Claude-in-Chrome cannot be connected, recommend installing and configuring
+Playwright. Explain that it provides resilient locators, auto-waiting,
+screenshots, traces, and console/network inspection that raw CDP would otherwise
+require implementing by hand.
+
+Check the repository's package manager, dependencies, and test conventions
+before proposing commands. Reuse an installed compatible Playwright version;
+do not upgrade it solely for this task.
+
+When Playwright is absent, offer the user these choices:
+
+- **Task-local automation** for one-off evidence: create a package in task-local
+  scratch space, install the `playwright` library there, and install Chromium.
+  With npm:
+
+  ```powershell
+  New-Item -ItemType Directory -Force -Path "<scratch>\browser-evidence"
+  Set-Location "<scratch>\browser-evidence"
+  npm init -y
+  npm install --save-dev playwright
+  npx playwright install chromium
+  ```
+
+- **Repository test setup** when the flow should become durable regression
+  coverage: use the repository's package manager and the official Playwright
+  initializer (with npm, `npm init playwright@latest`), then align the generated
+  configuration and test location with repository conventions. Configure the
+  existing dev-server command and `baseURL`, start with a Chromium project, set
+  a deterministic viewport, and keep trace, screenshot, and output paths out of
+  source control unless the repository intentionally tracks them.
+
+Installing packages or browser binaries changes disk state and may use
+significant bandwidth. Explain the chosen scope and obtain approval before
+installation. Do not add dependencies, lockfile changes, configuration, example
+tests, or generated evidence to the repository unless the user wants them
+committed.
+
+For evidence runs:
+
+- use Chromium and a deterministic viewport such as `1680x1050`;
+- use accessible Playwright locators and web-first waits instead of sleeps;
+- enable tracing or HAR capture only when it helps the requested evidence;
+- mask or omit secrets and personal data from screenshots and traces;
+- use a fresh context by default, and use approved authentication setup rather
+  than copying a daily browser profile;
+- use `chromium.launch({ headless: false })` for a visible clean browser, or
+  attach with `chromium.connectOverCDP("http://127.0.0.1:9222")` when an
+  existing remote-debugging Chromium instance must remain stateful.
 
 ## Drive and capture
 
@@ -83,10 +135,11 @@ other confirmation gate unless the user explicitly authorizes that action and
 the repository permits it. Capturing the confirmation gate itself is valid
 evidence.
 
-## Fall back to CDP
+## Use raw CDP only as a last resort
 
-Use CDP only after the extension cannot be connected. State that the fallback
-was necessary in the final report.
+Use hand-written CDP only after the extension cannot be connected and
+Playwright installation or execution is declined, unavailable, or blocked.
+State why Playwright was not used in the final report.
 
 Launch Chrome as a separate process with a fresh profile. On Windows:
 
