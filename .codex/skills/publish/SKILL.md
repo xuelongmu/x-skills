@@ -41,7 +41,7 @@ Use local `git` for branch creation, staging, commits, and pushes. Prefer the co
    - For forks, cross-repository heads, or ambiguous connector targeting, use the CLI fallback:
 
      ```sh
-     gh pr create --fill --head "$(git branch --show-current)"
+     gh pr create --fill --base "<base-branch>" --head "$(git branch --show-current)"
      ```
 
    - Do not pass `--draft`.
