@@ -204,6 +204,12 @@ clean up the throwaway profile only after Chrome has exited.
 On macOS or Linux:
 
 ```bash
+if [ "$(id -u)" -eq 0 ]; then
+  echo "Run Chrome as an unprivileged user, not root." >&2
+  echo "In a trusted isolated container only, --no-sandbox requires explicit approval and disables Chromium's sandbox." >&2
+  exit 1
+fi
+
 scratch="<task-local scratch directory>"
 profile="$(mktemp -d "$scratch/chrome-profile-XXXXXXXX")"
 chrome_bin=""
@@ -224,14 +230,28 @@ done
   --force-device-scale-factor=1 &
 chrome_pid=$!
 
+stop_failed_chrome() {
+  kill "$chrome_pid" 2>/dev/null || true
+  wait "$chrome_pid" 2>/dev/null || true
+}
+
 active_port_file="$profile/DevToolsActivePort"
-for _ in $(seq 1 150); do
+attempt=0
+while [ "$attempt" -lt 150 ]; do
   [ -s "$active_port_file" ] && break
-  kill -0 "$chrome_pid" 2>/dev/null ||
-    { echo "Chrome exited before CDP became ready" >&2; exit 1; }
+  if ! kill -0 "$chrome_pid" 2>/dev/null; then
+    wait "$chrome_pid" 2>/dev/null || true
+    echo "Chrome exited before CDP became ready" >&2
+    exit 1
+  fi
+  attempt=$((attempt + 1))
   sleep 0.1
 done
-[ -s "$active_port_file" ] || { echo "Timed out waiting for Chrome CDP" >&2; exit 1; }
+if [ ! -s "$active_port_file" ]; then
+  echo "Timed out waiting for Chrome CDP" >&2
+  stop_failed_chrome
+  exit 1
+fi
 
 cdp_port="$(sed -n 1p "$active_port_file")"
 browser_path="$(sed -n 2p "$active_port_file")"
@@ -244,12 +264,18 @@ ws_url="$(curl -fsS "$cdp_endpoint/json/version" | node -e '
 case "$ws_url" in
   "ws://127.0.0.1:$cdp_port$browser_path") ;;
   *) echo "CDP endpoint does not belong to the launched Chrome profile" >&2
+     stop_failed_chrome
      exit 1 ;;
 esac
 ```
 
 On a display-less Linux host, add `--headless=new` to the Chrome arguments;
 `Page.captureScreenshot` works the same headlessly.
+
+Run Chrome as an unprivileged user. Only in a trusted, isolated container and
+after explicit user approval may you append `--no-sandbox`; doing so disables a
+critical Chromium security boundary. Never use it on a shared host or for
+untrusted content.
 
 Node 22+ provides `WebSocket`. Use the verified CDP endpoint, fetch its
 `/json` target list, connect to the page target's
