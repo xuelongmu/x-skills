@@ -1,6 +1,6 @@
 ---
 name: babysit
-description: Keep a pull request healthy without merging: address review feedback, fix CI, sync the base branch by merge, and wait 10 minutes after green checks for late feedback. Designed for /loop 5m /x:babysit.
+description: Keep a pull request healthy without merging: address review feedback, fix CI, sync the base branch by merge, wait 10 minutes after green checks for late feedback, and push a notification once Codex signs off (👍 on the PR body) with CI green. Designed for /loop 5m /x:babysit.
 allowed-tools:
   - Bash
   - Read
@@ -9,6 +9,7 @@ allowed-tools:
   - Grep
   - Glob
   - Agent
+  - PushNotification
 ---
 
 # Babysit: Keep PRs Ready Without Merging
@@ -32,12 +33,12 @@ Read `.git/babysit-state.json` if it exists. It has the shape:
 { "last_signature": "<hash>", "idle_count": <n> }
 ```
 
-Compute a signature of the PR's feedback surface: `updatedAt`, `reviewDecision`, latest comment/review IDs, and `statusCheckRollup` state. If the signature matches `last_signature`, increment `idle_count`; otherwise reset to 0.
+Compute a signature of the PR's feedback surface: `updatedAt`, `reviewDecision`, latest comment/review IDs, `statusCheckRollup` state, and the Codex 👍 count from step 5b (so a fresh sign-off resets the idle counter). If the signature matches `last_signature`, increment `idle_count`; otherwise reset to 0.
 
 **If `idle_count` reaches 3** (i.e., three consecutive runs with no new feedback), stop the loop and exit:
 - This skill is designed for `/loop 10m /x:babysit`, which registers a cron under the hood. List crons with `CronList` and call `CronDelete` on the matching babysit entry.
 - Delete `.git/babysit-state.json`.
-- Report: `Stopping babysit — 3 cycles with no new feedback on PR #<n>. Cron deleted.`
+- Report: `Stopping babysit — 3 cycles with no new feedback on PR #<n>. Cron deleted.` If Codex has not yet signed off (step 5b), say so in the stop report so the user knows the ping never fired.
 
 Otherwise, write the updated state back to `.git/babysit-state.json` and continue.
 
@@ -107,6 +108,35 @@ After all required checks pass, wait 10 minutes before declaring the PR ready. D
 
 No Codex review is required to arrive. Absence of new feedback for the full 10 minutes after green checks is acceptable.
 
+## Step 5b: Ping when Codex signs off
+
+When Codex finishes a review with no further comments, `chatgpt-codex-connector[bot]` adds a `+1` (👍) reaction to the PR **body**. GitHub emits no webhook for reactions, so check it each cycle:
+
+```bash
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+N=$(gh pr view --json number -q .number)
+HEAD=$(gh pr view --json headRefOid -q .headRefOid)
+APPROVED=$(gh api "repos/$REPO/issues/$N/reactions" \
+  -q '[.[]|select(.user.login=="chatgpt-codex-connector[bot]" and .content=="+1")]|length')
+NOTOK=$(gh pr checks "$N" --json bucket \
+  -q '[.[]|select(.bucket=="fail" or .bucket=="pending" or .bucket=="cancel")]|length' 2>/dev/null || echo 1)
+ALREADY=$(gh pr view --json labels -q "[.labels[].name|select(.==\"codex-ok:$HEAD\")]|length")
+```
+
+**If `APPROVED ≥ 1` AND `NOTOK == 0` AND `ALREADY == 0`** → it just became ready:
+
+1. Send a push with the **PushNotification** tool — title `PR #<N> approved by Codex`, body `CI green + Codex 👍 — ready to merge: <URL>`.
+2. Mark this head so later cycles stay quiet, clearing any stale sentinel first (a new commit re-arms automatically, since its sha won't match the old label):
+   ```bash
+   for L in $(gh pr view --json labels -q '.labels[].name|select(startswith("codex-ok:"))'); do
+     gh pr edit "$N" --remove-label "$L" 2>/dev/null || true
+   done
+   gh label create "codex-ok:$HEAD" -c 2DA44E -f 2>/dev/null || true
+   gh pr edit "$N" --add-label "codex-ok:$HEAD"
+   ```
+
+If already pinged for this head (`ALREADY ≥ 1`), stay quiet. One ping per ready-commit — the label sentinel guarantees it even though `/loop` restarts the session each cycle.
+
 ## Step 6: Assess merge readiness
 
 The PR is ready to merge when ALL of these are true:
@@ -131,6 +161,7 @@ Be concise. Use this structure:
 ```
 PR #<number>: <title>
 Status: <what happened this cycle>
+Codex: <signed off + pinged / signed off (already pinged) / not yet>
 Blocking: <what remains, if anything>
 Ready: <yes/no>
 ```
