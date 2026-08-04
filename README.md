@@ -11,7 +11,7 @@ Portable PR workflow skills for Claude Code and Codex.
 
 | Skill | Purpose | Args |
 |---|---|---|
-| `/x:pr` | Create a GitHub PR with auto-generated title, summary, and test plan | none |
+| `/x:publish` | Commit intended changes, validate, push, and open a PR ready for review | none |
 | `/x:slack-pr` | Post existing PR to Slack with Vercel preview link | `[channel]` (default: `#zerogen`) |
 | `/x:babysit` | Address review comments, fix CI, wait 10 minutes after green checks, and report merge readiness without merging | none |
 | `/x:codex-watch` | Push-notify when Codex 👍s the PR body and CI is green — you merge it yourself | none |
@@ -19,6 +19,7 @@ Portable PR workflow skills for Claude Code and Codex.
 | Claude `browser-evidence` | Verify browser flows and capture trustworthy UI evidence | flow or claim to verify |
 | Codex `babysit` | Codex-installable PR babysitter that reuses the `land` watcher | none |
 | Codex `land` | Codex-installable PR lander with the shared watcher, CI handling, and the repository's customary merge flow | none |
+| Codex `publish` | Commit, validate, push, and open a ready-for-review PR | none |
 | Codex `author-ao-orchestrator` | Draft and validate multi-issue Agent Orchestrator project prompts | project brief or draft prompt |
 | Codex `browser-evidence` | Verify browser flows and capture trustworthy UI evidence | flow or claim to verify |
 
@@ -27,7 +28,7 @@ Portable PR workflow skills for Claude Code and Codex.
 ### Claude Code
 
 ```
-/x:pr                     # create PR
+/x:publish                # commit, push, and open a ready PR
 /x:slack-pr               # share to #zerogen with Vercel preview
 /x:slack-pr frontend      # share to #frontend instead
 /x:author-ao-orchestrator <project brief, issues, or draft>
@@ -40,7 +41,7 @@ app, verify a flow, and capture screenshots or other browser-visible evidence.
 
 ### Codex
 
-Use the `babysit` skill directly when you want Codex to keep the current PR ready without merging. Use the `land` skill when you want Codex to keep the PR healthy and merge it once checks and feedback gates pass. Codex does not support Claude Code `/loop` semantics; a single babysit run uses the shared watcher for checks, feedback, PR head changes, and the 10-minute post-green wait. For continuous babysitting across turns, ask Codex to create or update a cron automation for the PR.
+Use `publish` to commit, push, and open a PR ready for review. Use `babysit` for a single merge-readiness pass without merging, or ask Codex to keep babysitting when you want continuous monitoring. Use `land` when you want Codex to keep the PR healthy and merge it once checks and feedback gates pass. Codex does not support Claude Code `/loop` semantics; a single babysit run uses the shared watcher for checks, feedback, PR head changes, and the 10-minute post-green wait. For continuous babysitting across turns, ask Codex to create or update a cron automation for the PR.
 
 ## Setup
 
@@ -81,7 +82,7 @@ ln -s /path/to/x-skills/.claude/skills/browser-evidence \
 
 Recommended: ask Codex to install the skills you need from this repo:
 
-> Install the `babysit`, `land`, `author-ao-orchestrator`, and `browser-evidence`
+> Install the `publish`, `babysit`, `land`, `author-ao-orchestrator`, and `browser-evidence`
 > skills from `https://github.com/xuelongmu/x-skills`. Use the corresponding
 > paths under `.codex/skills/`.
 
@@ -92,6 +93,7 @@ When installing from this repo with a Codex skill installer, use these skill pat
 ```
 .codex/skills/babysit
 .codex/skills/land
+.codex/skills/publish
 .codex/skills/author-ao-orchestrator
 .codex/skills/browser-evidence
 ```
@@ -159,7 +161,8 @@ Restart Codex after installing or linking the skill.
 
 ## Design decisions
 
-- `/x:pr` and `/x:slack-pr` are separate so each can be used independently
+- `/x:publish` and `/x:slack-pr` are separate so each can be used independently
+- `/x:publish` performs the full commit-to-PR flow and opens ready for review unless a draft is explicitly requested
 - `/x:babysit` uses `git merge` (not rebase) to avoid force pushes
 - `/x:babysit` replies to review comments after addressing them
 - `/x:babysit` waits 10 minutes after green checks for late feedback before reporting ready

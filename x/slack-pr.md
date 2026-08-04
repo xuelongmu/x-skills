@@ -21,7 +21,7 @@ Post the current branch's open PR to a Slack channel with a Vercel preview link.
 gh pr view --json number,title,url,body
 ```
 
-If no PR exists on the current branch, stop and tell the user to run `/pr` first.
+If no PR exists on the current branch, stop and tell the user to run `/x:publish` first.
 
 ## Step 2: Wait for Vercel preview
 
