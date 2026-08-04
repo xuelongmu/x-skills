@@ -170,6 +170,7 @@ Launch Chrome as a separate process with a fresh profile. On Windows:
 $scratch = "<task-local scratch directory>"
 $profileName = "chrome-profile-{0}" -f [guid]::NewGuid().ToString("N")
 $profile = Join-Path $scratch $profileName
+$connectionFile = Join-Path $scratch "$profileName-connection.json"
 New-Item -ItemType Directory -Force -Path $profile | Out-Null
 $quotedProfile = '"' + $profile + '"'
 $chromeArgs = @(
@@ -224,7 +225,17 @@ try {
       $browserSocket.AbsolutePath -ne $browserPath) {
     throw "CDP endpoint does not belong to the launched Chrome profile"
   }
+
+  $connection = [ordered]@{
+    cdpEndpoint = $cdpEndpoint
+    chromePid = $chrome.Id
+    profile = $profile
+  }
+  $connection | ConvertTo-Json | Set-Content -LiteralPath $connectionFile
+  Write-Output "Connection manifest: $connectionFile"
+  $connection | ConvertTo-Json | Write-Output
 } catch {
+  Remove-Item -LiteralPath $connectionFile -Force -ErrorAction SilentlyContinue
   Stop-FailedChrome
   throw
 }
@@ -232,12 +243,30 @@ try {
 
 The literal quotes in `$quotedProfile` are required because `Start-Process`
 joins `-ArgumentList` entries into one command line. Do not name the variable
-`$args`; PowerShell reserves it. Keep the browser running for the full flow and
-clean up the throwaway profile only after Chrome has exited.
+`$args`; PowerShell reserves it. Later scripts can read the printed connection
+manifest to reconnect and clean up. Keep the browser running for the full flow;
+after Chrome exits, remove both the throwaway profile and the manifest.
 
 On macOS or Linux:
 
 ```bash
+command -v node >/dev/null 2>&1 || {
+  echo "Node 22 or newer is required for raw CDP automation" >&2
+  exit 1
+}
+node_major="$(node -p 'Number(process.versions.node.split(".")[0])')" || exit 1
+case "$node_major" in
+  ''|*[!0-9]*) echo "Could not determine the Node version" >&2; exit 1 ;;
+esac
+[ "$node_major" -ge 22 ] || {
+  echo "Node 22 or newer is required for raw CDP automation" >&2
+  exit 1
+}
+command -v curl >/dev/null 2>&1 || {
+  echo "curl is required for raw CDP endpoint verification" >&2
+  exit 1
+}
+
 chrome_extra_arg=""
 if [ "$(id -u)" -eq 0 ]; then
   if [ "${BROWSER_EVIDENCE_ALLOW_NO_SANDBOX:-}" != "1" ]; then
@@ -248,8 +277,6 @@ if [ "$(id -u)" -eq 0 ]; then
   chrome_extra_arg="--no-sandbox"
 fi
 
-scratch="<task-local scratch directory>"
-profile="$(mktemp -d "$scratch/chrome-profile-XXXXXXXX")"
 chrome_bin=""
 for candidate in \
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
@@ -257,6 +284,18 @@ for candidate in \
   if command -v "$candidate" >/dev/null 2>&1; then chrome_bin="$candidate"; break; fi
 done
 [ -n "$chrome_bin" ] || { echo "No Chrome or Chromium binary found" >&2; exit 1; }
+
+scratch="<task-local scratch directory>"
+umask 077
+mkdir -p "$scratch" || { echo "Could not create scratch directory" >&2; exit 1; }
+[ -d "$scratch" ] && [ -w "$scratch" ] || {
+  echo "Scratch directory is unavailable or not writable" >&2
+  exit 1
+}
+profile="$(mktemp -d "$scratch/chrome-profile-XXXXXXXX")" || {
+  echo "Could not create the throwaway Chrome profile" >&2
+  exit 1
+}
 
 set -- \
   --remote-debugging-port=0 \
@@ -307,6 +346,24 @@ case "$ws_url" in
      stop_failed_chrome
      exit 1 ;;
 esac
+
+connection_file="$(mktemp "$scratch/browser-evidence-connection-XXXXXXXX")" || {
+  echo "Could not create the connection manifest" >&2
+  stop_failed_chrome
+  exit 1
+}
+if ! {
+  printf 'CDP_ENDPOINT=%s\n' "$cdp_endpoint"
+  printf 'CHROME_PID=%s\n' "$chrome_pid"
+  printf 'PROFILE=%s\n' "$profile"
+} > "$connection_file"; then
+  echo "Could not write the connection manifest" >&2
+  rm -f "$connection_file"
+  stop_failed_chrome
+  exit 1
+fi
+printf 'Connection manifest: %s\n' "$connection_file"
+cat "$connection_file"
 ```
 
 On a display-less Linux host, add `--headless=new` to the Chrome arguments;
@@ -317,6 +374,10 @@ after explicit user approval may you set
 `BROWSER_EVIDENCE_ALLOW_NO_SANDBOX=1`; the sample then appends `--no-sandbox`.
 Doing so disables a critical Chromium security boundary. Never use it on a
 shared host or for untrusted content.
+
+Later scripts can read the printed connection manifest to reconnect and clean
+up. Keep Chrome running for the full flow; after it exits, remove both the
+throwaway profile and the manifest.
 
 Node 22+ provides `WebSocket`. Use the verified CDP endpoint, fetch its
 `/json` target list, connect to the page target's
