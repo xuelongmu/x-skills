@@ -26,6 +26,8 @@ gh pr view --json number,title,state,mergeable,mergeStateStatus,reviewDecision,s
 
 If no PR exists on the current branch, say so and stop.
 
+If the PR's `state` is `MERGED` or `CLOSED` (note `gh pr view` still resolves closed/merged PRs for the branch), babysitting is over — stop the loop for good: delete the matching babysit cron (`CronList` / `CronDelete`), delete `.git/babysit-state.json`, and report `Stopping babysit — PR #<n> is <state>.` This terminal-state stop overrides every keep-alive exception below, including a pending sign-off ping.
+
 ## Step 1b: Check for feedback since last run
 
 Read `.git/babysit-state.json` if it exists. It has the shape:
