@@ -216,10 +216,14 @@ clean up the throwaway profile only after Chrome has exited.
 On macOS or Linux:
 
 ```bash
+chrome_extra_arg=""
 if [ "$(id -u)" -eq 0 ]; then
-  echo "Run Chrome as an unprivileged user, not root." >&2
-  echo "In a trusted isolated container only, --no-sandbox requires explicit approval and disables Chromium's sandbox." >&2
-  exit 1
+  if [ "${BROWSER_EVIDENCE_ALLOW_NO_SANDBOX:-}" != "1" ]; then
+    echo "Run Chrome as an unprivileged user, not root." >&2
+    echo "For an explicitly approved trusted isolated container, set BROWSER_EVIDENCE_ALLOW_NO_SANDBOX=1." >&2
+    exit 1
+  fi
+  chrome_extra_arg="--no-sandbox"
 fi
 
 scratch="<task-local scratch directory>"
@@ -232,14 +236,16 @@ for candidate in \
 done
 [ -n "$chrome_bin" ] || { echo "No Chrome or Chromium binary found" >&2; exit 1; }
 
-"$chrome_bin" \
+set -- \
   --remote-debugging-port=0 \
   --remote-debugging-address=127.0.0.1 \
   --user-data-dir="$profile" \
   --no-first-run \
   --no-default-browser-check \
   --window-size=1680,1050 \
-  --force-device-scale-factor=1 &
+  --force-device-scale-factor=1
+if [ -n "$chrome_extra_arg" ]; then set -- "$@" "$chrome_extra_arg"; fi
+"$chrome_bin" "$@" &
 chrome_pid=$!
 
 stop_failed_chrome() {
@@ -285,9 +291,10 @@ On a display-less Linux host, add `--headless=new` to the Chrome arguments;
 `Page.captureScreenshot` works the same headlessly.
 
 Run Chrome as an unprivileged user. Only in a trusted, isolated container and
-after explicit user approval may you append `--no-sandbox`; doing so disables a
-critical Chromium security boundary. Never use it on a shared host or for
-untrusted content.
+after explicit user approval may you set
+`BROWSER_EVIDENCE_ALLOW_NO_SANDBOX=1`; the sample then appends `--no-sandbox`.
+Doing so disables a critical Chromium security boundary. Never use it on a
+shared host or for untrusted content.
 
 Node 22+ provides `WebSocket`. Use the verified CDP endpoint, fetch its
 `/json` target list, connect to the page target's
