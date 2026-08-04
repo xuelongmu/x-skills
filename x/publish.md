@@ -46,7 +46,7 @@ gh repo view "<host>/<base-owner>/<base-repository>" --json defaultBranchRef -q 
 ```
 
 - If the current branch name is empty because `HEAD` is detached, create a focused named branch before staging or committing.
-- If currently on the default branch, create a focused branch using the repository's naming convention.
+- If the current branch is the selected base branch, create a focused branch using the repository's naming convention.
 - Otherwise remain on the current branch unless the user requested a new one.
 - Before staging, committing, or pushing, check whether the selected head branch already has an open PR in the target repository. If one exists, report it and require explicit confirmation that updating it is intended; otherwise stop without mutating it.
 - Refresh a local `<base-ref>` from the target base repository and branch; do not assume the push remote owns the base in fork workflows.
@@ -68,8 +68,8 @@ gh repo view "<host>/<base-owner>/<base-repository>" --json defaultBranchRef -q 
    git diff --cached
    ```
 
-3. Create a terse commit summarizing the complete staged change.
-4. Do not create an empty commit.
+3. If the index contains staged changes, create a terse commit summarizing them.
+4. If the index is empty but the confirmed branch range contains unpublished commits, continue without creating an empty commit. Stop only when neither staged changes nor branch commits are available to publish.
 
 ## Step 4: Validate
 

@@ -29,7 +29,7 @@ Use local `git` for branch creation, staging, commits, and pushes. Prefer the co
    - Preserve the selected hostname in every `gh` repository selector and pass `--hostname <host>` to `gh api`; do not fall back implicitly to `github.com`.
 2. Determine the branch strategy.
    - If `git branch --show-current` is empty, create a focused named branch before staging or committing.
-   - If on the default branch, create a focused branch using the environment's branch-naming convention.
+   - If the current branch is the selected base branch, create a focused branch using the environment's branch-naming convention.
    - Otherwise remain on the current branch unless the user requests a new one.
    - Before staging, committing, or pushing, check whether the selected head branch already has an open PR in the target repository. If one exists, report it and require explicit confirmation that updating that PR is intended; otherwise stop without mutating it.
    - Refresh a local ref for the target base repository and branch.
