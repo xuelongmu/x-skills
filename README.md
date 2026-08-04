@@ -10,12 +10,16 @@ Portable PR workflow skills for Claude Code and Codex.
 | Skill | Purpose | Args |
 |---|---|---|
 | `/x:pr` | Create a GitHub PR with auto-generated title, summary, and test plan | none |
+| `/x:publish` | Commit intended changes, validate, push, and open a PR ready for review | none |
 | `/x:slack-pr` | Post existing PR to Slack with Vercel preview link | `[channel]` (default: `#zerogen`) |
+| `/x:prepare-to-land` | Address feedback, conflicts, and CI, then stop when the PR is merge-ready | none |
 | `/x:babysit` | Address review comments, fix CI, wait 10 minutes after green checks, and report merge readiness without merging | none |
 | `/x:codex-watch` | Push-notify when Codex 👍s the PR body and CI is green — you merge it yourself | none |
 | `/x:author-ao-orchestrator` | Draft and validate multi-issue Agent Orchestrator project prompts | project brief, issue range, or draft prompt |
 | Codex `babysit` | Codex-installable PR babysitter that reuses the `land` watcher | none |
 | Codex `land` | Codex-installable PR lander with the shared watcher, CI handling, and the repository's customary merge flow | none |
+| Codex `prepare-to-land` | Address feedback, conflicts, and CI without merging | none |
+| Codex `publish` | Commit, validate, push, and open a ready-for-review PR | none |
 | Codex `author-ao-orchestrator` | Draft and validate multi-issue Agent Orchestrator project prompts | project brief or draft prompt |
 
 ## Usage
@@ -24,8 +28,10 @@ Portable PR workflow skills for Claude Code and Codex.
 
 ```
 /x:pr                     # create PR
+/x:publish                # commit, push, and open a ready PR
 /x:slack-pr               # share to #zerogen with Vercel preview
 /x:slack-pr frontend      # share to #frontend instead
+/x:prepare-to-land        # make the PR merge-ready without merging
 /x:author-ao-orchestrator <project brief, issues, or draft>
 /loop 5m /x:babysit       # keep PR ready without merging (Claude Code only)
 /loop 5m /x:codex-watch   # ping me when Codex approves; I'll merge myself
@@ -33,7 +39,7 @@ Portable PR workflow skills for Claude Code and Codex.
 
 ### Codex
 
-Use the `babysit` skill directly when you want Codex to keep the current PR ready without merging. Use the `land` skill when you want Codex to keep the PR healthy and merge it once checks and feedback gates pass. Codex does not support Claude Code `/loop` semantics; a single babysit run uses the shared watcher for checks, feedback, PR head changes, and the 10-minute post-green wait. For continuous babysitting across turns, ask Codex to create or update a cron automation for the PR.
+Use `publish` to commit, push, and open a PR ready for review. Use `prepare-to-land` for a focused merge-readiness pass without merging, or `babysit` to keep the current PR ready over time. Use `land` when you want Codex to keep the PR healthy and merge it once checks and feedback gates pass. Codex does not support Claude Code `/loop` semantics; a single babysit run uses the shared watcher for checks, feedback, PR head changes, and the 10-minute post-green wait. For continuous babysitting across turns, ask Codex to create or update a cron automation for the PR.
 
 ## Setup
 
@@ -57,7 +63,7 @@ After linking, the `/x:*` commands are available in any Claude Code session.
 
 Recommended: ask Codex to install the skills you need from this repo:
 
-> Install the `babysit`, `land`, and `author-ao-orchestrator` skills from `https://github.com/xuelongmu/x-skills`. Use the corresponding paths under `.codex/skills/`.
+> Install the `publish`, `prepare-to-land`, `babysit`, `land`, and `author-ao-orchestrator` skills from `https://github.com/xuelongmu/x-skills`. Use the corresponding paths under `.codex/skills/`.
 
 Codex's skill installer copies GitHub skill directories into `${CODEX_HOME:-$HOME/.codex}/skills`, so this does not require a persistent local checkout or symlinks. When installing `babysit`, install `land` with it because `babysit` reuses `land/land_watch.py`; `author-ao-orchestrator` is independent.
 
@@ -66,6 +72,8 @@ When installing from this repo with a Codex skill installer, use these skill pat
 ```
 .codex/skills/babysit
 .codex/skills/land
+.codex/skills/prepare-to-land
+.codex/skills/publish
 .codex/skills/author-ao-orchestrator
 ```
 
@@ -133,6 +141,8 @@ Restart Codex after installing or linking the skill.
 ## Design decisions
 
 - `/x:pr` and `/x:slack-pr` are separate so each can be used independently
+- `/x:publish` performs the full commit-to-PR flow and opens ready for review unless a draft is explicitly requested
+- `/x:prepare-to-land` is a focused readiness pass; `/x:babysit` adds recurring monitoring semantics
 - `/x:babysit` uses `git merge` (not rebase) to avoid force pushes
 - `/x:babysit` replies to review comments after addressing them
 - `/x:babysit` waits 10 minutes after green checks for late feedback before reporting ready
