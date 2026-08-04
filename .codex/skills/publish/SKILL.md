@@ -24,6 +24,7 @@ Use local `git` for branch creation, staging, commits, and pushes. Prefer the co
    - Inspect `git status -sb` and the complete diff before staging.
    - If unrelated changes exist, ask which files belong in the PR.
 2. Determine the branch strategy.
+   - If `git branch --show-current` is empty, create a focused named branch before staging or committing.
    - If on the default branch, create a focused branch using the environment's branch-naming convention.
    - Otherwise remain on the current branch unless the user requests a new one.
 3. Stage only the intended files.

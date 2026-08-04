@@ -36,6 +36,7 @@ git branch --show-current
 gh repo view --json defaultBranchRef -q .defaultBranchRef.name
 ```
 
+- If the current branch name is empty because `HEAD` is detached, create a focused named branch before staging or committing.
 - If currently on the default branch, create a focused branch using the repository's naming convention.
 - Otherwise remain on the current branch unless the user requested a new one.
 
