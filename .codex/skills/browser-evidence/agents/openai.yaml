@@ -1,0 +1,4 @@
+interface:
+  display_name: "Browser Evidence"
+  short_description: "Capture trustworthy UI verification evidence"
+  default_prompt: "Use $browser-evidence to verify this browser flow and capture concise visual evidence."
