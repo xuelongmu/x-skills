@@ -86,8 +86,10 @@ When Playwright is absent, offer the user these choices:
   With npm:
 
   ```powershell
-  New-Item -ItemType Directory -Force -Path "<scratch>\browser-evidence"
-  Set-Location "<scratch>\browser-evidence"
+  New-Item -ItemType Directory -Force `
+    -Path "<scratch>\browser-evidence" `
+    -ErrorAction Stop | Out-Null
+  Set-Location "<scratch>\browser-evidence" -ErrorAction Stop
   npm init -y
   npm install --save-dev playwright
   npx playwright install chromium
@@ -97,8 +99,8 @@ When Playwright is absent, offer the user these choices:
 
   ```bash
   scratch_dir="<scratch>/browser-evidence"
-  mkdir -p "$scratch_dir"
-  cd "$scratch_dir"
+  mkdir -p "$scratch_dir" || { echo "Could not create scratch directory" >&2; exit 1; }
+  cd "$scratch_dir" || { echo "Could not enter scratch directory" >&2; exit 1; }
   npm init -y
   npm install --save-dev playwright
   npx playwright install chromium
@@ -335,7 +337,23 @@ esac
 
 stop_failed_chrome() {
   kill "$chrome_pid" 2>/dev/null || true
-  wait "$chrome_pid" 2>/dev/null || true
+  stop_attempt=0
+  while kill -0 "$chrome_pid" 2>/dev/null && [ "$stop_attempt" -lt 50 ]; do
+    stop_attempt=$((stop_attempt + 1))
+    sleep 0.1
+  done
+  if kill -0 "$chrome_pid" 2>/dev/null; then
+    kill -KILL "$chrome_pid" 2>/dev/null || true
+    stop_attempt=0
+    while kill -0 "$chrome_pid" 2>/dev/null && [ "$stop_attempt" -lt 50 ]; do
+      stop_attempt=$((stop_attempt + 1))
+      sleep 0.1
+    done
+  fi
+  if kill -0 "$chrome_pid" 2>/dev/null; then
+    echo "Chrome process $chrome_pid did not exit after SIGKILL" >&2
+    return 1
+  fi
 }
 
 active_port_file="$profile/DevToolsActivePort"
@@ -343,7 +361,6 @@ attempt=0
 while [ "$attempt" -lt 150 ]; do
   [ -s "$active_port_file" ] && break
   if ! kill -0 "$chrome_pid" 2>/dev/null; then
-    wait "$chrome_pid" 2>/dev/null || true
     echo "Chrome exited before CDP became ready" >&2
     exit 1
   fi
