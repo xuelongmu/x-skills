@@ -110,9 +110,9 @@ Write the body to a temporary file with real newlines, then select the supported
   ```
 
 - Cross-repository user-owned fork: use `<head-owner>:<head-branch>` with `gh pr create`.
-- Cross-repository organization-owned head: do not use `gh pr create --head <organization>:<branch>` because the CLI does not support organization owners there. Use `gh api --hostname "<host>"` against the pull-request creation endpoint with explicit base repository, base branch, head owner and branch, title, body, and draft state; stop if that API path is unavailable.
+- Cross-repository organization-owned head: do not use `gh pr create --head <organization>:<branch>` because the CLI does not support organization owners there. Use `gh api --hostname "<host>"` against the pull-request creation endpoint with explicit base repository, base branch, head owner, head repository, branch, title, body, and draft state. When both repositories share an organization owner, pass the REST API's `head_repo` field explicitly. Stop if that API path is unavailable.
 
-- Do not pass `--draft`; the default is ready for review.
+- Do not pass `--draft` unless the user explicitly requests a draft; the default is ready for review.
 - Create a draft only when the user explicitly requests one.
 - If the branch already has a PR, report it instead of creating a duplicate. Change its draft/readiness state only when the user requested that change.
 

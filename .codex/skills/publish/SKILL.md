@@ -53,9 +53,9 @@ Use local `git` for branch creation, staging, commits, and pushes. Prefer the co
      ```
 
    - For a cross-repository, user-owned fork, use `<head-owner>:<head-branch>` with the CLI fallback.
-   - For a cross-repository, organization-owned head, do not use `gh pr create --head <organization>:<branch>` because the CLI does not support organization owners there. Use the connected GitHub app or `gh api --hostname <host>` with explicit base repository, base branch, head repository, head branch, title, body, and draft state; stop if neither path is available.
+   - For a cross-repository, organization-owned head, do not use `gh pr create --head <organization>:<branch>` because the CLI does not support organization owners there. Use the connected GitHub app or `gh api --hostname <host>` with explicit base repository, base branch, head repository, head branch, title, body, and draft state. When both repositories share an organization owner, pass the REST API's `head_repo` field explicitly. Stop if neither path is available.
 
-   - Do not pass `--draft`.
+   - Do not pass `--draft` unless the user explicitly requests a draft.
    - Write the generated PR body through a temporary file so Markdown contains real newlines, and pass the generated title and body to every creation path.
    - Create a draft only when the user explicitly requests one; then use the connector's draft option or `gh pr create --draft`.
 8. Summarize the branch, commit, PR target and URL, readiness state, validation, and any remaining concerns.
