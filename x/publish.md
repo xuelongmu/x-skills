@@ -4,6 +4,8 @@ description: Publish intended local changes by confirming scope, committing, val
 allowed-tools:
   - Bash
   - Read
+  - Edit
+  - Write
   - Grep
   - Glob
 ---
