@@ -23,11 +23,14 @@ Use local `git` for branch creation, staging, commits, and pushes. Prefer the co
 1. Confirm the intended scope.
    - Inspect `git status -sb` and the complete diff before staging.
    - If unrelated changes exist, ask which files belong in the PR.
-   - Select and verify the GitHub remote that will receive the branch. Reuse that remote for the push and PR target; do not assume it is named `origin`.
+   - Select and verify the GitHub remote that will receive the branch. Derive the head owner and repository from it, reuse it for the push, and do not assume it is named `origin`.
+   - Derive the target base owner, repository, and branch from the user's request or repository defaults. In fork workflows, keep the head and base repositories distinct.
 2. Determine the branch strategy.
    - If `git branch --show-current` is empty, create a focused named branch before staging or committing.
    - If on the default branch, create a focused branch using the environment's branch-naming convention.
    - Otherwise remain on the current branch unless the user requests a new one.
+   - Refresh a local ref for the target base repository and branch.
+   - Before staging or pushing, inspect `git log <base-ref>..HEAD --oneline` and `git diff <base-ref>...HEAD` to confirm the complete PR scope, including existing branch commits.
 3. Stage only the intended files.
    - Prefer explicit file paths when the worktree is mixed.
    - Use `git add -A` only when the entire worktree is confirmed in scope.
@@ -38,17 +41,16 @@ Use local `git` for branch creation, staging, commits, and pushes. Prefer the co
    - Report environmental or unrelated failures accurately.
 6. Push the branch to the selected GitHub remote with upstream tracking.
 7. Open a pull request ready for review.
-   - Prefer the connected GitHub app after the branch is pushed.
+   - Prefer the connected GitHub app after the branch is pushed, and explicitly target the derived base repository, base branch, head repository, and head branch.
    - Set the PR's draft state to `false` explicitly when the connector supports that field.
-   - Derive the repository from the selected GitHub remote, the head from the current branch, and the base from the user's request or the remote default branch.
    - For forks, cross-repository heads, or ambiguous connector targeting, use the CLI fallback:
 
      ```sh
-     gh pr create --fill --base "<base-branch>" --head "$(git branch --show-current)"
+     gh pr create --repo "<base-owner>/<base-repository>" --base "<base-branch>" --head "<head-owner>:$(git branch --show-current)" --title "<title>" --body-file "<body-file>"
      ```
 
    - Do not pass `--draft`.
-   - Write a custom PR body through a temporary file so Markdown contains real newlines.
+   - Write the generated PR body through a temporary file so Markdown contains real newlines, and pass the generated title and body to every creation path.
    - Create a draft only when the user explicitly requests one; then use the connector's draft option or `gh pr create --draft`.
 8. Summarize the branch, commit, PR target and URL, readiness state, validation, and any remaining concerns.
 

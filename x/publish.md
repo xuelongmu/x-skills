@@ -25,21 +25,31 @@ git remote -v
 
 - Identify exactly which changes belong in the pull request.
 - If unrelated changes exist, ask the user which files are in scope.
-- Select and verify the GitHub remote that will receive the branch, and store its name as `<publish-remote>` for every later remote operation. Do not assume it is named `origin`.
+- Select and verify the GitHub remote that will receive the branch. Store its name as `<publish-remote>` and derive `<head-owner>/<head-repository>` from its URL. Do not assume it is named `origin`.
+- Derive `<base-owner>/<base-repository>` from the user's requested target or repository relationships. In a fork workflow, keep the head and base repositories distinct.
 - Never stage unrelated changes silently.
 
 ## Step 2: Prepare the branch
 
-Determine the default branch and current branch:
+Determine the target base branch and current branch explicitly:
 
 ```sh
 git branch --show-current
-gh repo view --json defaultBranchRef -q .defaultBranchRef.name
+gh repo view "<base-owner>/<base-repository>" --json defaultBranchRef -q .defaultBranchRef.name
 ```
 
 - If the current branch name is empty because `HEAD` is detached, create a focused named branch before staging or committing.
 - If currently on the default branch, create a focused branch using the repository's naming convention.
 - Otherwise remain on the current branch unless the user requested a new one.
+- Refresh a local `<base-ref>` from the target base repository and branch; do not assume the push remote owns the base in fork workflows.
+- Before staging or pushing, inspect the complete branch scope:
+
+  ```sh
+  git log "<base-ref>"..HEAD --oneline
+  git diff "<base-ref>"...HEAD
+  ```
+
+- If the range contains unrelated or stale commits, stop and confirm scope before publishing.
 
 ## Step 3: Commit intentionally
 
@@ -74,7 +84,7 @@ Never force-push unless the user explicitly authorizes it and the target branch 
 
 ## Step 6: Open a ready pull request
 
-Derive the base branch from the user's request or the remote default branch. Generate a concise title and a Markdown body covering:
+Use the derived target repository and base branch. Generate a concise title and a Markdown body covering:
 
 - what changed
 - why it changed
@@ -86,7 +96,7 @@ Derive the base branch from the user's request or the remote default branch. Gen
 Write the body to a temporary file with real newlines, then create the PR:
 
 ```sh
-gh pr create --base "<base>" --head "$(git branch --show-current)" --title "<title>" --body-file "<temp-file>"
+gh pr create --repo "<base-owner>/<base-repository>" --base "<base-branch>" --head "<head-owner>:$(git branch --show-current)" --title "<title>" --body-file "<temp-file>"
 ```
 
 - Do not pass `--draft`; the default is ready for review.
@@ -99,7 +109,7 @@ gh pr create --base "<base>" --head "$(git branch --show-current)" --title "<tit
 Branch: <branch>
 Commit: <sha> <subject>
 PR: #<number> <url>
-Ready for review: yes
+Ready for review: <yes/no from GitHub PR state>
 Validation: <checks and results>
 Blocking: <remaining concern or "none">
 ```
