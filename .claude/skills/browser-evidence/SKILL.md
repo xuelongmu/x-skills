@@ -173,7 +173,8 @@ $scratch = "<task-local scratch directory>"
 $profileName = "chrome-profile-{0}" -f [guid]::NewGuid().ToString("N")
 $profile = Join-Path $scratch $profileName
 $connectionFile = Join-Path $scratch "$profileName-connection.json"
-New-Item -ItemType Directory -Force -Path $profile | Out-Null
+New-Item -ItemType Directory -Force -Path $scratch -ErrorAction Stop | Out-Null
+New-Item -ItemType Directory -Force -Path $profile -ErrorAction Stop | Out-Null
 $quotedProfile = '"' + $profile + '"'
 $chromeArgs = @(
   "--remote-debugging-port=0",
@@ -198,7 +199,8 @@ $chrome = Start-Process `
   -FilePath $chromeExe `
   -ArgumentList $chromeArgs `
   -WindowStyle Normal `
-  -PassThru
+  -PassThru `
+  -ErrorAction Stop
 
 function Stop-FailedChrome {
   if (-not $chrome.HasExited) {
