@@ -71,6 +71,17 @@ When Playwright is absent, offer the user these choices:
   npx playwright install chromium
   ```
 
+  On macOS or Linux:
+
+  ```bash
+  scratch_dir="<scratch>/browser-evidence"
+  mkdir -p "$scratch_dir"
+  cd "$scratch_dir"
+  npm init -y
+  npm install --save-dev playwright
+  npx playwright install chromium
+  ```
+
 - **Repository test setup** when the flow should become durable regression
   coverage: use the repository's package manager and the official Playwright
   initializer (with npm, `npm init playwright@latest`), then align the generated
@@ -94,8 +105,8 @@ For evidence runs:
 - use a fresh context by default, and use approved authentication setup rather
   than copying a daily browser profile;
 - use `chromium.launch({ headless: false })` for a visible clean browser, or
-  attach with `chromium.connectOverCDP("http://127.0.0.1:9222")` when an
-  existing remote-debugging Chromium instance must remain stateful.
+  attach with `chromium.connectOverCDP("http://127.0.0.1:<verified-port>")`
+  when an existing remote-debugging Chromium instance must remain stateful.
 
 ## Drive and capture
 
@@ -131,9 +142,14 @@ Launch Chrome as a separate process with a fresh profile. On Windows:
 
 ```powershell
 $scratch = "<task-local scratch directory>"
+$profileName = "chrome-profile-{0}" -f [guid]::NewGuid().ToString("N")
+$profile = Join-Path $scratch $profileName
+New-Item -ItemType Directory -Force -Path $profile | Out-Null
+$quotedProfile = '"' + $profile + '"'
 $chromeArgs = @(
-  "--remote-debugging-port=9222",
-  "--user-data-dir=$scratch\chrome-profile",
+  "--remote-debugging-port=0",
+  "--remote-debugging-address=127.0.0.1",
+  "--user-data-dir=$quotedProfile",
   "--no-first-run",
   "--no-default-browser-check",
   "--window-size=1680,1050",
@@ -143,17 +159,40 @@ $chromeArgs = @(
   "--disable-background-timer-throttling",
   "--disable-features=CalculateNativeWinOcclusion"
 )
-Start-Process `
+$chrome = Start-Process `
   -FilePath "C:\Program Files\Google\Chrome\Application\chrome.exe" `
-  -ArgumentList $chromeArgs
+  -ArgumentList $chromeArgs `
+  -WindowStyle Normal `
+  -PassThru
+
+$activePortFile = Join-Path $profile "DevToolsActivePort"
+$deadline = (Get-Date).AddSeconds(15)
+while (-not (Test-Path -LiteralPath $activePortFile)) {
+  if ($chrome.HasExited) { throw "Chrome exited before CDP became ready" }
+  if ((Get-Date) -gt $deadline) { throw "Timed out waiting for Chrome CDP" }
+  Start-Sleep -Milliseconds 100
+}
+
+$activePort = @(Get-Content -LiteralPath $activePortFile)
+if ($activePort.Count -lt 2) { throw "Invalid DevToolsActivePort file" }
+$cdpPort = [int]$activePort[0]
+$browserPath = $activePort[1].Trim()
+$cdpEndpoint = "http://127.0.0.1:$cdpPort"
+$version = Invoke-RestMethod "$cdpEndpoint/json/version"
+$browserSocket = [Uri]$version.webSocketDebuggerUrl
+if ($browserSocket.Port -ne $cdpPort -or
+    $browserSocket.AbsolutePath -ne $browserPath) {
+  throw "CDP endpoint does not belong to the launched Chrome profile"
+}
 ```
 
-Do not name the variable `$args`; PowerShell reserves it. Keep the browser
-running for the full flow and clean up the throwaway profile only after Chrome
-has exited.
+The literal quotes in `$quotedProfile` are required because `Start-Process`
+joins `-ArgumentList` entries into one command line. Do not name the variable
+`$args`; PowerShell reserves it. Keep the browser running for the full flow and
+clean up the throwaway profile only after Chrome has exited.
 
-Node 22+ provides `WebSocket`. Fetch
-`http://127.0.0.1:9222/json`, connect to the page target's
+Node 22+ provides `WebSocket`. Use the verified `$cdpEndpoint`, fetch its
+`/json` target list, and connect to the page target's
 `webSocketDebuggerUrl`, and use `Page.navigate`, `Runtime.evaluate`, and
 `Page.captureScreenshot`. Split a stateful flow into small scripts against the
 same live tab. Unref CDP send-timeout timers so completed scripts can exit.
