@@ -209,7 +209,9 @@ try {
     chromePid = $chrome.Id
     profile = $profile
   }
-  $connection | ConvertTo-Json | Set-Content -LiteralPath $connectionFile
+  $connection | ConvertTo-Json | Set-Content `
+    -LiteralPath $connectionFile `
+    -ErrorAction Stop
   Write-Output "Connection manifest: $connectionFile"
   $connection | ConvertTo-Json | Write-Output
 } catch {
@@ -284,8 +286,30 @@ set -- \
   --window-size=1680,1050 \
   --force-device-scale-factor=1
 if [ -n "$chrome_extra_arg" ]; then set -- "$@" "$chrome_extra_arg"; fi
-"$chrome_bin" "$@" &
-chrome_pid=$!
+chrome_log="$profile/chrome.log"
+chrome_pid="$(
+  CHROME_BIN="$chrome_bin" CHROME_LOG="$chrome_log" node -e '
+    const fs = require("node:fs");
+    const { spawn } = require("node:child_process");
+    const log = fs.openSync(process.env.CHROME_LOG, "a");
+    const child = spawn(process.env.CHROME_BIN, process.argv.slice(1), {
+      detached: true,
+      stdio: ["ignore", log, log]
+    });
+    fs.closeSync(log);
+    child.once("error", error => {
+      console.error(error.message);
+      process.exitCode = 1;
+    });
+    child.once("spawn", () => {
+      console.log(child.pid);
+      child.unref();
+    });
+  ' -- "$@"
+)" || { echo "Could not launch detached Chrome" >&2; exit 1; }
+case "$chrome_pid" in
+  ''|*[!0-9]*) echo "Chrome did not return a valid process ID" >&2; exit 1 ;;
+esac
 
 stop_failed_chrome() {
   kill "$chrome_pid" 2>/dev/null || true
@@ -330,11 +354,22 @@ connection_file="$(mktemp "$scratch/browser-evidence-connection-XXXXXXXX")" || {
   stop_failed_chrome
   exit 1
 }
-if ! {
-  printf 'CDP_ENDPOINT=%s\n' "$cdp_endpoint"
-  printf 'CHROME_PID=%s\n' "$chrome_pid"
-  printf 'PROFILE=%s\n' "$profile"
-} > "$connection_file"; then
+if ! CONNECTION_FILE="$connection_file" \
+  CDP_ENDPOINT="$cdp_endpoint" \
+  CHROME_PID="$chrome_pid" \
+  PROFILE="$profile" \
+  node -e '
+    const fs = require("node:fs");
+    const manifest = {
+      cdpEndpoint: process.env.CDP_ENDPOINT,
+      chromePid: Number(process.env.CHROME_PID),
+      profile: process.env.PROFILE
+    };
+    fs.writeFileSync(
+      process.env.CONNECTION_FILE,
+      `${JSON.stringify(manifest, null, 2)}\n`
+    );
+  '; then
   echo "Could not write the connection manifest" >&2
   rm -f "$connection_file"
   stop_failed_chrome
@@ -353,8 +388,8 @@ after explicit user approval may you set
 Doing so disables a critical Chromium security boundary. Never use it on a
 shared host or for untrusted content.
 
-Later scripts can read the printed connection manifest to reconnect and clean
-up. Keep Chrome running for the full flow; after it exits, remove both the
+Later scripts can parse the printed JSON connection manifest to reconnect and
+clean up. Keep Chrome running for the full flow; after it exits, remove both the
 throwaway profile and the manifest.
 
 Node 22+ provides `WebSocket`. Use the verified CDP endpoint, fetch its
