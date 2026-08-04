@@ -197,24 +197,36 @@ $chrome = Start-Process `
   -WindowStyle Normal `
   -PassThru
 
-$activePortFile = Join-Path $profile "DevToolsActivePort"
-$deadline = (Get-Date).AddSeconds(15)
-while (-not (Test-Path -LiteralPath $activePortFile)) {
-  if ($chrome.HasExited) { throw "Chrome exited before CDP became ready" }
-  if ((Get-Date) -gt $deadline) { throw "Timed out waiting for Chrome CDP" }
-  Start-Sleep -Milliseconds 100
+function Stop-FailedChrome {
+  if (-not $chrome.HasExited) {
+    Stop-Process -Id $chrome.Id -Force -ErrorAction SilentlyContinue
+  }
+  [void]$chrome.WaitForExit(5000)
 }
 
-$activePort = @(Get-Content -LiteralPath $activePortFile)
-if ($activePort.Count -lt 2) { throw "Invalid DevToolsActivePort file" }
-$cdpPort = [int]$activePort[0]
-$browserPath = $activePort[1].Trim()
-$cdpEndpoint = "http://127.0.0.1:$cdpPort"
-$version = Invoke-RestMethod "$cdpEndpoint/json/version"
-$browserSocket = [Uri]$version.webSocketDebuggerUrl
-if ($browserSocket.Port -ne $cdpPort -or
-    $browserSocket.AbsolutePath -ne $browserPath) {
-  throw "CDP endpoint does not belong to the launched Chrome profile"
+try {
+  $activePortFile = Join-Path $profile "DevToolsActivePort"
+  $deadline = (Get-Date).AddSeconds(15)
+  while (-not (Test-Path -LiteralPath $activePortFile)) {
+    if ($chrome.HasExited) { throw "Chrome exited before CDP became ready" }
+    if ((Get-Date) -gt $deadline) { throw "Timed out waiting for Chrome CDP" }
+    Start-Sleep -Milliseconds 100
+  }
+
+  $activePort = @(Get-Content -LiteralPath $activePortFile)
+  if ($activePort.Count -lt 2) { throw "Invalid DevToolsActivePort file" }
+  $cdpPort = [int]$activePort[0]
+  $browserPath = $activePort[1].Trim()
+  $cdpEndpoint = "http://127.0.0.1:$cdpPort"
+  $version = Invoke-RestMethod "$cdpEndpoint/json/version"
+  $browserSocket = [Uri]$version.webSocketDebuggerUrl
+  if ($browserSocket.Port -ne $cdpPort -or
+      $browserSocket.AbsolutePath -ne $browserPath) {
+    throw "CDP endpoint does not belong to the launched Chrome profile"
+  }
+} catch {
+  Stop-FailedChrome
+  throw
 }
 ```
 
