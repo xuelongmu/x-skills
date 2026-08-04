@@ -1,4 +1,0 @@
-interface:
-  display_name: "Prepare to Land"
-  short_description: "Make a PR merge-ready without merging it"
-  default_prompt: "Use $prepare-to-land to address feedback and conflicts, then leave the PR ready for someone else to merge."
