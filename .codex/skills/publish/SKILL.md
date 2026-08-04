@@ -23,6 +23,7 @@ Use local `git` for branch creation, staging, commits, and pushes. Prefer the co
 1. Confirm the intended scope.
    - Inspect `git status -sb` and the complete diff before staging.
    - If unrelated changes exist, ask which files belong in the PR.
+   - Select and verify the GitHub remote that will receive the branch. Reuse that remote for the push and PR target; do not assume it is named `origin`.
 2. Determine the branch strategy.
    - If `git branch --show-current` is empty, create a focused named branch before staging or committing.
    - If on the default branch, create a focused branch using the environment's branch-naming convention.
@@ -33,12 +34,13 @@ Use local `git` for branch creation, staging, commits, and pushes. Prefer the co
 4. Create a terse commit whose message summarizes the complete staged change.
 5. Run the most relevant available checks.
    - Fix attributable failures when that remains within scope.
+   - After applying a validation fix, rerun the affected checks, stage only the fix, and commit it before pushing.
    - Report environmental or unrelated failures accurately.
-6. Push the branch with upstream tracking.
+6. Push the branch to the selected GitHub remote with upstream tracking.
 7. Open a pull request ready for review.
    - Prefer the connected GitHub app after the branch is pushed.
    - Set the PR's draft state to `false` explicitly when the connector supports that field.
-   - Derive the repository from the remote, the head from the current branch, and the base from the user's request or the remote default branch.
+   - Derive the repository from the selected GitHub remote, the head from the current branch, and the base from the user's request or the remote default branch.
    - For forks, cross-repository heads, or ambiguous connector targeting, use the CLI fallback:
 
      ```sh

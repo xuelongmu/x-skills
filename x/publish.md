@@ -25,6 +25,7 @@ git remote -v
 
 - Identify exactly which changes belong in the pull request.
 - If unrelated changes exist, ask the user which files are in scope.
+- Select and verify the GitHub remote that will receive the branch, and store its name as `<publish-remote>` for every later remote operation. Do not assume it is named `origin`.
 - Never stage unrelated changes silently.
 
 ## Step 2: Prepare the branch
@@ -57,6 +58,7 @@ gh repo view --json defaultBranchRef -q .defaultBranchRef.name
 Run the most relevant checks available for the changed scope.
 
 - Fix attributable failures when that remains within the requested scope.
+- After applying a validation fix, rerun the affected checks, stage only the fix, and commit it before pushing.
 - Report environmental or unrelated failures accurately.
 - Do not claim checks passed unless they ran successfully.
 
@@ -65,7 +67,7 @@ Run the most relevant checks available for the changed scope.
 Push with upstream tracking:
 
 ```sh
-git push -u origin HEAD
+git push -u "<publish-remote>" HEAD
 ```
 
 Never force-push unless the user explicitly authorizes it and the target branch is verified.
