@@ -35,7 +35,7 @@ Read `.git/babysit-state.json` if it exists. It has the shape:
 
 Compute a signature of the PR's feedback surface: `updatedAt`, `reviewDecision`, latest comment/review IDs, `statusCheckRollup` state, and the Codex 👍 count from step 4b (so a fresh sign-off resets the idle counter). If the signature matches `last_signature`, increment `idle_count`; otherwise reset to 0.
 
-**If `idle_count` reaches 3** (i.e., three consecutive runs with no new feedback), stop the loop and exit — **unless a Codex sign-off is still expected**: if `chatgpt-codex-connector[bot]` has any activity on the PR (a review comment or reaction) but the 👍 has not yet appeared (step 4b), keep looping so the ping can still fire. If the bot has no activity on the PR at all, Codex review isn't in play and the idle-stop applies normally.
+**If `idle_count` reaches 3** (i.e., three consecutive runs with no new feedback), stop the loop and exit — **unless the sign-off ping is still pending**: if `chatgpt-codex-connector[bot]` has any activity on the PR (a review comment or reaction) and the current head's `codex-ok:<sha>` sentinel label (step 4b) is absent, keep looping — the notification hasn't fired yet, whether that's because the 👍 hasn't arrived or because CI isn't green yet. If the bot has no activity on the PR at all, Codex review isn't in play and the idle-stop applies normally.
 
 When stopping:
 - This skill is designed for `/loop 10m /x:babysit`, which registers a cron under the hood. List crons with `CronList` and call `CronDelete` on the matching babysit entry.
