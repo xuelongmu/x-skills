@@ -15,7 +15,7 @@ Use local `git` for branch creation, staging, commits, and pushes. Prefer the co
 
 - Require a local Git repository with an accessible GitHub remote.
 - Require GitHub CLI `gh`. Check `gh --version`.
-- Require an authenticated GitHub session. Check `gh auth status`.
+- After selecting the publish remote, derive its hostname and require an active login for that host with `gh auth status --active --hostname <host>`. Do not let stale credentials for unrelated hosts block publication.
 - Stop and explain the blocker if authentication, the repository target, or the intended change scope cannot be established safely.
 
 ## Workflow
@@ -43,11 +43,14 @@ Use local `git` for branch creation, staging, commits, and pushes. Prefer the co
 7. Open a pull request ready for review.
    - Prefer the connected GitHub app after the branch is pushed, and explicitly target the derived base repository, base branch, head repository, and head branch.
    - Set the PR's draft state to `false` explicitly when the connector supports that field.
-   - For forks, cross-repository heads, or ambiguous connector targeting, use the CLI fallback:
+   - For a same-repository PR, use a bare head branch with the CLI fallback:
 
      ```sh
-     gh pr create --repo "<base-owner>/<base-repository>" --base "<base-branch>" --head "<head-owner>:$(git branch --show-current)" --title "<title>" --body-file "<body-file>"
+     gh pr create --repo "<base-owner>/<base-repository>" --base "<base-branch>" --head "$(git branch --show-current)" --title "<title>" --body-file "<body-file>"
      ```
+
+   - For a cross-repository, user-owned fork, use `<head-owner>:<head-branch>` with the CLI fallback.
+   - For a cross-repository, organization-owned head, do not use `gh pr create --head <organization>:<branch>` because the CLI does not support organization owners there. Use the connected GitHub app or GitHub API with explicit base repository, base branch, head repository, head branch, title, body, and draft state; stop if neither path is available.
 
    - Do not pass `--draft`.
    - Write the generated PR body through a temporary file so Markdown contains real newlines, and pass the generated title and body to every creation path.
