@@ -104,9 +104,13 @@ For evidence runs:
 - mask or omit secrets and personal data from screenshots and traces;
 - use a fresh context by default, and use approved authentication setup rather
   than copying a daily browser profile;
-- use `chromium.launch({ headless: false })` for a visible clean browser, or
-  attach with `chromium.connectOverCDP("http://127.0.0.1:<verified-port>")`
-  when an existing remote-debugging Chromium instance must remain stateful.
+- launch a clean browser with `chromium.launch()`: pass `{ headless: false }`
+  only when a display is available and watching the run helps; stay headless
+  (the default) in CI containers, SSH sessions, and other display-less
+  environments, where a headed launch fails and headless capture works the
+  same; or attach with
+  `chromium.connectOverCDP("http://127.0.0.1:<verified-port>")` when an
+  existing remote-debugging Chromium instance must remain stateful.
 
 ## Drive and capture
 
@@ -159,8 +163,14 @@ $chromeArgs = @(
   "--disable-background-timer-throttling",
   "--disable-features=CalculateNativeWinOcclusion"
 )
+$chromeExe = @(
+  "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
+  "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe",
+  "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe"
+) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+if (-not $chromeExe) { throw "Chrome not found in a known install location" }
 $chrome = Start-Process `
-  -FilePath "C:\Program Files\Google\Chrome\Application\chrome.exe" `
+  -FilePath $chromeExe `
   -ArgumentList $chromeArgs `
   -WindowStyle Normal `
   -PassThru
@@ -191,8 +201,58 @@ joins `-ArgumentList` entries into one command line. Do not name the variable
 `$args`; PowerShell reserves it. Keep the browser running for the full flow and
 clean up the throwaway profile only after Chrome has exited.
 
-Node 22+ provides `WebSocket`. Use the verified `$cdpEndpoint`, fetch its
-`/json` target list, and connect to the page target's
+On macOS or Linux:
+
+```bash
+scratch="<task-local scratch directory>"
+profile="$(mktemp -d "$scratch/chrome-profile-XXXXXXXX")"
+chrome_bin=""
+for candidate in \
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+  google-chrome google-chrome-stable chromium chromium-browser; do
+  if command -v "$candidate" >/dev/null 2>&1; then chrome_bin="$candidate"; break; fi
+done
+[ -n "$chrome_bin" ] || { echo "No Chrome or Chromium binary found" >&2; exit 1; }
+
+"$chrome_bin" \
+  --remote-debugging-port=0 \
+  --remote-debugging-address=127.0.0.1 \
+  --user-data-dir="$profile" \
+  --no-first-run \
+  --no-default-browser-check \
+  --window-size=1680,1050 \
+  --force-device-scale-factor=1 &
+chrome_pid=$!
+
+active_port_file="$profile/DevToolsActivePort"
+for _ in $(seq 1 150); do
+  [ -s "$active_port_file" ] && break
+  kill -0 "$chrome_pid" 2>/dev/null ||
+    { echo "Chrome exited before CDP became ready" >&2; exit 1; }
+  sleep 0.1
+done
+[ -s "$active_port_file" ] || { echo "Timed out waiting for Chrome CDP" >&2; exit 1; }
+
+cdp_port="$(sed -n 1p "$active_port_file")"
+browser_path="$(sed -n 2p "$active_port_file")"
+cdp_endpoint="http://127.0.0.1:$cdp_port"
+ws_url="$(curl -fsS "$cdp_endpoint/json/version" | node -e '
+  let d = "";
+  process.stdin.on("data", c => d += c);
+  process.stdin.on("end", () => console.log(JSON.parse(d).webSocketDebuggerUrl));
+')"
+case "$ws_url" in
+  "ws://127.0.0.1:$cdp_port$browser_path") ;;
+  *) echo "CDP endpoint does not belong to the launched Chrome profile" >&2
+     exit 1 ;;
+esac
+```
+
+On a display-less Linux host, add `--headless=new` to the Chrome arguments;
+`Page.captureScreenshot` works the same headlessly.
+
+Node 22+ provides `WebSocket`. Use the verified CDP endpoint, fetch its
+`/json` target list, connect to the page target's
 `webSocketDebuggerUrl`, and use `Page.navigate`, `Runtime.evaluate`, and
 `Page.captureScreenshot`. Split a stateful flow into small scripts against the
 same live tab. Unref CDP send-timeout timers so completed scripts can exit.
