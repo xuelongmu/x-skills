@@ -25,9 +25,10 @@ git remote -v
 
 - Identify exactly which changes belong in the pull request.
 - If unrelated changes exist, ask the user which files are in scope.
-- Select and verify the GitHub remote that will receive the branch. Store its name as `<publish-remote>` and derive `<head-owner>/<head-repository>` from its URL. Do not assume it is named `origin`.
+- Select and verify the GitHub remote that will receive the branch. Store its name as `<publish-remote>` and derive `<host>/<head-owner>/<head-repository>` from its URL. Do not assume it is named `origin`.
 - Derive the publish remote's hostname and verify only its active account with `gh auth status --active --hostname "<host>"`. Do not let stale credentials for unrelated hosts block publication.
 - Derive `<base-owner>/<base-repository>` from the user's requested target or repository relationships. In a fork workflow, keep the head and base repositories distinct.
+- Preserve `<host>` in every `gh` repository selector and pass `--hostname "<host>"` to `gh api`; do not fall back implicitly to `github.com`.
 - Never stage unrelated changes silently.
 
 ## Step 2: Prepare the branch
@@ -36,7 +37,7 @@ Determine the target base branch and current branch explicitly:
 
 ```sh
 git branch --show-current
-gh repo view "<base-owner>/<base-repository>" --json defaultBranchRef -q .defaultBranchRef.name
+gh repo view "<host>/<base-owner>/<base-repository>" --json defaultBranchRef -q .defaultBranchRef.name
 ```
 
 - If the current branch name is empty because `HEAD` is detached, create a focused named branch before staging or committing.
@@ -99,11 +100,11 @@ Write the body to a temporary file with real newlines, then select the supported
 - Same repository: use a bare head branch.
 
   ```sh
-  gh pr create --repo "<base-owner>/<base-repository>" --base "<base-branch>" --head "$(git branch --show-current)" --title "<title>" --body-file "<temp-file>"
+  gh pr create --repo "<host>/<base-owner>/<base-repository>" --base "<base-branch>" --head "$(git branch --show-current)" --title "<title>" --body-file "<temp-file>"
   ```
 
 - Cross-repository user-owned fork: use `<head-owner>:<head-branch>` with `gh pr create`.
-- Cross-repository organization-owned head: do not use `gh pr create --head <organization>:<branch>` because the CLI does not support organization owners there. Use `gh api` against the pull-request creation endpoint with explicit base repository, base branch, head owner and branch, title, body, and draft state; stop if that API path is unavailable.
+- Cross-repository organization-owned head: do not use `gh pr create --head <organization>:<branch>` because the CLI does not support organization owners there. Use `gh api --hostname "<host>"` against the pull-request creation endpoint with explicit base repository, base branch, head owner and branch, title, body, and draft state; stop if that API path is unavailable.
 
 - Do not pass `--draft`; the default is ready for review.
 - Create a draft only when the user explicitly requests one.

@@ -23,8 +23,9 @@ Use local `git` for branch creation, staging, commits, and pushes. Prefer the co
 1. Confirm the intended scope.
    - Inspect `git status -sb` and the complete diff before staging.
    - If unrelated changes exist, ask which files belong in the PR.
-   - Select and verify the GitHub remote that will receive the branch. Derive the head owner and repository from it, reuse it for the push, and do not assume it is named `origin`.
+   - Select and verify the GitHub remote that will receive the branch. Derive the hostname, head owner, and repository from it, reuse it for the push, and do not assume it is named `origin`.
    - Derive the target base owner, repository, and branch from the user's request or repository defaults. In fork workflows, keep the head and base repositories distinct.
+   - Preserve the selected hostname in every `gh` repository selector and pass `--hostname <host>` to `gh api`; do not fall back implicitly to `github.com`.
 2. Determine the branch strategy.
    - If `git branch --show-current` is empty, create a focused named branch before staging or committing.
    - If on the default branch, create a focused branch using the environment's branch-naming convention.
@@ -34,7 +35,7 @@ Use local `git` for branch creation, staging, commits, and pushes. Prefer the co
 3. Stage only the intended files.
    - Prefer explicit file paths when the worktree is mixed.
    - Use `git add -A` only when the entire worktree is confirmed in scope.
-4. Create a terse commit whose message summarizes the complete staged change.
+4. If the index contains staged changes, create a terse commit whose message summarizes them. If the index is empty but the confirmed branch range contains unpublished commits, continue without creating an empty commit. Stop only when neither staged changes nor branch commits are available to publish.
 5. Run the most relevant available checks.
    - Fix attributable failures when that remains within scope.
    - After applying a validation fix, rerun the affected checks, stage only the fix, and commit it before pushing.
@@ -46,11 +47,11 @@ Use local `git` for branch creation, staging, commits, and pushes. Prefer the co
    - For a same-repository PR, use a bare head branch with the CLI fallback:
 
      ```sh
-     gh pr create --repo "<base-owner>/<base-repository>" --base "<base-branch>" --head "$(git branch --show-current)" --title "<title>" --body-file "<body-file>"
+     gh pr create --repo "<host>/<base-owner>/<base-repository>" --base "<base-branch>" --head "$(git branch --show-current)" --title "<title>" --body-file "<body-file>"
      ```
 
    - For a cross-repository, user-owned fork, use `<head-owner>:<head-branch>` with the CLI fallback.
-   - For a cross-repository, organization-owned head, do not use `gh pr create --head <organization>:<branch>` because the CLI does not support organization owners there. Use the connected GitHub app or GitHub API with explicit base repository, base branch, head repository, head branch, title, body, and draft state; stop if neither path is available.
+   - For a cross-repository, organization-owned head, do not use `gh pr create --head <organization>:<branch>` because the CLI does not support organization owners there. Use the connected GitHub app or `gh api --hostname <host>` with explicit base repository, base branch, head repository, head branch, title, body, and draft state; stop if neither path is available.
 
    - Do not pass `--draft`.
    - Write the generated PR body through a temporary file so Markdown contains real newlines, and pass the generated title and body to every creation path.
