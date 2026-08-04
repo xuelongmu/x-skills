@@ -22,14 +22,16 @@ Inspect the repository before changing Git state:
 git status -sb
 git diff
 git diff --cached
+git ls-files --others --exclude-standard
 git remote -v
 ```
 
 - Identify exactly which changes belong in the pull request.
+- Read or diff the contents of every intended untracked file before staging it; its `??` status line alone is not enough to confirm scope.
 - If unrelated changes exist, ask the user which files are in scope.
 - Select and verify the GitHub remote that will receive the branch. Store its name as `<publish-remote>` and derive `<host>/<head-owner>/<head-repository>` from its URL. Do not assume it is named `origin`.
 - Derive the publish remote's hostname and verify only its active account with `gh auth status --active --hostname "<host>"`. Do not let stale credentials for unrelated hosts block publication.
-- Derive `<base-owner>/<base-repository>` from the user's requested target or repository relationships. In a fork workflow, keep the head and base repositories distinct.
+- Derive `<base-owner>/<base-repository>` and `<base-branch>` from the user's requested target or repository relationships. Preserve an explicitly requested base branch; query the repository default only when the user did not supply one. In a fork workflow, keep the head and base repositories distinct.
 - Preserve `<host>` in every `gh` repository selector and pass `--hostname "<host>"` to `gh api`; do not fall back implicitly to `github.com`.
 - Never stage unrelated changes silently.
 
@@ -39,12 +41,14 @@ Determine the target base branch and current branch explicitly:
 
 ```sh
 git branch --show-current
+# Run only when no base branch was explicitly requested:
 gh repo view "<host>/<base-owner>/<base-repository>" --json defaultBranchRef -q .defaultBranchRef.name
 ```
 
 - If the current branch name is empty because `HEAD` is detached, create a focused named branch before staging or committing.
 - If currently on the default branch, create a focused branch using the repository's naming convention.
 - Otherwise remain on the current branch unless the user requested a new one.
+- Before staging, committing, or pushing, check whether the selected head branch already has an open PR in the target repository. If one exists, report it and require explicit confirmation that updating it is intended; otherwise stop without mutating it.
 - Refresh a local `<base-ref>` from the target base repository and branch; do not assume the push remote owns the base in fork workflows.
 - Before staging or pushing, inspect the complete branch scope:
 

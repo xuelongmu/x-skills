@@ -22,14 +22,16 @@ Use local `git` for branch creation, staging, commits, and pushes. Prefer the co
 
 1. Confirm the intended scope.
    - Inspect `git status -sb` and the complete diff before staging.
+   - Enumerate untracked paths with `git ls-files --others --exclude-standard` and read or diff the contents of every intended untracked file before staging it.
    - If unrelated changes exist, ask which files belong in the PR.
    - Select and verify the GitHub remote that will receive the branch. Derive the hostname, head owner, and repository from it, reuse it for the push, and do not assume it is named `origin`.
-   - Derive the target base owner, repository, and branch from the user's request or repository defaults. In fork workflows, keep the head and base repositories distinct.
+   - Derive the target base owner, repository, and branch. Preserve an explicitly requested base branch; consult the repository default only when the user did not specify one. In fork workflows, keep the head and base repositories distinct.
    - Preserve the selected hostname in every `gh` repository selector and pass `--hostname <host>` to `gh api`; do not fall back implicitly to `github.com`.
 2. Determine the branch strategy.
    - If `git branch --show-current` is empty, create a focused named branch before staging or committing.
    - If on the default branch, create a focused branch using the environment's branch-naming convention.
    - Otherwise remain on the current branch unless the user requests a new one.
+   - Before staging, committing, or pushing, check whether the selected head branch already has an open PR in the target repository. If one exists, report it and require explicit confirmation that updating that PR is intended; otherwise stop without mutating it.
    - Refresh a local ref for the target base repository and branch.
    - Before staging or pushing, inspect `git log <base-ref>..HEAD --oneline` and `git diff <base-ref>...HEAD` to confirm the complete PR scope, including existing branch commits.
 3. Stage only the intended files.
