@@ -10,7 +10,8 @@ Portable PR workflow skills for Claude Code and Codex.
 | slack-pr | Post the current PR to Slack as a draft message with its Vercel preview link | `/x:slack-pr [channel]` (default `#zerogen`) | — |
 | babysit | Keep the PR ready without merging: fix CI, address review comments, sync the base branch, push-notify when Codex 👍s with CI green | `/loop 5m /x:babysit` | `babysit` |
 | land | Keep the PR healthy and merge it once checks and feedback gates pass | — | `land` |
-| author-ao-orchestrator | Draft and validate multi-issue Agent Orchestrator project prompts | `/x:author-ao-orchestrator <brief>` | `author-ao-orchestrator` |
+| prompt-agent-orchestrator | Draft and validate multi-issue Agent Orchestrator project prompts | `/x:prompt-agent-orchestrator <brief>` | `prompt-agent-orchestrator` |
+| drive-agent-orchestrator | Operate Agent Orchestrator: preflight, spawn/supervise workers and orchestrators, monitor sessions | `/x:drive-agent-orchestrator` | — |
 | browser-evidence | Drive a running app, verify a flow, and capture browser-visible evidence | `browser-evidence` | `browser-evidence` |
 
 - `babysit` never merges, enables auto-merge, or deletes branches — it prints the merge command when ready. `land` is the only skill that merges.
@@ -44,7 +45,7 @@ ln -s /path/to/x-skills/.claude/skills/browser-evidence ~/.claude/skills/browser
 ```powershell
 $codexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE ".codex" }
 New-Item -ItemType Directory -Force -Path (Join-Path $codexHome "skills")
-foreach ($s in 'publish','babysit','land','author-ao-orchestrator','browser-evidence') {
+foreach ($s in 'publish','babysit','land','prompt-agent-orchestrator','browser-evidence') {
   New-Item -ItemType Junction -Path (Join-Path $codexHome "skills\$s") -Target "C:\path\to\x-skills\.codex\skills\$s"
 }
 ```
@@ -52,7 +53,7 @@ foreach ($s in 'publish','babysit','land','author-ao-orchestrator','browser-evid
 **macOS / Linux**:
 ```bash
 mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
-for s in publish babysit land author-ao-orchestrator browser-evidence; do
+for s in publish babysit land prompt-agent-orchestrator browser-evidence; do
   ln -s "/path/to/x-skills/.codex/skills/$s" "${CODEX_HOME:-$HOME/.codex}/skills/$s"
 done
 ```
@@ -81,7 +82,7 @@ The watcher resolves from the installed `land` skill directory — project-local
 
 **No local checkout?** Ask Codex to install copies instead:
 
-> Install the `publish`, `babysit`, `land`, `author-ao-orchestrator`, and `browser-evidence`
+> Install the `publish`, `babysit`, `land`, `prompt-agent-orchestrator`, and `browser-evidence`
 > skills from `https://github.com/xuelongmu/x-skills`. Use the corresponding
 > paths under `.codex/skills/`.
 

@@ -1,5 +1,5 @@
 ---
-name: author-ao-orchestrator
+name: prompt-agent-orchestrator
 description: Draft, critique, and validate a project-specific Agent Orchestrator coordinator prompt from a project brief, issue graph, or existing draft. Return an explicit GO or NOT READY verdict without mutating live work.
 argument-hint: "[project brief, issue range, or draft prompt]"
 ---
