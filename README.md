@@ -7,7 +7,7 @@ Portable PR workflow skills for Claude Code and Codex.
 | Skill | What it does | Claude Code | Codex |
 |---|---|---|---|
 | publish | Commit intended changes, validate, push, and open a PR ready for review (draft only on request) | `/x:publish` | `publish` |
-| slack-pr | Post the current PR to Slack as a draft message with its Vercel preview link | `/x:slack-pr [channel]` (default `#zerogen`) | — |
+| publish-slack | Post the current PR to Slack as a draft message with its Vercel preview link | `/x:publish-slack [channel]` (default `#zerogen`) | — |
 | babysit | Keep the PR ready without merging: fix CI, address review comments, sync the base branch, push-notify when Codex 👍s with CI green | `/loop 5m /x:babysit` | `babysit` |
 | land | Keep the PR healthy and merge it once checks and feedback gates pass | — | `land` |
 | prompt-agent-orchestrator | Draft and validate multi-issue Agent Orchestrator project prompts | `/x:prompt-agent-orchestrator <brief>` | `prompt-agent-orchestrator` |
@@ -94,4 +94,4 @@ Each skill file documents its own behavior; these are the cross-cutting choices:
 
 - `babysit` uses `git merge` (not rebase) to avoid force pushes, and replies on review threads after addressing feedback.
 - The Codex sign-off ping polls the PR body's reactions endpoint (GitHub emits no webhook for reactions) and notifies once per ready-commit via a `codex-ok:<sha>` label.
-- `slack-pr` sends as a draft so the user reviews before posting; Vercel bot comments live on the **issues** endpoint (`/issues/{n}/comments`), not `/pulls/{n}/comments`.
+- `publish-slack` sends as a draft so the user reviews before posting; Vercel bot comments live on the **issues** endpoint (`/issues/{n}/comments`), not `/pulls/{n}/comments`.
