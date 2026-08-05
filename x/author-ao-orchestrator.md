@@ -44,8 +44,12 @@ authoring unless the user separately asks for those changes.
 - Preserve project-specific issue IDs, dependency edges, exceptions, recorded
   decisions, verification commands, and spend restrictions.
 - Use a table for three or more issues.
-- Distinguish direct parents from transitive ancestors. Resume only direct
-  children when a parent merges.
+- Distinguish direct parents from transitive ancestors. A child issue may
+  dispatch before its parent merges by stacking a PR on the parent's open
+  branch; when a parent merges, resume and retarget only direct children.
+- A human review gate blocks merging by default, not building. Keep dependent
+  issues moving as stacked PRs unless the gated question could change what
+  they build on, and say so when a gate blocks building too.
 - Never tell a worker to build a synthetic merge of unmerged parents.
 - Replace words such as "stagger", "clean", "done", "wait", and "every state
   change" with observable conditions, owners, and timeouts.
@@ -102,7 +106,8 @@ Return `GO` only when all of these hold:
   are concrete.
 - Every wait has an owner, observable completion event, timeout, and escalation
   path.
-- Safe unrelated work continues while one lane waits.
+- Safe unrelated work — and dependent work that can stack — continues while
+  one lane waits.
 - Reporting covers meaningful milestones rather than low-level mutations.
 - The completion condition cannot end while safe runnable work remains.
 
