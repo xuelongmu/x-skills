@@ -2,54 +2,25 @@
 
 Portable PR workflow skills for Claude Code and Codex.
 
-- Claude Code commands live in `x/` and are linked into `~/.claude/commands/`.
-- Claude Code skills live in `.claude/skills/` and are linked into `~/.claude/skills/`.
-- Codex skills live in `.codex/skills/` and are linked into `${CODEX_HOME:-$HOME/.codex}/skills/` (or copied via Codex's skill installer if you don't keep a local checkout).
-
 ## Skills
 
-| Skill | Purpose | Args |
-|---|---|---|
-| `/x:publish` | Commit intended changes, validate, push, and open a PR ready for review | none |
-| `/x:slack-pr` | Post existing PR to Slack with Vercel preview link | `[channel]` (default: `#zerogen`) |
-| `/x:babysit` | Address review comments, fix CI, wait 10 minutes after green checks, push-notify when Codex 👍s the PR body with CI green, and report merge readiness without merging | none |
-| `/x:author-ao-orchestrator` | Draft and validate multi-issue Agent Orchestrator project prompts | project brief, issue range, or draft prompt |
-| Claude `browser-evidence` | Verify browser flows and capture trustworthy UI evidence | flow or claim to verify |
-| Codex `babysit` | Codex-installable PR babysitter that reuses the `land` watcher | none |
-| Codex `land` | Codex-installable PR lander with the shared watcher, CI handling, and the repository's customary merge flow | none |
-| Codex `publish` | Commit, validate, push, and open a ready-for-review PR | none |
-| Codex `author-ao-orchestrator` | Draft and validate multi-issue Agent Orchestrator project prompts | project brief or draft prompt |
-| Codex `browser-evidence` | Verify browser flows and capture trustworthy UI evidence | flow or claim to verify |
+| Skill | What it does | Claude Code | Codex |
+|---|---|---|---|
+| publish | Commit intended changes, validate, push, and open a PR ready for review (draft only on request) | `/x:publish` | `publish` |
+| slack-pr | Post the current PR to Slack as a draft message with its Vercel preview link | `/x:slack-pr [channel]` (default `#zerogen`) | — |
+| babysit | Keep the PR ready without merging: fix CI, address review comments, sync the base branch, push-notify when Codex 👍s with CI green | `/loop 5m /x:babysit` | `babysit` |
+| land | Keep the PR healthy and merge it once checks and feedback gates pass | — | `land` |
+| author-ao-orchestrator | Draft and validate multi-issue Agent Orchestrator project prompts | `/x:author-ao-orchestrator <brief>` | `author-ao-orchestrator` |
+| browser-evidence | Drive a running app, verify a flow, and capture browser-visible evidence | `browser-evidence` | `browser-evidence` |
 
-## Usage
-
-### Claude Code
-
-```
-/x:publish                # commit, push, and open a ready PR
-/x:slack-pr               # share to #zerogen with Vercel preview
-/x:slack-pr frontend      # share to #frontend instead
-/x:author-ao-orchestrator <project brief, issues, or draft>
-/loop 5m /x:babysit       # keep PR ready without merging; pings when Codex approves (Claude Code only)
-```
-
-Use the `browser-evidence` skill when you want Claude Code to drive a running
-app, verify a flow, and capture screenshots or other browser-visible evidence.
-
-### Codex
-
-Use `publish` to commit, push, and open a PR ready for review. Use `babysit` for a single merge-readiness pass without merging, or ask Codex to keep babysitting when you want continuous monitoring. Use `land` when you want Codex to keep the PR healthy and merge it once checks and feedback gates pass. Codex does not support Claude Code `/loop` semantics; a single babysit run uses the shared watcher for checks, feedback, PR head changes, and the 10-minute post-green wait. For continuous babysitting across turns, ask Codex to create or update a cron automation for the PR.
+- `babysit` never merges, enables auto-merge, or deletes branches — it prints the merge command when ready. `land` is the only skill that merges.
+- Codex `babysit` reuses `land/land_watch.py`, so always install `land` alongside it. Codex has no `/loop`; a single run uses that watcher, and continuous monitoring uses a Codex cron automation.
 
 ## Setup
 
-Both platforms install the same way: clone this repo somewhere permanent, then **link** the skill directories into the tool's home directory. Because the installs are links, a single `git pull` in the clone updates every installed skill on both platforms at once — no re-copying.
+Clone this repo somewhere permanent, then **link** the skill directories into each tool's home directory — **junctions** on Windows (`New-Item -ItemType Junction`, no admin rights or Developer Mode needed), `ln -s` on macOS/Linux. A single `git pull` in the clone then updates every install on both platforms. The trade-off: the clone's current state is live (including a checked-out feature branch), and moving or deleting the clone breaks the installs — if you'd rather not keep a checkout, use the copy-based Codex installer at the end.
 
-- **Windows**: use **junctions** (`New-Item -ItemType Junction`). They behave like directory symlinks but require no admin rights or Developer Mode.
-- **macOS / Linux**: use `ln -s`.
-
-The trade-off: whatever state the clone is in becomes live immediately (including a checked-out feature branch), and moving or deleting the clone breaks the installs. If you don't want to keep a local checkout, use the copy-based Codex installer described at the end instead.
-
-Replace `C:\path\to\x-skills` / `/path/to/x-skills` with your clone's location in the commands below.
+Replace `C:\path\to\x-skills` / `/path/to/x-skills` with your clone's location.
 
 ### Claude Code
 
@@ -67,11 +38,7 @@ mkdir -p ~/.claude/skills
 ln -s /path/to/x-skills/.claude/skills/browser-evidence ~/.claude/skills/browser-evidence
 ```
 
-After linking, the `/x:*` commands and the `browser-evidence` skill are available in any Claude Code session.
-
 ### Codex
-
-Link every skill directory into the global Codex skills directory. Always install `land` alongside `babysit` because `babysit` reuses `land/land_watch.py`.
 
 **Windows** (PowerShell):
 ```powershell
@@ -92,7 +59,7 @@ done
 
 Restart Codex after linking.
 
-For a **project-local** install (skills that travel with one repo), run the same commands from the target repo root with `.codex\skills\<name>` / `.codex/skills/<name>` as the link path. The watcher script resolves from the installed `land` skill directory — project-local `<repo>/.codex/skills/land` is preferred when present, otherwise the global one. Run watcher commands from the PR repository's working directory; `gh` resolves `{owner}`, `{repo}`, PRs, and checks from that cwd.
+For a **project-local** install (skills that travel with one repo), run the same commands from the target repo root with `.codex/skills/<name>` as the link path. The watcher resolves from the installed `land` skill directory — project-local first, then global — and must run from the PR repository's working directory so `gh` picks up the right repo.
 
 **No local checkout?** Ask Codex to install copies instead:
 
@@ -100,21 +67,12 @@ For a **project-local** install (skills that travel with one repo), run the same
 > skills from `https://github.com/xuelongmu/x-skills`. Use the corresponding
 > paths under `.codex/skills/`.
 
-Codex's skill installer copies the GitHub skill directories into `${CODEX_HOME:-$HOME/.codex}/skills`. Copies don't track this repo — re-run the installer to pick up updates.
+Copies don't track this repo — re-run the installer to pick up updates.
 
-## Design decisions
+## Design notes
 
-- `/x:publish` and `/x:slack-pr` are separate so each can be used independently
-- `/x:publish` performs the full commit-to-PR flow and opens ready for review unless a draft is explicitly requested
-- `/x:babysit` uses `git merge` (not rebase) to avoid force pushes
-- `/x:babysit` replies to review comments after addressing them
-- `/x:babysit` waits 10 minutes after green checks for late feedback before reporting ready
-- `/x:babysit` never merges, enables auto-merge, or deletes the branch; it prints the merge command when ready
-- `/x:babysit` push-notifies once per ready-commit when Codex 👍s the PR body and CI is green, using a `codex-ok:<sha>` label as the notify-once sentinel; it polls the issues reactions endpoint because GitHub emits no webhook for reactions
-- `/x:author-ao-orchestrator` is authoring-only and does not mutate live project state unless separately requested
-- Codex `babysit` is packaged as a real skill directory because Codex installers expect `SKILL.md`
-- Codex `babysit` does not rely on `/loop`; it reuses the `land` Python watcher for the monitoring wait, and uses Codex cron automation when the user asks for continuous monitoring
-- Codex `babysit` should leave `[codex]` GitHub replies after addressing or explicitly deferring feedback, but should not resolve review threads unless asked
-- Codex `land` owns the shared watcher and uses the codebase's customary merge method after the same feedback/check gates pass
-- `/x:slack-pr` sends as a draft so user can review before posting
-- Vercel bot comments use the **issues** endpoint (`/issues/{n}/comments`), not `/pulls/{n}/comments`
+Each skill file documents its own behavior; these are the cross-cutting choices:
+
+- `babysit` uses `git merge` (not rebase) to avoid force pushes, and replies on review threads after addressing feedback.
+- The Codex sign-off ping polls the PR body's reactions endpoint (GitHub emits no webhook for reactions) and notifies once per ready-commit via a `codex-ok:<sha>` label.
+- `slack-pr` sends as a draft so the user reviews before posting; Vercel bot comments live on the **issues** endpoint (`/issues/{n}/comments`), not `/pulls/{n}/comments`.
