@@ -1,6 +1,6 @@
 ---
 name: babysit
-description: Keep a pull request healthy without merging: address review feedback, fix CI, sync the base branch by merge, and wait 10 minutes after green checks for late feedback. Designed for /loop 5m /x:babysit.
+description: Keep a pull request healthy without merging: address review feedback, fix CI, sync the base branch by merge, wait 10 minutes after green checks for late feedback, and push a notification once Codex signs off (👍 on the PR body) with CI green. Designed for /loop 5m /x:babysit.
 allowed-tools:
   - Bash
   - Read
@@ -9,6 +9,7 @@ allowed-tools:
   - Grep
   - Glob
   - Agent
+  - PushNotification
 ---
 
 # Babysit: Keep PRs Ready Without Merging
@@ -25,6 +26,8 @@ gh pr view --json number,title,state,mergeable,mergeStateStatus,reviewDecision,s
 
 If no PR exists on the current branch, say so and stop.
 
+If the PR's `state` is `MERGED` or `CLOSED` (note `gh pr view` still resolves closed/merged PRs for the branch), babysitting is over — stop the loop for good: delete the matching babysit cron (`CronList` / `CronDelete`), delete `.git/babysit-state.json`, and report `Stopping babysit — PR #<n> is <state>.` This terminal-state stop overrides every keep-alive exception below, including a pending sign-off ping.
+
 ## Step 1b: Check for feedback since last run
 
 Read `.git/babysit-state.json` if it exists. It has the shape:
@@ -32,12 +35,14 @@ Read `.git/babysit-state.json` if it exists. It has the shape:
 { "last_signature": "<hash>", "idle_count": <n> }
 ```
 
-Compute a signature of the PR's feedback surface: `updatedAt`, `reviewDecision`, latest comment/review IDs, and `statusCheckRollup` state. If the signature matches `last_signature`, increment `idle_count`; otherwise reset to 0.
+Compute a signature of the PR's feedback surface: `updatedAt`, `reviewDecision`, latest comment/review IDs, `statusCheckRollup` state, and the Codex 👍 count from step 4b (so a fresh sign-off resets the idle counter). If the signature matches `last_signature`, increment `idle_count`; otherwise reset to 0.
 
-**If `idle_count` reaches 3** (i.e., three consecutive runs with no new feedback), stop the loop and exit:
+**If `idle_count` reaches 3** (i.e., three consecutive runs with no new feedback), stop the loop and exit — **unless the sign-off ping is still pending**: if `chatgpt-codex-connector[bot]` has any activity on the PR (a review comment or reaction) and the current head's `codex-ok:<sha>` sentinel label (step 4b) is absent, keep looping — the notification hasn't fired yet, whether that's because the 👍 hasn't arrived or because CI isn't green yet. If the bot has no activity on the PR at all, Codex review isn't in play and the idle-stop applies normally.
+
+When stopping:
 - This skill is designed for `/loop 10m /x:babysit`, which registers a cron under the hood. List crons with `CronList` and call `CronDelete` on the matching babysit entry.
 - Delete `.git/babysit-state.json`.
-- Report: `Stopping babysit — 3 cycles with no new feedback on PR #<n>. Cron deleted.`
+- Report: `Stopping babysit — 3 cycles with no new feedback on PR #<n>. Cron deleted.` If this is the no-Codex-activity case, note that no sign-off ping was expected.
 
 Otherwise, write the updated state back to `.git/babysit-state.json` and continue.
 
@@ -93,7 +98,36 @@ gh pr checks
 - If checks **failed**, investigate the failure:
   - Read the failed check's logs: `gh run view <run-id> --log-failed`
   - Fix the issue, commit, and push
-- If checks **passed**, move to step 5
+- If checks **passed**, move to step 4b
+
+## Step 4b: Ping when Codex signs off
+
+When Codex finishes a review with no further comments, `chatgpt-codex-connector[bot]` adds a `+1` (👍) reaction to the PR **body**. GitHub emits no webhook for reactions, so poll it. Run this check as soon as checks are green — do **not** hold the notification for step 5's 10-minute grace wait (that wait gates the `Ready` verdict, not the ping):
+
+```bash
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+N=$(gh pr view --json number -q .number)
+HEAD=$(gh pr view --json headRefOid -q .headRefOid)
+APPROVED=$(gh api "repos/$REPO/issues/$N/reactions" \
+  -q '[.[]|select(.user.login=="chatgpt-codex-connector[bot]" and .content=="+1")]|length')
+NOTOK=$(gh pr checks "$N" --json bucket \
+  -q '[.[]|select(.bucket=="fail" or .bucket=="pending" or .bucket=="cancel")]|length' 2>/dev/null || echo 1)
+ALREADY=$(gh pr view --json labels -q "[.labels[].name|select(.==\"codex-ok:$HEAD\")]|length")
+```
+
+**If `APPROVED ≥ 1` AND `NOTOK == 0` AND `ALREADY == 0`** → it just became ready:
+
+1. Send a push with the **PushNotification** tool — title `PR #<N> approved by Codex`, body `CI green + Codex 👍 — ready to merge: <URL>`.
+2. Mark this head so later cycles stay quiet, clearing any stale sentinel first (a new commit re-arms automatically, since its sha won't match the old label):
+   ```bash
+   for L in $(gh pr view --json labels -q '.labels[].name|select(startswith("codex-ok:"))'); do
+     gh pr edit "$N" --remove-label "$L" 2>/dev/null || true
+   done
+   gh label create "codex-ok:$HEAD" -c 2DA44E -f 2>/dev/null || true
+   gh pr edit "$N" --add-label "codex-ok:$HEAD"
+   ```
+
+If already pinged for this head (`ALREADY ≥ 1`), stay quiet. One ping per ready-commit — the label sentinel guarantees it even though `/loop` restarts the session each cycle.
 
 ## Step 5: Wait for late feedback
 
@@ -101,9 +135,10 @@ After all required checks pass, wait 10 minutes before declaring the PR ready. D
 
 1. Poll PR feedback every 30 seconds.
 2. Re-fetch top-level comments, inline review comments, review summaries/states, unresolved review threads when available, latest check status, and bot feedback.
-3. If new actionable feedback appears, address it, commit, push, and restart at step 3.
-4. If checks become pending or failed, restart at step 4.
-5. If the PR head changes, fetch the new head and restart at step 1.
+3. Re-run the step 4b ping check on each poll, so a Codex 👍 that lands mid-wait notifies immediately.
+4. If new actionable feedback appears, address it, commit, push, and restart at step 3.
+5. If checks become pending or failed, restart at step 4.
+6. If the PR head changes, fetch the new head and restart at step 1.
 
 No Codex review is required to arrive. Absence of new feedback for the full 10 minutes after green checks is acceptable.
 
@@ -131,6 +166,7 @@ Be concise. Use this structure:
 ```
 PR #<number>: <title>
 Status: <what happened this cycle>
+Codex: <signed off + pinged / signed off (already pinged) / not yet>
 Blocking: <what remains, if anything>
 Ready: <yes/no>
 ```

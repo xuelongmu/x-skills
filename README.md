@@ -13,8 +13,7 @@ Portable PR workflow skills for Claude Code and Codex.
 |---|---|---|
 | `/x:publish` | Commit intended changes, validate, push, and open a PR ready for review | none |
 | `/x:slack-pr` | Post existing PR to Slack with Vercel preview link | `[channel]` (default: `#zerogen`) |
-| `/x:babysit` | Address review comments, fix CI, wait 10 minutes after green checks, and report merge readiness without merging | none |
-| `/x:codex-watch` | Push-notify when Codex 👍s the PR body and CI is green — you merge it yourself | none |
+| `/x:babysit` | Address review comments, fix CI, wait 10 minutes after green checks, push-notify when Codex 👍s the PR body with CI green, and report merge readiness without merging | none |
 | `/x:author-ao-orchestrator` | Draft and validate multi-issue Agent Orchestrator project prompts | project brief, issue range, or draft prompt |
 | Claude `browser-evidence` | Verify browser flows and capture trustworthy UI evidence | flow or claim to verify |
 | Codex `babysit` | Codex-installable PR babysitter that reuses the `land` watcher | none |
@@ -32,8 +31,7 @@ Portable PR workflow skills for Claude Code and Codex.
 /x:slack-pr               # share to #zerogen with Vercel preview
 /x:slack-pr frontend      # share to #frontend instead
 /x:author-ao-orchestrator <project brief, issues, or draft>
-/loop 5m /x:babysit       # keep PR ready without merging (Claude Code only)
-/loop 5m /x:codex-watch   # ping me when Codex approves; I'll merge myself
+/loop 5m /x:babysit       # keep PR ready without merging; pings when Codex approves (Claude Code only)
 ```
 
 Use the `browser-evidence` skill when you want Claude Code to drive a running
@@ -167,6 +165,7 @@ Restart Codex after installing or linking the skill.
 - `/x:babysit` replies to review comments after addressing them
 - `/x:babysit` waits 10 minutes after green checks for late feedback before reporting ready
 - `/x:babysit` never merges, enables auto-merge, or deletes the branch; it prints the merge command when ready
+- `/x:babysit` push-notifies once per ready-commit when Codex 👍s the PR body and CI is green, using a `codex-ok:<sha>` label as the notify-once sentinel; it polls the issues reactions endpoint because GitHub emits no webhook for reactions
 - `/x:author-ao-orchestrator` is authoring-only and does not mutate live project state unless separately requested
 - Codex `babysit` is packaged as a real skill directory because Codex installers expect `SKILL.md`
 - Codex `babysit` does not rely on `/loop`; it reuses the `land` Python watcher for the monitoring wait, and uses Codex cron automation when the user asks for continuous monitoring
@@ -174,5 +173,3 @@ Restart Codex after installing or linking the skill.
 - Codex `land` owns the shared watcher and uses the codebase's customary merge method after the same feedback/check gates pass
 - `/x:slack-pr` sends as a draft so user can review before posting
 - Vercel bot comments use the **issues** endpoint (`/issues/{n}/comments`), not `/pulls/{n}/comments`
-- `/x:codex-watch` keys off the 👍 **reaction** on the PR body (the issues reactions endpoint), since GitHub emits no webhook for reactions — so it polls on a loop
-- `/x:codex-watch` notifies once per ready-commit via a `codex-ok:<sha>` label and never merges, leaving the merge to the human
