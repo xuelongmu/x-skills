@@ -22,10 +22,13 @@ Run `ao status` and `ao doctor` before anything else.
 - The canonical entry point is the Go binary. On Windows, `ao doctor` fails
   when a legacy npm/Node shim shadows the binary on PATH — resolve which `ao`
   you are invoking before diagnosing anything else.
-- The desktop app owns the daemon; do not try to start or restart the daemon
-  yourself.
-- The daemon serves loopback HTTP on port 3001. The handshake file is
-  `~/.ao/running.json`; state lives under `~/.ao/data`.
+- If `ao status` reports stopped or stale, start AO with `ao start`. On a
+  desktop install it opens the app (which owns the daemon) and exits; from a
+  source checkout it runs the dev harness and **blocks** — launch it detached
+  in that case. `ao stop` stops the daemon.
+- The daemon serves loopback HTTP on port 3001 by default, but the port is
+  configurable — read the live port from `ao status` or the handshake file
+  `~/.ao/running.json` before calling the API. State lives under `~/.ao/data`.
 
 Never proceed on a failing `ao doctor`. Report the exact failure to the user
 and stop.
@@ -77,9 +80,12 @@ ao send --session <id> --message <text>
 The CLI has **no** orchestrator spawn command. Spawn via the daemon API:
 
 ```
-POST http://127.0.0.1:3001/api/v1/orchestrators
+POST http://127.0.0.1:<port>/api/v1/orchestrators
 {"projectId":"<id>","clean":false}
 ```
+
+Use the port reported by `ao status` / `~/.ao/running.json` (3001 by
+default).
 
 The response contains the orchestrator session id. List with
 `ao orchestrator ls`. AO injects the generic orchestrator role itself — you
@@ -106,7 +112,10 @@ workaround below).
 
 AO's SCM observer routes CI failures, review comments, merge conflicts, and
 stacked-parent head changes to the owning worker automatically. A 10-minute
-heartbeat escalates stalled failing PRs (~30 min). Merges go through AO's
+heartbeat escalates stalled failing PRs (~30 min). Exception: a session
+paused in `waiting_input`/`needs_input` may not receive these nudges — for
+paused sessions, inspect their PRs yourself and route or escalate fresh CI
+failures, review feedback, and conflicts. Merges go through AO's
 fail-closed squash merge pinned to the exact observed head.
 
 Your job as driver: watch for `needs_input`/blocked states and terminal
