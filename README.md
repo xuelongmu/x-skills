@@ -59,7 +59,25 @@ done
 
 Restart Codex after linking.
 
-For a **project-local** install (skills that travel with one repo), run the same commands from the target repo root with `.codex/skills/<name>` as the link path. The watcher resolves from the installed `land` skill directory — project-local first, then global — and must run from the PR repository's working directory so `gh` picks up the right repo.
+For a **project-local** install (skills committed to one repo so they travel with it), **copy** instead of linking — links back to your personal clone won't exist for teammates or CI checkouts. From the target repo root:
+
+**Windows** (PowerShell):
+```powershell
+New-Item -ItemType Directory -Force -Path ".codex\skills"
+foreach ($s in 'babysit','land') {
+  Copy-Item -Recurse -Force "C:\path\to\x-skills\.codex\skills\$s" ".codex\skills\$s"
+}
+```
+
+**macOS / Linux**:
+```bash
+mkdir -p .codex/skills
+for s in babysit land; do
+  cp -R "/path/to/x-skills/.codex/skills/$s" ".codex/skills/$s"
+done
+```
+
+The watcher resolves from the installed `land` skill directory — project-local first, then global — and must run from the PR repository's working directory so `gh` picks up the right repo.
 
 **No local checkout?** Ask Codex to install copies instead:
 
