@@ -32,7 +32,7 @@ Create an executable coordination contract, not a narrative plan. Separate reusa
 - Keep project-specific issue IDs, dependency edges, exceptions, decision records, verification, and spend restrictions in the generated prompt.
 - Define a rule once and refer to its name. Do not repeat review, merge, verification, or human-gate prose in several sections.
 - Prefer a table for three or more issues. Do not encode a dependency graph only in paragraphs.
-- Distinguish direct parents from transitive ancestors. A child issue may dispatch before its parent merges by stacking a PR on the parent's open branch; when a parent merges, resume and retarget only direct children, then rerun `VERIFY` and require current-head evidence before they become ready. Never tell a grandchild to retarget when only its grandparent merged.
+- Distinguish direct parents from transitive ancestors. A child issue may dispatch before its parent merges by stacking a PR on the parent's open branch; whenever that parent branch head changes — from pre-merge commits or from the merge itself — rebase/retarget only direct children, then rerun `VERIFY` and require current-head evidence before they become ready. Never tell a grandchild to retarget when only its grandparent merged.
 - A human review gate blocks merging by default, not building. Keep dependent issues moving as stacked PRs unless the gated question could change what the gated issue itself or its dependents build, and say so when a gate blocks building too.
 - Replace vague intensifiers such as "always," "stagger," "clean," "done," and "every state change" with measurable conditions.
 - Keep safety redundancy only where a destructive or externally visible action is authorized.

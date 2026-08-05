@@ -46,8 +46,9 @@ authoring unless the user separately asks for those changes.
 - Use a table for three or more issues.
 - Distinguish direct parents from transitive ancestors. A child issue may
   dispatch before its parent merges by stacking a PR on the parent's open
-  branch; when a parent merges, resume and retarget only direct children, then
-  rerun `VERIFY` and require current-head evidence before they become ready.
+  branch; whenever that parent branch head changes — from pre-merge commits or
+  from the merge itself — rebase/retarget only direct children, then rerun
+  `VERIFY` and require current-head evidence before they become ready.
 - A human review gate blocks merging by default, not building. Keep dependent
   issues moving as stacked PRs unless the gated question could change what the
   gated issue itself or its dependents build, and say so when a gate blocks

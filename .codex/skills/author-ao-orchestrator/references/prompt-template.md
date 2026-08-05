@@ -25,7 +25,7 @@ Before mutating state, verify `<tracker access>`, `<GitHub access>`, `<worker ha
 |---|---|---|---|---|---|
 | `<id>` | `<main or parent issue>` | `<observable event>` | `<none or mutex>` | `<orchestrator or driver>` | `<facts>` |
 
-Never infer a dependency omitted from the table. When a direct parent merges, resume only its direct children: retarget/rebase them as specified, run `VERIFY`, and update draft/readiness state. Descendants remain stacked on their own direct unmerged parents.
+Never infer a dependency omitted from the table. Whenever a direct parent's branch head changes — from pre-merge commits or from the merge itself — resume only its direct children: retarget/rebase them as specified, run `VERIFY`, and update draft/readiness state. Descendants remain stacked on their own direct unmerged parents.
 
 ## Worker contract
 
