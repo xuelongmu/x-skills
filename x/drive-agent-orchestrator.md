@@ -56,8 +56,11 @@ ao project orchestration get|set|pause|resume
 Spawn:
 
 ```
-ao spawn --workspace worktree --issue <ID> --prompt <task>
+ao spawn --project <id> --workspace worktree --issue <ID> --prompt <task>
 ```
+
+Pass `--project` explicitly; it only resolves implicitly from `AO_PROJECT_ID`
+or when the current directory is a registered repo.
 
 - `worktree` is the only workspace kind that supports `--branch` and PR
   observation — use it for anything that will open a PR.
@@ -127,7 +130,9 @@ than merging yourself.
 ## Monitoring pattern
 
 Poll `ao session ls -a` (plain `ls` hides orchestrator sessions), the issue
-tracker, and `gh pr list` on a 90–120 second cadence. Diff normalized snapshots (strip age counters and other
+tracker, and `gh pr list -R <owner>/<repo>` (scoped to the driven project's
+repository — bare `gh pr list` reads whatever repo you happen to be in) on a
+90–120 second cadence. Diff normalized snapshots (strip age counters and other
 always-changing fields) and report only real transitions. Escalate
 `needs_input` to the user immediately.
 
