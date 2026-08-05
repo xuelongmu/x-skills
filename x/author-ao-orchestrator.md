@@ -46,10 +46,12 @@ authoring unless the user separately asks for those changes.
 - Use a table for three or more issues.
 - Distinguish direct parents from transitive ancestors. A child issue may
   dispatch before its parent merges by stacking a PR on the parent's open
-  branch; when a parent merges, resume and retarget only direct children.
+  branch; when a parent merges, resume and retarget only direct children, then
+  rerun `VERIFY` and require current-head evidence before they become ready.
 - A human review gate blocks merging by default, not building. Keep dependent
-  issues moving as stacked PRs unless the gated question could change what
-  they build on, and say so when a gate blocks building too.
+  issues moving as stacked PRs unless the gated question could change what the
+  gated issue itself or its dependents build, and say so when a gate blocks
+  building too.
 - Never tell a worker to build a synthetic merge of unmerged parents.
 - Replace words such as "stagger", "clean", "done", "wait", and "every state
   change" with observable conditions, owners, and timeouts.
@@ -141,7 +143,7 @@ current issue facts, existing sessions/PRs, and required capability fallbacks.
 - `REVIEW_CLEAN`: `<current-head review predicate and rerun ownership>`
 - `HUMAN_GATE`: `<label/comment semantics and whether it blocks building,
   merging, or both; default merge-only unless the gated question could change
-  what dependents build on>`
+  what the gated issue itself or its dependents build>`
 - `READY`: `<pre-merge facts>`
 - `DONE`: `<merged, tracker, branch, and cleanup facts>`
 
@@ -160,7 +162,8 @@ tracker metadata, review handling, spend restrictions>`
 
 `<concurrency, mutexes, direct-child transitions, draft/ready rules; keep
 dispatching children that can stack a PR on their direct parent's open branch
-while a merge-only HUMAN_GATE or unmerged parent is pending>`
+while a merge-only HUMAN_GATE or unmerged parent is pending, unless a
+build-blocking HUMAN_GATE applies to that child or its base>`
 
 ## CI, review, merge, and cleanup
 
