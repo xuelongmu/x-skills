@@ -44,8 +44,15 @@ authoring unless the user separately asks for those changes.
 - Preserve project-specific issue IDs, dependency edges, exceptions, recorded
   decisions, verification commands, and spend restrictions.
 - Use a table for three or more issues.
-- Distinguish direct parents from transitive ancestors. Resume only direct
-  children when a parent merges.
+- Distinguish direct parents from transitive ancestors. A child issue may
+  dispatch before its parent merges by stacking a PR on the parent's open
+  branch; whenever that parent branch head changes — from pre-merge commits or
+  from the merge itself — rebase/retarget only direct children, then rerun
+  `VERIFY` and require current-head evidence before they become ready.
+- A human review gate blocks merging by default, not building. Keep dependent
+  issues moving as stacked PRs unless the gated question could change what the
+  gated issue itself or its dependents build, and say so when a gate blocks
+  building too.
 - Never tell a worker to build a synthetic merge of unmerged parents.
 - Replace words such as "stagger", "clean", "done", "wait", and "every state
   change" with observable conditions, owners, and timeouts.
@@ -102,7 +109,8 @@ Return `GO` only when all of these hold:
   are concrete.
 - Every wait has an owner, observable completion event, timeout, and escalation
   path.
-- Safe unrelated work continues while one lane waits.
+- Safe unrelated work — and dependent work that can stack — continues while
+  one lane waits.
 - Reporting covers meaningful milestones rather than low-level mutations.
 - The completion condition cannot end while safe runnable work remains.
 
@@ -134,7 +142,9 @@ current issue facts, existing sessions/PRs, and required capability fallbacks.
 - `VERIFY`: `<commands and manual checks>`
 - `IN_FLIGHT`: `<states consuming concurrency>`
 - `REVIEW_CLEAN`: `<current-head review predicate and rerun ownership>`
-- `HUMAN_GATE`: `<label/comment semantics and blocked actions>`
+- `HUMAN_GATE`: `<label/comment semantics and whether it blocks building,
+  merging, or both; default merge-only unless the gated question could change
+  what the gated issue itself or its dependents build>`
 - `READY`: `<pre-merge facts>`
 - `DONE`: `<merged, tracker, branch, and cleanup facts>`
 
@@ -151,7 +161,13 @@ tracker metadata, review handling, spend restrictions>`
 
 ## Scheduling and stack lifecycle
 
-`<concurrency, mutexes, direct-child transitions, draft/ready rules>`
+`<concurrency, mutexes, direct-child transitions, draft/ready rules; keep
+dispatching children that can stack a PR on their direct parent's open branch
+while a merge-only HUMAN_GATE or unmerged parent is pending, unless a
+build-blocking HUMAN_GATE applies to that child or its base; whenever a direct
+parent's branch head changes — from pre-merge commits or the merge itself —
+resume its direct children to rebase/retarget and rerun VERIFY with
+current-head evidence before they become ready>`
 
 ## CI, review, merge, and cleanup
 

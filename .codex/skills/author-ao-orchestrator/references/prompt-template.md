@@ -16,7 +16,7 @@ Before mutating state, verify `<tracker access>`, `<GitHub access>`, `<worker ha
 - `VERIFY`: `<command and any manual verification>`
 - `IN_FLIGHT`: `<states that consume the concurrency cap>`
 - `REVIEW_CLEAN`: `<current-head blocking authors/severities, response and resolution rules, follow-up trigger and completion evidence>`
-- `HUMAN_GATE`: `<exact label/comment semantics and whether it blocks build, merge, or both>`
+- `HUMAN_GATE`: `<exact label/comment semantics and whether it blocks build, merge, or both; default merge-only unless the gated question could change what the gated issue itself or its dependents build>`
 - `DONE`: `<tracker, PR, and cleanup facts>`
 
 ## Issue graph
@@ -25,7 +25,7 @@ Before mutating state, verify `<tracker access>`, `<GitHub access>`, `<worker ha
 |---|---|---|---|---|---|
 | `<id>` | `<main or parent issue>` | `<observable event>` | `<none or mutex>` | `<orchestrator or driver>` | `<facts>` |
 
-Never infer a dependency omitted from the table. When a direct parent merges, resume only its direct children: retarget/rebase them as specified, run `VERIFY`, and update draft/readiness state. Descendants remain stacked on their own direct unmerged parents.
+Never infer a dependency omitted from the table. Whenever a direct parent's branch head changes — from pre-merge commits or from the merge itself — resume only its direct children: retarget/rebase them as specified, run `VERIFY`, and update draft/readiness state. Descendants remain stacked on their own direct unmerged parents.
 
 ## Worker contract
 
@@ -33,7 +33,7 @@ Use one persistent worker session and one PR per issue. Give every worker the fu
 
 ## Scheduling
 
-Run at most `<N>` `IN_FLIGHT` workers. Apply these mutexes: `<locks and cardinalities>`. Continue safe unblocked work while other issues await review or merge. Never build a synthetic merge of unmerged parents.
+Run at most `<N>` `IN_FLIGHT` workers. Apply these mutexes: `<locks and cardinalities>`. Continue safe unblocked work while other issues await review or merge, and keep dispatching children that can stack a PR on their direct parent's open branch while a merge-only `HUMAN_GATE` or unmerged parent is pending, unless a build-blocking `HUMAN_GATE` applies to that child or its base. Never build a synthetic merge of unmerged parents.
 
 ## CI and review
 
