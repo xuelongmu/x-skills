@@ -16,7 +16,7 @@ Before mutating state, verify `<tracker access>`, `<GitHub access>`, `<worker ha
 - `VERIFY`: `<command and any manual verification>`
 - `IN_FLIGHT`: `<states that consume the concurrency cap>`
 - `REVIEW_CLEAN`: `<current-head blocking authors/severities, response and resolution rules, follow-up trigger and completion evidence>`
-- `HUMAN_GATE`: `<exact label/comment semantics and whether it blocks build, merge, or both>`
+- `HUMAN_GATE`: `<exact label/comment semantics and whether it blocks build, merge, or both; default merge-only unless the gated question could change what dependents build on>`
 - `DONE`: `<tracker, PR, and cleanup facts>`
 
 ## Issue graph
@@ -33,7 +33,7 @@ Use one persistent worker session and one PR per issue. Give every worker the fu
 
 ## Scheduling
 
-Run at most `<N>` `IN_FLIGHT` workers. Apply these mutexes: `<locks and cardinalities>`. Continue safe unblocked work while other issues await review or merge. Never build a synthetic merge of unmerged parents.
+Run at most `<N>` `IN_FLIGHT` workers. Apply these mutexes: `<locks and cardinalities>`. Continue safe unblocked work while other issues await review or merge, and keep dispatching children that can stack a PR on their direct parent's open branch while a merge-only `HUMAN_GATE` or unmerged parent is pending. Never build a synthetic merge of unmerged parents.
 
 ## CI and review
 
