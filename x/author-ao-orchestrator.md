@@ -139,7 +139,9 @@ current issue facts, existing sessions/PRs, and required capability fallbacks.
 - `VERIFY`: `<commands and manual checks>`
 - `IN_FLIGHT`: `<states consuming concurrency>`
 - `REVIEW_CLEAN`: `<current-head review predicate and rerun ownership>`
-- `HUMAN_GATE`: `<label/comment semantics and blocked actions>`
+- `HUMAN_GATE`: `<label/comment semantics and whether it blocks building,
+  merging, or both; default merge-only unless the gated question could change
+  what dependents build on>`
 - `READY`: `<pre-merge facts>`
 - `DONE`: `<merged, tracker, branch, and cleanup facts>`
 
@@ -156,7 +158,9 @@ tracker metadata, review handling, spend restrictions>`
 
 ## Scheduling and stack lifecycle
 
-`<concurrency, mutexes, direct-child transitions, draft/ready rules>`
+`<concurrency, mutexes, direct-child transitions, draft/ready rules; keep
+dispatching children that can stack a PR on their direct parent's open branch
+while a merge-only HUMAN_GATE or unmerged parent is pending>`
 
 ## CI, review, merge, and cleanup
 
