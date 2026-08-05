@@ -1,6 +1,6 @@
 ---
-name: slack-pr
-description: Post the current branch's PR to Slack with Vercel preview link. Usage: /slack-pr [channel] (default: #zerogen)
+name: publish-slack
+description: Post the current branch's PR to Slack with Vercel preview link. Usage: /publish-slack [channel] (default: #zerogen)
 allowed-tools:
   - Bash
   - mcp__claude_ai_Slack__slack_search_channels
@@ -8,7 +8,7 @@ allowed-tools:
   - mcp__claude_ai_Slack__slack_send_message
 ---
 
-# Slack PR: Share PR in Slack
+# Publish Slack: Share PR in Slack
 
 Post the current branch's open PR to a Slack channel with a Vercel preview link.
 
