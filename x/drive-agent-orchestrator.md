@@ -111,11 +111,14 @@ fail-closed squash merge pinned to the exact observed head.
 
 Your job as driver: watch for `needs_input`/blocked states and terminal
 milestones. Do **not** relay review comments, retrigger CI, or merge by hand.
+If a ready PR sits unmerged past AO's escalation window (~30 minutes with no
+AO action), treat AO's merge path as suspect: escalate to the user rather
+than merging yourself.
 
 ## Monitoring pattern
 
-Poll `ao session ls`, the issue tracker, and `gh pr list` on a 90–120 second
-cadence. Diff normalized snapshots (strip age counters and other
+Poll `ao session ls -a` (plain `ls` hides orchestrator sessions), the issue
+tracker, and `gh pr list` on a 90–120 second cadence. Diff normalized snapshots (strip age counters and other
 always-changing fields) and report only real transitions. Escalate
 `needs_input` to the user immediately.
 
