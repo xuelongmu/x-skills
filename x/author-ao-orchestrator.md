@@ -164,7 +164,10 @@ tracker metadata, review handling, spend restrictions>`
 `<concurrency, mutexes, direct-child transitions, draft/ready rules; keep
 dispatching children that can stack a PR on their direct parent's open branch
 while a merge-only HUMAN_GATE or unmerged parent is pending, unless a
-build-blocking HUMAN_GATE applies to that child or its base>`
+build-blocking HUMAN_GATE applies to that child or its base; whenever a direct
+parent's branch head changes — from pre-merge commits or the merge itself —
+resume its direct children to rebase/retarget and rerun VERIFY with
+current-head evidence before they become ready>`
 
 ## CI, review, merge, and cleanup
 
