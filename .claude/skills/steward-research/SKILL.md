@@ -84,16 +84,17 @@ Classify files before staging:
 | runbooks and research metadata | version after removing secrets and private state |
 | datasets, model weights, credentials | never commit |
 | generated outputs, caches, checkpoints | ignore unless the repository explicitly defines a small canonical fixture |
-| images, audio, video, recordings, render previews | keep local and never upload through repository hosting |
+| images, audio, video, recordings, render previews | keep local by default; upload only when policy permits and the user confirms the content is non-sensitive |
 
 If repository policy permits it, use a root `tmp/` directory for disposable
 local work, including temporary media. Add `/tmp/` to `.gitignore`; never
 force-add or upload its contents. Otherwise use the repository's existing
 scratch convention or an external temporary directory.
 
-Never attach media to PRs or issues and never add it as a release asset. Record
-non-sensitive metadata and external handling instructions instead. Do not
-assume permission to upload to a separate storage service.
+Keep media local by default. Attach it to PRs or issues, add it as a release
+asset, or upload it to a separate storage service only when repository policy
+permits it and the user confirms it is non-sensitive client data. Never upload
+credentials, restricted or licensed assets, or private machine state.
 
 Scan the intended contribution for common media extensions, large binaries,
 credentials, absolute user paths, hostnames, PIDs, fixed ports, and licensed
