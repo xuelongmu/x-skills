@@ -4,7 +4,7 @@ description: Draft, critique, and validate a project-specific Agent Orchestrator
 argument-hint: "[project brief, issue range, or draft prompt]"
 ---
 
-# Author an Agent Orchestrator Prompt
+# Author an Agent Orchestrator prompt
 
 Use the request in `$ARGUMENTS` to produce an executable coordination contract,
 not a narrative plan. Separate reusable AO behavior from project facts and

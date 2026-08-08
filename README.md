@@ -6,13 +6,13 @@ Portable PR workflow skills for Claude Code and Codex.
 
 | Skill | What it does | Claude Code | Codex |
 |---|---|---|---|
-| publish | Commit intended changes, validate, push, and open a PR ready for review (draft only on request) | `/x:publish` | `publish` |
-| publish-slack | Post the current PR to Slack as a draft message with its Vercel preview link | `/x:publish-slack [channel]` (default `#zerogen`) | — |
-| babysit | Keep the PR ready without merging: fix CI, address review comments, sync the base branch, push-notify when Codex 👍s with CI green | `/loop 5m /x:babysit` | `babysit` |
+| publish | Commit intended changes, validate, push, and open a PR ready for review (draft only on request) | `/publish` | `publish` |
+| publish-slack | Post the current PR to Slack as a draft message with its Vercel preview link | `/publish-slack [channel]` (default `#zerogen`) | — |
+| babysit | Keep the PR ready without merging: fix CI, address review comments, sync the base branch, push-notify when Codex 👍s with CI green | `/loop 10m /babysit` | `babysit` |
 | land | Keep the PR healthy and merge it once checks and feedback gates pass | — | `land` |
-| prompt-agent-orchestrator | Draft and validate multi-issue Agent Orchestrator project prompts | `/x:prompt-agent-orchestrator <brief>` | `prompt-agent-orchestrator` |
-| drive-agent-orchestrator | Operate Agent Orchestrator: preflight, spawn/supervise workers and orchestrators, monitor sessions | `/x:drive-agent-orchestrator` | — |
-| browser-evidence | Drive a running app, verify a flow, and capture browser-visible evidence | `browser-evidence` | `browser-evidence` |
+| prompt-agent-orchestrator | Draft and validate multi-issue Agent Orchestrator project prompts | `/prompt-agent-orchestrator <brief>` | `prompt-agent-orchestrator` |
+| drive-agent-orchestrator | Operate Agent Orchestrator: preflight, spawn/supervise workers and orchestrators, monitor sessions | `/drive-agent-orchestrator` | — |
+| browser-evidence | Drive a running app, verify a flow, and capture browser-visible evidence | `/browser-evidence` | `browser-evidence` |
 
 - `babysit` never merges, enables auto-merge, or deletes branches — it prints the merge command when ready. `land` is the only skill that merges.
 - Codex `babysit` reuses `land/land_watch.py`, so always install `land` alongside it. Codex has no `/loop`; a single run uses that watcher, and continuous monitoring uses a Codex cron automation.
@@ -27,16 +27,18 @@ Replace `C:\path\to\x-skills` / `/path/to/x-skills` with your clone's location.
 
 **Windows** (PowerShell):
 ```powershell
-New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\commands\x" -Target "C:\path\to\x-skills\x"
 New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.claude\skills"
-New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\skills\browser-evidence" -Target "C:\path\to\x-skills\.claude\skills\browser-evidence"
+foreach ($s in 'publish','publish-slack','babysit','prompt-agent-orchestrator','drive-agent-orchestrator','browser-evidence') {
+  New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\skills\$s" -Target "C:\path\to\x-skills\.claude\skills\$s"
+}
 ```
 
 **macOS / Linux**:
 ```bash
-ln -s /path/to/x-skills/x ~/.claude/commands/x
 mkdir -p ~/.claude/skills
-ln -s /path/to/x-skills/.claude/skills/browser-evidence ~/.claude/skills/browser-evidence
+for s in publish publish-slack babysit prompt-agent-orchestrator drive-agent-orchestrator browser-evidence; do
+  ln -s "/path/to/x-skills/.claude/skills/$s" "$HOME/.claude/skills/$s"
+done
 ```
 
 ### Codex

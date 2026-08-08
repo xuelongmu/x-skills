@@ -1,6 +1,9 @@
 ---
 name: publish-slack
-description: Post the current branch's PR to Slack with Vercel preview link. Usage: /publish-slack [channel] (default: #zerogen)
+description: >-
+  Post the current branch's PR to Slack with its Vercel preview link. Use when
+  sharing the current PR in Slack with /publish-slack [channel]; the default
+  channel is #zerogen.
 allowed-tools:
   - Bash
   - mcp__claude_ai_Slack__slack_search_channels
@@ -21,7 +24,7 @@ Post the current branch's open PR to a Slack channel with a Vercel preview link.
 gh pr view --json number,title,url,body
 ```
 
-If no PR exists on the current branch, stop and tell the user to run `/x:publish` first.
+If no PR exists on the current branch, stop and tell the user to run `/publish` first.
 
 ## Step 2: Wait for Vercel preview
 

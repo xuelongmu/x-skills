@@ -10,7 +10,7 @@ allowed-tools:
   - Glob
 ---
 
-# Publish Changes
+# Publish changes
 
 Perform the complete publish flow from the current checkout: confirm scope, prepare the branch, commit, validate, push, and open a pull request ready for review.
 
