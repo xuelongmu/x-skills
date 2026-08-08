@@ -66,11 +66,14 @@ description:
 # Ensure branch and PR context
 branch=$(git branch --show-current)
 pr_number=$(gh pr view --json number -q .number)
-pr_title=$(gh pr view --json title -q .title)
-pr_body=$(gh pr view --json body -q .body)
+pr_host=$(gh pr view --json url --jq '.url | split("/")[2]')
+pr_repo=$(gh pr view --json url --jq '.url | split("/") | .[3:5] | join("/")')
+pr_selector="$pr_repo"
+pr_title=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json title -q .title)
+pr_body=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json body -q .body)
 
 # Check mergeability and conflicts
-mergeable=$(gh pr view --json mergeable -q .mergeable)
+mergeable=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json mergeable -q .mergeable)
 
 if [ "$mergeable" = "CONFLICTING" ]; then
   # Run the `pull` skill to handle fetch + merge + conflict resolution.
@@ -91,9 +94,9 @@ if ! python3 "$LAND_SKILL_DIR/land_watch.py"; then
 fi
 
 # Run the customary enabled method:
-# merge:  gh pr merge --merge
-# rebase: gh pr merge --rebase
-# squash: gh pr merge --squash --subject "$pr_title" --body "$pr_body"
+# merge:  GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --merge
+# rebase: GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --rebase
+# squash: GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --squash --subject "$pr_title" --body "$pr_body"
 ```
 
 ## Async Watch Helper
@@ -124,9 +127,10 @@ acceptable.
 
 ## Failure Handling
 
-- If checks fail, pull details with `gh pr checks` and `gh run view --log`, then
-  fix locally, commit with the `commit` skill, push with the `push` skill, and
-  re-run the watch.
+- If checks fail, pull details with
+  `GH_HOST="$pr_host" gh pr checks "$pr_number" -R "$pr_selector"` and
+  `GH_HOST="$pr_host" gh run view <run-id> -R "$pr_selector" --log`, then fix locally, commit
+  with the `commit` skill, push with the `push` skill, and re-run the watch.
 - Treat every reported CI failure as blocking. If a failure looks flaky (for
   example, a timeout on one platform), rerun or re-watch until the check is
   green before proceeding.
@@ -157,19 +161,27 @@ acceptable.
   resolved) before requesting a new review or merging.
 - If multiple reviewers comment in the same thread, respond to each comment
   (batching is fine) before closing the thread.
+- Derive API coordinates from the selected PR before fetching or replying; do
+  not use checkout-derived placeholders or the CLI's default hostname:
+  ```sh
+  PR_HOST=$(gh pr view --json url --jq '.url | split("/")[2]')
+  PR_REPO=$(gh pr view --json url --jq '.url | split("/") | .[3:5] | join("/")')
+  PR_NUMBER=$(gh pr view --json number --jq .number)
+  ```
 - Fetch review comments via `gh api` and reply with a prefixed comment.
 - Use review comment endpoints (not issue comments) to find inline feedback:
   - List PR review comments:
     ```
-    gh api repos/{owner}/{repo}/pulls/<pr_number>/comments
+    GH_HOST="$PR_HOST" gh api "repos/$PR_REPO/pulls/$PR_NUMBER/comments"
     ```
   - PR issue comments (top-level discussion):
     ```
-    gh api repos/{owner}/{repo}/issues/<pr_number>/comments
+    GH_HOST="$PR_HOST" gh api "repos/$PR_REPO/issues/$PR_NUMBER/comments"
     ```
   - Reply to a specific review comment:
     ```
-    gh api -X POST /repos/{owner}/{repo}/pulls/<pr_number>/comments \
+    GH_HOST="$PR_HOST" gh api --method POST \
+      "repos/$PR_REPO/pulls/$PR_NUMBER/comments" \
       -f body='[codex] <response>' -F in_reply_to=<comment_id>
     ```
 - `in_reply_to` must be the numeric review comment id (e.g., `2710521800`), not
