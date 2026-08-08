@@ -69,7 +69,7 @@ def get_repository_from_pr_url(url: str) -> tuple[str, str, str]:
         or not path_parts[3].isdigit()
     ):
         raise RuntimeError(f"Unexpected pull request URL: {url}")
-    return parsed_url.hostname, path_parts[0], path_parts[1]
+    return parsed_url.netloc, path_parts[0], path_parts[1]
 
 
 def is_rate_limit_error(error: str) -> bool:

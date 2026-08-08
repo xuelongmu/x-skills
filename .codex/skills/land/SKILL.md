@@ -66,11 +66,14 @@ description:
 # Ensure branch and PR context
 branch=$(git branch --show-current)
 pr_number=$(gh pr view --json number -q .number)
-pr_title=$(gh pr view --json title -q .title)
-pr_body=$(gh pr view --json body -q .body)
+pr_host=$(gh pr view --json url --jq '.url | split("/")[2]')
+pr_repo=$(gh pr view --json url --jq '.url | split("/") | .[3:5] | join("/")')
+pr_selector="$pr_host/$pr_repo"
+pr_title=$(gh pr view "$pr_number" -R "$pr_selector" --json title -q .title)
+pr_body=$(gh pr view "$pr_number" -R "$pr_selector" --json body -q .body)
 
 # Check mergeability and conflicts
-mergeable=$(gh pr view --json mergeable -q .mergeable)
+mergeable=$(gh pr view "$pr_number" -R "$pr_selector" --json mergeable -q .mergeable)
 
 if [ "$mergeable" = "CONFLICTING" ]; then
   # Run the `pull` skill to handle fetch + merge + conflict resolution.
@@ -91,9 +94,9 @@ if ! python3 "$LAND_SKILL_DIR/land_watch.py"; then
 fi
 
 # Run the customary enabled method:
-# merge:  gh pr merge --merge
-# rebase: gh pr merge --rebase
-# squash: gh pr merge --squash --subject "$pr_title" --body "$pr_body"
+# merge:  gh pr merge "$pr_number" -R "$pr_selector" --merge
+# rebase: gh pr merge "$pr_number" -R "$pr_selector" --rebase
+# squash: gh pr merge "$pr_number" -R "$pr_selector" --squash --subject "$pr_title" --body "$pr_body"
 ```
 
 ## Async Watch Helper
@@ -124,9 +127,10 @@ acceptable.
 
 ## Failure Handling
 
-- If checks fail, pull details with `gh pr checks` and `gh run view --log`, then
-  fix locally, commit with the `commit` skill, push with the `push` skill, and
-  re-run the watch.
+- If checks fail, pull details with
+  `gh pr checks "$pr_number" -R "$pr_selector"` and
+  `gh run view <run-id> -R "$pr_selector" --log`, then fix locally, commit
+  with the `commit` skill, push with the `push` skill, and re-run the watch.
 - Treat every reported CI failure as blocking. If a failure looks flaky (for
   example, a timeout on one platform), rerun or re-watch until the check is
   green before proceeding.

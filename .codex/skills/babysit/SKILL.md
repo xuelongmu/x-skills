@@ -28,6 +28,12 @@ description: Keep a pull request healthy without merging it; use when Codex need
    ```sh
    gh pr view --json number,title,url,headRefName,baseRefName,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup
    ```
+   Derive the selected PR coordinates for all follow-up CLI and API calls:
+   ```sh
+   PR_HOST=$(gh pr view --json url --jq '.url | split("/")[2]')
+   PR_REPO=$(gh pr view --json url --jq '.url | split("/") | .[3:5] | join("/")')
+   PR_NUMBER=$(gh pr view --json number --jq .number)
+   ```
 2. If the user asks to keep watching, continuously babysit, check back later, or monitor over time, create or update a Codex cron automation for this PR. Use the current repo cwd, include the PR number and branch in the automation prompt, tell it not to merge, and have it run this babysit workflow. Prefer updating an existing matching automation over creating a duplicate.
 
    For that continuous automation flow, stop after **3 consecutive runs** with **no new actionable feedback**:
@@ -45,12 +51,12 @@ description: Keep a pull request healthy without merging it; use when Codex need
    ```
    Resolve `LAND_SKILL_DIR` before running: prefer the current repo's `.codex/skills/land` when present, otherwise use `${CODEX_HOME:-$HOME/.codex}/skills/land` or `%USERPROFILE%\.codex\skills\land`. Run the command from the PR repository working directory so `gh` uses the right repo. Use `python3` instead of `python` when that is the available launcher.
 7. If the watcher exits `2`, fetch top-level comments, inline review comments, review summaries, unresolved threads when available, latest checks, and bot feedback. Classify each item, address actionable feedback, commit, push, leave `[codex]` response comments for addressed or intentionally deferred feedback, and rerun the watcher.
-8. If the watcher exits `3`, inspect failing checks with `gh pr checks` and `gh run view --log`, fix the failure when concrete, commit, push, leave a `[codex]` response if the failure was reported in PR feedback, and rerun the watcher.
+8. If the watcher exits `3`, inspect failing checks with `gh pr checks "$PR_NUMBER" -R "$PR_HOST/$PR_REPO"` and `gh run view <run-id> -R "$PR_HOST/$PR_REPO" --log`, fix the failure when concrete, commit, push, leave a `[codex]` response if the failure was reported in PR feedback, and rerun the watcher.
 9. If the watcher exits `4`, refresh local state from the remote branch and rerun the watcher.
 10. If the watcher exits `5`, merge the base branch, resolve conflicts, validate, push, leave a `[codex]` response if a thread/comment reported the conflict, and rerun the watcher.
 11. When the watcher succeeds, do not merge. Report the PR as ready and include:
     ```sh
-    gh pr merge <number> --squash
+    gh pr merge "$PR_NUMBER" -R "$PR_HOST/$PR_REPO" --squash
     ```
 
 ## Review Handling
@@ -81,6 +87,6 @@ Exit codes:
 PR #<number>: <title>
 Status: <what was handled this cycle>
 Ready: <yes/no>
-Merge: gh pr merge <number> --squash
+Merge: gh pr merge "$PR_NUMBER" -R "$PR_HOST/$PR_REPO" --squash
 Blocking: <remaining blocker or "none">
 ```

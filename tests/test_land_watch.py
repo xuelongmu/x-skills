@@ -22,7 +22,7 @@ class PullRequestIdentityTests(unittest.TestCase):
         payload = {
             "number": 42,
             "id": "PR_node_id",
-            "url": "https://github.example/owner/repo/pull/42",
+            "url": "https://github.example:8443/owner/repo/pull/42",
             "headRefOid": "abc123",
             "mergeable": "MERGEABLE",
             "mergeStateStatus": "CLEAN",
@@ -33,7 +33,7 @@ class PullRequestIdentityTests(unittest.TestCase):
             pr = asyncio.run(land_watch.get_pr_info())
 
         self.assertEqual(pr.node_id, "PR_node_id")
-        self.assertEqual(pr.hostname, "github.example")
+        self.assertEqual(pr.hostname, "github.example:8443")
         self.assertEqual((pr.owner, pr.repo), ("owner", "repo"))
         run_gh.assert_awaited_once_with(
             "pr",
@@ -75,13 +75,16 @@ class PullRequestIdentityTests(unittest.TestCase):
             comment_ids = asyncio.run(
                 land_watch.get_active_review_thread_comment_node_ids(
                     "PR_node_id",
-                    "github.example",
+                    "github.example:8443",
                 ),
             )
 
         self.assertEqual(comment_ids, {"comment-id"})
         args = run_gh.await_args.args
-        self.assertEqual(args[:3], ("api", "--hostname", "github.example"))
+        self.assertEqual(
+            args[:3],
+            ("api", "--hostname", "github.example:8443"),
+        )
         self.assertIn("pullRequestId=PR_node_id", args)
         self.assertNotIn("owner", " ".join(args))
         self.assertNotIn("repo", " ".join(args))
@@ -93,7 +96,7 @@ class PullRequestIdentityTests(unittest.TestCase):
             comments = asyncio.run(
                 land_watch.get_issue_comments(
                     42,
-                    "github.example",
+                    "github.example:8443",
                     "selected-owner",
                     "selected-repo",
                 ),
@@ -103,7 +106,7 @@ class PullRequestIdentityTests(unittest.TestCase):
         run_gh.assert_any_await(
             "api",
             "--hostname",
-            "github.example",
+            "github.example:8443",
             "--method",
             "GET",
             "repos/selected-owner/selected-repo/issues/42/comments",
@@ -121,7 +124,7 @@ class PullRequestIdentityTests(unittest.TestCase):
             check_runs = asyncio.run(
                 land_watch.get_check_runs(
                     "abc123",
-                    "github.example",
+                    "github.example:8443",
                     "selected-owner",
                     "selected-repo",
                 ),
@@ -131,7 +134,7 @@ class PullRequestIdentityTests(unittest.TestCase):
         run_gh.assert_awaited_once_with(
             "api",
             "--hostname",
-            "github.example",
+            "github.example:8443",
             "--method",
             "GET",
             "repos/selected-owner/selected-repo/commits/abc123/check-runs",

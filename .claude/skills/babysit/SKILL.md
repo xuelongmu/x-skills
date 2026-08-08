@@ -33,6 +33,7 @@ Derive the API repository from that selected PR, not from the checkout's remote:
 ```bash
 HOST=$(gh pr view --json url --jq '.url | split("/")[2]')
 REPO=$(gh pr view --json url --jq '.url | split("/") | .[3:5] | join("/")')
+N=$(gh pr view --json number --jq .number)
 ```
 
 If no PR exists on the current branch, say so and stop.
@@ -60,7 +61,10 @@ Otherwise, write the updated state back to `.git/babysit-state.json` and continu
 ## Step 2: Check base-branch status
 
 ```
-gh pr view --json mergeStateStatus
+HOST=$(gh pr view --json url --jq '.url | split("/")[2]')
+REPO=$(gh pr view --json url --jq '.url | split("/") | .[3:5] | join("/")')
+N=$(gh pr view --json number --jq .number)
+gh pr view "$N" -R "$HOST/$REPO" --json mergeStateStatus
 ```
 
 - If `mergeStateStatus` is `BEHIND`, merge the base branch in:
@@ -73,11 +77,11 @@ gh pr view --json mergeStateStatus
 ## Step 3: Address code review comments
 
 ```
-gh pr view --json comments,reviews,id,url
 HOST=$(gh pr view --json url --jq '.url | split("/")[2]')
 REPO=$(gh pr view --json url --jq '.url | split("/") | .[3:5] | join("/")')
 N=$(gh pr view --json number --jq .number)
-PR_ID=$(gh pr view --json id --jq .id)
+gh pr view "$N" -R "$HOST/$REPO" --json comments,reviews,id,url
+PR_ID=$(gh pr view "$N" -R "$HOST/$REPO" --json id --jq .id)
 gh api --hostname "$HOST" "repos/$REPO/issues/$N/comments"
 gh api --hostname "$HOST" "repos/$REPO/pulls/$N/comments" --jq '.[] | select(.position != null)'
 gh api --hostname "$HOST" graphql --paginate \
@@ -88,9 +92,11 @@ gh api --hostname "$HOST" graphql --paginate \
         reviewThreads(first: 100, after: $endCursor) {
           pageInfo { hasNextPage endCursor }
           nodes {
+            id
             isResolved
             isOutdated
             comments(first: 100) {
+              pageInfo { hasNextPage endCursor }
               nodes { databaseId body url author { login } }
             }
           }
@@ -99,6 +105,26 @@ gh api --hostname "$HOST" graphql --paginate \
     }
   }' \
   --jq '.data.node.reviewThreads.nodes[] | select(.isResolved == false and .isOutdated == false)'
+```
+
+For every active thread whose `comments.pageInfo.hasNextPage` is true, set
+`THREAD_ID` from that thread's `id` and fetch all remaining comments through
+the thread node's own paginated connection:
+
+```bash
+gh api --hostname "$HOST" graphql --paginate \
+  -F threadId="$THREAD_ID" \
+  -f query='query($threadId: ID!, $endCursor: String) {
+    node(id: $threadId) {
+      ... on PullRequestReviewThread {
+        comments(first: 100, after: $endCursor) {
+          pageInfo { hasNextPage endCursor }
+          nodes { databaseId body url author { login } }
+        }
+      }
+    }
+  }' \
+  --jq '.data.node.comments.nodes[]'
 ```
 
 Fetch top-level PR comments, inline review comments, review summaries/states, unresolved review threads when available, and bot feedback.
@@ -133,7 +159,7 @@ gh pr checks "$N" -R "$HOST/$REPO"
 
 - If checks are **pending**, report status and wait for next cycle
 - If checks **failed**, investigate the failure:
-  - Read the failed check's logs: `gh run view <run-id> --log-failed`
+  - Read the failed check's logs: `gh run view <run-id> -R "$HOST/$REPO" --log-failed`
   - Fix the issue, commit, and push
 - If checks **passed**, move to step 4b
 
@@ -192,7 +218,7 @@ The PR is ready to merge when ALL of these are true:
 
 If ready: report that the PR is ready to merge but do NOT auto-merge. Print the merge command for the user:
 ```
-gh pr merge <number> --squash --delete-branch
+gh pr merge "$N" -R "$HOST/$REPO" --squash --delete-branch
 ```
 
 If not ready: summarize what's still blocking and what was done this cycle.
