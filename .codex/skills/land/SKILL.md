@@ -68,12 +68,12 @@ branch=$(git branch --show-current)
 pr_number=$(gh pr view --json number -q .number)
 pr_host=$(gh pr view --json url --jq '.url | split("/")[2]')
 pr_repo=$(gh pr view --json url --jq '.url | split("/") | .[3:5] | join("/")')
-pr_selector="$pr_host/$pr_repo"
-pr_title=$(gh pr view "$pr_number" -R "$pr_selector" --json title -q .title)
-pr_body=$(gh pr view "$pr_number" -R "$pr_selector" --json body -q .body)
+pr_selector="$pr_repo"
+pr_title=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json title -q .title)
+pr_body=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json body -q .body)
 
 # Check mergeability and conflicts
-mergeable=$(gh pr view "$pr_number" -R "$pr_selector" --json mergeable -q .mergeable)
+mergeable=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json mergeable -q .mergeable)
 
 if [ "$mergeable" = "CONFLICTING" ]; then
   # Run the `pull` skill to handle fetch + merge + conflict resolution.
@@ -94,9 +94,9 @@ if ! python3 "$LAND_SKILL_DIR/land_watch.py"; then
 fi
 
 # Run the customary enabled method:
-# merge:  gh pr merge "$pr_number" -R "$pr_selector" --merge
-# rebase: gh pr merge "$pr_number" -R "$pr_selector" --rebase
-# squash: gh pr merge "$pr_number" -R "$pr_selector" --squash --subject "$pr_title" --body "$pr_body"
+# merge:  GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --merge
+# rebase: GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --rebase
+# squash: GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --squash --subject "$pr_title" --body "$pr_body"
 ```
 
 ## Async Watch Helper
@@ -128,8 +128,8 @@ acceptable.
 ## Failure Handling
 
 - If checks fail, pull details with
-  `gh pr checks "$pr_number" -R "$pr_selector"` and
-  `gh run view <run-id> -R "$pr_selector" --log`, then fix locally, commit
+  `GH_HOST="$pr_host" gh pr checks "$pr_number" -R "$pr_selector"` and
+  `GH_HOST="$pr_host" gh run view <run-id> -R "$pr_selector" --log`, then fix locally, commit
   with the `commit` skill, push with the `push` skill, and re-run the watch.
 - Treat every reported CI failure as blocking. If a failure looks flaky (for
   example, a timeout on one platform), rerun or re-watch until the check is
@@ -172,15 +172,15 @@ acceptable.
 - Use review comment endpoints (not issue comments) to find inline feedback:
   - List PR review comments:
     ```
-    gh api --hostname "$PR_HOST" "repos/$PR_REPO/pulls/$PR_NUMBER/comments"
+    GH_HOST="$PR_HOST" gh api "repos/$PR_REPO/pulls/$PR_NUMBER/comments"
     ```
   - PR issue comments (top-level discussion):
     ```
-    gh api --hostname "$PR_HOST" "repos/$PR_REPO/issues/$PR_NUMBER/comments"
+    GH_HOST="$PR_HOST" gh api "repos/$PR_REPO/issues/$PR_NUMBER/comments"
     ```
   - Reply to a specific review comment:
     ```
-    gh api --hostname "$PR_HOST" --method POST \
+    GH_HOST="$PR_HOST" gh api --method POST \
       "repos/$PR_REPO/pulls/$PR_NUMBER/comments" \
       -f body='[codex] <response>' -F in_reply_to=<comment_id>
     ```

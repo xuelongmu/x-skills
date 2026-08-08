@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import asyncio
 import json
+import os
 import random
 import re
 import sys
@@ -76,16 +77,21 @@ def is_rate_limit_error(error: str) -> bool:
     return "HTTP 429" in error or "rate limit" in error.lower()
 
 
-async def run_gh(*args: str) -> str:
+async def run_gh(*args: str, api_host: str | None = None) -> str:
     max_delay = BASE_GH_BACKOFF_SECONDS * (2 ** (MAX_GH_RETRIES - 1))
     delay_seconds = BASE_GH_BACKOFF_SECONDS
     last_error = "gh command failed"
+    process_env = None
+    if api_host:
+        process_env = os.environ.copy()
+        process_env["GH_HOST"] = api_host
     for attempt in range(1, MAX_GH_RETRIES + 1):
         proc = await asyncio.create_subprocess_exec(
             "gh",
             *args,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            env=process_env,
         )
         stdout, stderr = await proc.communicate()
         if proc.returncode == 0:
@@ -133,8 +139,6 @@ async def get_paginated_list(
     while True:
         data = await run_gh(
             "api",
-            "--hostname",
-            hostname,
             "--method",
             "GET",
             endpoint,
@@ -142,6 +146,7 @@ async def get_paginated_list(
             "per_page=100",
             "-f",
             f"page={page}",
+            api_host=hostname,
         )
         batch = json.loads(data)
         if not batch:
@@ -186,8 +191,6 @@ async def get_reviews(
     while True:
         data = await run_gh(
             "api",
-            "--hostname",
-            hostname,
             "--method",
             "GET",
             f"repos/{owner}/{repo}/pulls/{pr_number}/reviews",
@@ -195,6 +198,7 @@ async def get_reviews(
             "per_page=100",
             "-f",
             f"page={page}",
+            api_host=hostname,
         )
         batch = json.loads(data)
         if not batch:
@@ -207,11 +211,10 @@ async def get_reviews(
 async def get_authenticated_user_login(hostname: str) -> str | None:
     data = await run_gh(
         "api",
-        "--hostname",
-        hostname,
         "user",
         "--jq",
         ".login",
+        api_host=hostname,
     )
     login = data.strip()
     return login or None
@@ -226,8 +229,6 @@ async def get_active_review_thread_comment_node_ids(
     while True:
         args = [
             "api",
-            "--hostname",
-            hostname,
             "graphql",
             "-f",
             f"query={REVIEW_THREADS_QUERY}",
@@ -236,7 +237,7 @@ async def get_active_review_thread_comment_node_ids(
         ]
         if cursor:
             args.extend(["-F", f"cursor={cursor}"])
-        data = await run_gh(*args)
+        data = await run_gh(*args, api_host=hostname)
         payload = json.loads(data)
         threads = payload["data"]["node"]["reviewThreads"]
         for thread in threads.get("nodes") or []:
@@ -264,8 +265,6 @@ async def get_review_thread_comment_node_ids(
     while thread_id and cursor:
         data = await run_gh(
             "api",
-            "--hostname",
-            hostname,
             "graphql",
             "-f",
             f"query={REVIEW_THREAD_COMMENTS_QUERY}",
@@ -273,6 +272,7 @@ async def get_review_thread_comment_node_ids(
             f"threadId={thread_id}",
             "-F",
             f"cursor={cursor}",
+            api_host=hostname,
         )
         payload = json.loads(data)
         comments_page = payload["data"]["node"]["comments"]
@@ -300,7 +300,10 @@ async def get_check_runs(
     page = 1
     check_runs: list[dict[str, Any]] = []
     while True:
-        data = await run_gh(*check_runs_page_args(hostname, endpoint, page))
+        data = await run_gh(
+            *check_runs_page_args(endpoint, page),
+            api_host=hostname,
+        )
         payload = json.loads(data)
         batch = payload.get("check_runs", [])
         if not batch:
@@ -314,14 +317,11 @@ async def get_check_runs(
 
 
 def check_runs_page_args(
-    hostname: str,
     endpoint: str,
     page: int,
 ) -> list[str]:
     return [
         "api",
-        "--hostname",
-        hostname,
         "--method",
         "GET",
         endpoint,
@@ -340,8 +340,6 @@ async def get_commit_status_checks(
 ) -> list[dict[str, Any]]:
     data = await run_gh(
         "api",
-        "--hostname",
-        hostname,
         "--method",
         "GET",
         "--paginate",
@@ -349,6 +347,7 @@ async def get_commit_status_checks(
         f"repos/{owner}/{repo}/commits/{head_sha}/statuses",
         "-f",
         "per_page=100",
+        api_host=hostname,
     )
     pages = json.loads(data)
     statuses = [

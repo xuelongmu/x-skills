@@ -64,7 +64,7 @@ Otherwise, write the updated state back to `.git/babysit-state.json` and continu
 HOST=$(gh pr view --json url --jq '.url | split("/")[2]')
 REPO=$(gh pr view --json url --jq '.url | split("/") | .[3:5] | join("/")')
 N=$(gh pr view --json number --jq .number)
-gh pr view "$N" -R "$HOST/$REPO" --json mergeStateStatus
+GH_HOST="$HOST" gh pr view "$N" -R "$REPO" --json mergeStateStatus
 ```
 
 - If `mergeStateStatus` is `BEHIND`, merge the base branch in:
@@ -80,11 +80,11 @@ gh pr view "$N" -R "$HOST/$REPO" --json mergeStateStatus
 HOST=$(gh pr view --json url --jq '.url | split("/")[2]')
 REPO=$(gh pr view --json url --jq '.url | split("/") | .[3:5] | join("/")')
 N=$(gh pr view --json number --jq .number)
-gh pr view "$N" -R "$HOST/$REPO" --json comments,reviews,id,url
-PR_ID=$(gh pr view "$N" -R "$HOST/$REPO" --json id --jq .id)
-gh api --hostname "$HOST" "repos/$REPO/issues/$N/comments"
-gh api --hostname "$HOST" "repos/$REPO/pulls/$N/comments" --jq '.[] | select(.position != null)'
-gh api --hostname "$HOST" graphql --paginate \
+GH_HOST="$HOST" gh pr view "$N" -R "$REPO" --json comments,reviews,id,url
+PR_ID=$(GH_HOST="$HOST" gh pr view "$N" -R "$REPO" --json id --jq .id)
+GH_HOST="$HOST" gh api "repos/$REPO/issues/$N/comments"
+GH_HOST="$HOST" gh api "repos/$REPO/pulls/$N/comments" --jq '.[] | select(.position != null)'
+GH_HOST="$HOST" gh api graphql --paginate \
   -F pullRequestId="$PR_ID" \
   -f query='query($pullRequestId: ID!, $endCursor: String) {
     node(id: $pullRequestId) {
@@ -112,7 +112,7 @@ For every active thread whose `comments.pageInfo.hasNextPage` is true, set
 the thread node's own paginated connection:
 
 ```bash
-gh api --hostname "$HOST" graphql --paginate \
+GH_HOST="$HOST" gh api graphql --paginate \
   -F threadId="$THREAD_ID" \
   -f query='query($threadId: ID!, $endCursor: String) {
     node(id: $threadId) {
@@ -139,7 +139,7 @@ For each unresolved or newly actionable review thread/comment:
    - Stage and commit with a clear message referencing the review (e.g., "Address review: simplify error handling")
 4. After committing and pushing fixes, reply to each addressed review comment to explain what you changed:
    ```
-   gh api --hostname "$HOST" "repos/$REPO/pulls/$N/comments/$comment_id/replies" -f body="Done — <brief description of what was changed>"
+   GH_HOST="$HOST" gh api "repos/$REPO/pulls/$N/comments/$comment_id/replies" -f body="Done — <brief description of what was changed>"
    ```
    For review threads, reply via the GraphQL API or REST thread reply endpoint. Keep replies short and factual (e.g., "Fixed — extracted into a helper", "Done — switched to early return").
 5. After all fixes are committed and replies posted, push the changes
@@ -154,12 +154,12 @@ Do not overstep the boundaries of the original PR. If a comment feels out of sco
 HOST=$(gh pr view --json url --jq '.url | split("/")[2]')
 REPO=$(gh pr view --json url --jq '.url | split("/") | .[3:5] | join("/")')
 N=$(gh pr view --json number --jq .number)
-gh pr checks "$N" -R "$HOST/$REPO"
+GH_HOST="$HOST" gh pr checks "$N" -R "$REPO"
 ```
 
 - If checks are **pending**, report status and wait for next cycle
 - If checks **failed**, investigate the failure:
-  - Read the failed check's logs: `gh run view <run-id> -R "$HOST/$REPO" --log-failed`
+  - Read the failed check's logs: `GH_HOST="$HOST" gh run view <run-id> -R "$REPO" --log-failed`
   - Fix the issue, commit, and push
 - If checks **passed**, move to step 4b
 
@@ -171,12 +171,12 @@ When Codex finishes a review with no further comments, `chatgpt-codex-connector[
 HOST=$(gh pr view --json url --jq '.url | split("/")[2]')
 REPO=$(gh pr view --json url --jq '.url | split("/") | .[3:5] | join("/")')
 N=$(gh pr view --json number -q .number)
-HEAD=$(gh pr view "$N" -R "$HOST/$REPO" --json headRefOid -q .headRefOid)
-APPROVED=$(gh api --hostname "$HOST" "repos/$REPO/issues/$N/reactions" \
+HEAD=$(GH_HOST="$HOST" gh pr view "$N" -R "$REPO" --json headRefOid -q .headRefOid)
+APPROVED=$(GH_HOST="$HOST" gh api "repos/$REPO/issues/$N/reactions" \
   -q '[.[]|select(.user.login=="chatgpt-codex-connector[bot]" and .content=="+1")]|length')
-NOTOK=$(gh pr checks "$N" -R "$HOST/$REPO" --json bucket \
+NOTOK=$(GH_HOST="$HOST" gh pr checks "$N" -R "$REPO" --json bucket \
   -q '[.[]|select(.bucket=="fail" or .bucket=="pending" or .bucket=="cancel")]|length' 2>/dev/null || echo 1)
-ALREADY=$(gh pr view "$N" -R "$HOST/$REPO" --json labels -q "[.labels[].name|select(.==\"codex-ok:$HEAD\")]|length")
+ALREADY=$(GH_HOST="$HOST" gh pr view "$N" -R "$REPO" --json labels -q "[.labels[].name|select(.==\"codex-ok:$HEAD\")]|length")
 ```
 
 **If `APPROVED ≥ 1` AND `NOTOK == 0` AND `ALREADY == 0`** → it just became ready:
@@ -184,11 +184,11 @@ ALREADY=$(gh pr view "$N" -R "$HOST/$REPO" --json labels -q "[.labels[].name|sel
 1. Send a push with the **PushNotification** tool — title `PR #<N> approved by Codex`, body `CI green + Codex 👍 — ready to merge: <URL>`.
 2. Mark this head so later cycles stay quiet, clearing any stale sentinel first (a new commit re-arms automatically, since its sha won't match the old label):
    ```bash
-   for L in $(gh pr view "$N" -R "$HOST/$REPO" --json labels -q '.labels[].name|select(startswith("codex-ok:"))'); do
-     gh pr edit "$N" -R "$HOST/$REPO" --remove-label "$L" 2>/dev/null || true
+   for L in $(GH_HOST="$HOST" gh pr view "$N" -R "$REPO" --json labels -q '.labels[].name|select(startswith("codex-ok:"))'); do
+     GH_HOST="$HOST" gh pr edit "$N" -R "$REPO" --remove-label "$L" 2>/dev/null || true
    done
-   gh label create "codex-ok:$HEAD" -R "$HOST/$REPO" -c 2DA44E -f 2>/dev/null || true
-   gh pr edit "$N" -R "$HOST/$REPO" --add-label "codex-ok:$HEAD"
+   GH_HOST="$HOST" gh label create "codex-ok:$HEAD" -R "$REPO" -c 2DA44E -f 2>/dev/null || true
+   GH_HOST="$HOST" gh pr edit "$N" -R "$REPO" --add-label "codex-ok:$HEAD"
    ```
 
 If already pinged for this head (`ALREADY ≥ 1`), stay quiet. One ping per ready-commit — the label sentinel guarantees it even though `/loop` restarts the session each cycle.
@@ -218,7 +218,7 @@ The PR is ready to merge when ALL of these are true:
 
 If ready: report that the PR is ready to merge but do NOT auto-merge. Print the merge command for the user:
 ```
-gh pr merge "$N" -R "$HOST/$REPO" --squash --delete-branch
+GH_HOST="$HOST" gh pr merge "$N" -R "$REPO" --squash --delete-branch
 ```
 
 If not ready: summarize what's still blocking and what was done this cycle.

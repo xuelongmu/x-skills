@@ -18,6 +18,32 @@ SPEC.loader.exec_module(land_watch)
 
 
 class PullRequestIdentityTests(unittest.TestCase):
+    def test_run_gh_routes_custom_port_through_process_environment(self) -> None:
+        process = AsyncMock()
+        process.returncode = 0
+        process.communicate.return_value = (b"{}", b"")
+        create_process = AsyncMock(return_value=process)
+
+        with patch.object(
+            land_watch.asyncio,
+            "create_subprocess_exec",
+            create_process,
+        ):
+            result = asyncio.run(
+                land_watch.run_gh(
+                    "api",
+                    "user",
+                    api_host="github.example:8443",
+                ),
+            )
+
+        self.assertEqual(result, "{}")
+        self.assertEqual(
+            create_process.await_args.kwargs["env"]["GH_HOST"],
+            "github.example:8443",
+        )
+        self.assertEqual(create_process.await_args.args[:3], ("gh", "api", "user"))
+
     def test_get_pr_info_includes_graphql_node_id(self) -> None:
         payload = {
             "number": 42,
@@ -81,9 +107,10 @@ class PullRequestIdentityTests(unittest.TestCase):
 
         self.assertEqual(comment_ids, {"comment-id"})
         args = run_gh.await_args.args
+        self.assertEqual(args[:2], ("api", "graphql"))
         self.assertEqual(
-            args[:3],
-            ("api", "--hostname", "github.example:8443"),
+            run_gh.await_args.kwargs,
+            {"api_host": "github.example:8443"},
         )
         self.assertIn("pullRequestId=PR_node_id", args)
         self.assertNotIn("owner", " ".join(args))
@@ -105,8 +132,6 @@ class PullRequestIdentityTests(unittest.TestCase):
         self.assertEqual(comments, [{"id": 1}])
         run_gh.assert_any_await(
             "api",
-            "--hostname",
-            "github.example:8443",
             "--method",
             "GET",
             "repos/selected-owner/selected-repo/issues/42/comments",
@@ -114,6 +139,7 @@ class PullRequestIdentityTests(unittest.TestCase):
             "per_page=100",
             "-f",
             "page=1",
+            api_host="github.example:8443",
         )
 
     def test_ci_queries_use_selected_pull_request_repository(self) -> None:
@@ -133,8 +159,6 @@ class PullRequestIdentityTests(unittest.TestCase):
         self.assertEqual(check_runs, [])
         run_gh.assert_awaited_once_with(
             "api",
-            "--hostname",
-            "github.example:8443",
             "--method",
             "GET",
             "repos/selected-owner/selected-repo/commits/abc123/check-runs",
@@ -142,6 +166,7 @@ class PullRequestIdentityTests(unittest.TestCase):
             "per_page=100",
             "-f",
             "page=1",
+            api_host="github.example:8443",
         )
 
 
