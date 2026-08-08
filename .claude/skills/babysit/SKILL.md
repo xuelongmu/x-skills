@@ -28,6 +28,12 @@ Never run `gh pr merge`, enable auto-merge, or delete the branch. When the PR is
 gh pr view --json number,title,state,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,headRefName,baseRefName,url,updatedAt
 ```
 
+Derive the API repository from that selected PR, not from the checkout's remote:
+
+```bash
+REPO=$(gh pr view --json url --jq '.url | split("/") | .[3:5] | join("/")')
+```
+
 If no PR exists on the current branch, say so and stop.
 
 If the PR's `state` is `MERGED` or `CLOSED` (note `gh pr view` still resolves closed/merged PRs for the branch), babysitting is over — stop the loop for good: delete the matching babysit cron (`CronList` / `CronDelete`), delete `.git/babysit-state.json`, and report `Stopping babysit — PR #<n> is <state>.` This terminal-state stop overrides every keep-alive exception below, including a pending sign-off ping.
@@ -67,8 +73,10 @@ gh pr view --json mergeStateStatus
 
 ```
 gh pr view --json comments,reviews,reviewThreads
-gh api repos/{owner}/{repo}/issues/{number}/comments
-gh api repos/{owner}/{repo}/pulls/{number}/comments --jq '.[] | select(.position != null)'
+REPO=$(gh pr view --json url --jq '.url | split("/") | .[3:5] | join("/")')
+N=$(gh pr view --json number --jq .number)
+gh api "repos/$REPO/issues/$N/comments"
+gh api "repos/$REPO/pulls/$N/comments" --jq '.[] | select(.position != null)'
 ```
 
 Fetch top-level PR comments, inline review comments, review summaries/states, unresolved review threads when available, and bot feedback.
@@ -83,7 +91,7 @@ For each unresolved or newly actionable review thread/comment:
    - Stage and commit with a clear message referencing the review (e.g., "Address review: simplify error handling")
 4. After committing and pushing fixes, reply to each addressed review comment to explain what you changed:
    ```
-   gh api repos/{owner}/{repo}/pulls/{number}/comments/{comment_id}/replies -f body="Done — <brief description of what was changed>"
+   gh api "repos/$REPO/pulls/$N/comments/$comment_id/replies" -f body="Done — <brief description of what was changed>"
    ```
    For review threads, reply via the GraphQL API or REST thread reply endpoint. Keep replies short and factual (e.g., "Fixed — extracted into a helper", "Done — switched to early return").
 5. After all fixes are committed and replies posted, push the changes
@@ -109,7 +117,7 @@ gh pr checks
 When Codex finishes a review with no further comments, `chatgpt-codex-connector[bot]` adds a `+1` (👍) reaction to the PR **body**. GitHub emits no webhook for reactions, so poll it. Run this check as soon as checks are green — do **not** hold the notification for step 5's 10-minute grace wait (that wait gates the `Ready` verdict, not the ping):
 
 ```bash
-REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+REPO=$(gh pr view --json url --jq '.url | split("/") | .[3:5] | join("/")')
 N=$(gh pr view --json number -q .number)
 HEAD=$(gh pr view --json headRefOid -q .headRefOid)
 APPROVED=$(gh api "repos/$REPO/issues/$N/reactions" \

@@ -33,6 +33,7 @@ class PullRequestIdentityTests(unittest.TestCase):
             pr = asyncio.run(land_watch.get_pr_info())
 
         self.assertEqual(pr.node_id, "PR_node_id")
+        self.assertEqual((pr.owner, pr.repo), ("owner", "repo"))
         run_gh.assert_awaited_once_with(
             "pr",
             "view",
@@ -81,6 +82,55 @@ class PullRequestIdentityTests(unittest.TestCase):
         self.assertIn("pullRequestId=PR_node_id", args)
         self.assertNotIn("owner", " ".join(args))
         self.assertNotIn("repo", " ".join(args))
+
+    def test_rest_review_queries_use_selected_pull_request_repository(self) -> None:
+        run_gh = AsyncMock(side_effect=[json.dumps([{"id": 1}]), "[]"])
+
+        with patch.object(land_watch, "run_gh", run_gh):
+            comments = asyncio.run(
+                land_watch.get_issue_comments(
+                    42,
+                    "selected-owner",
+                    "selected-repo",
+                ),
+            )
+
+        self.assertEqual(comments, [{"id": 1}])
+        run_gh.assert_any_await(
+            "api",
+            "--method",
+            "GET",
+            "repos/selected-owner/selected-repo/issues/42/comments",
+            "-f",
+            "per_page=100",
+            "-f",
+            "page=1",
+        )
+
+    def test_ci_queries_use_selected_pull_request_repository(self) -> None:
+        payload = {"total_count": 0, "check_runs": []}
+        run_gh = AsyncMock(return_value=json.dumps(payload))
+
+        with patch.object(land_watch, "run_gh", run_gh):
+            check_runs = asyncio.run(
+                land_watch.get_check_runs(
+                    "abc123",
+                    "selected-owner",
+                    "selected-repo",
+                ),
+            )
+
+        self.assertEqual(check_runs, [])
+        run_gh.assert_awaited_once_with(
+            "api",
+            "--method",
+            "GET",
+            "repos/selected-owner/selected-repo/commits/abc123/check-runs",
+            "-f",
+            "per_page=100",
+            "-f",
+            "page=1",
+        )
 
 
 if __name__ == "__main__":

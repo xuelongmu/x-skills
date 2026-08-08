@@ -95,5 +95,6 @@ Copies don't track this repo — re-run the installer to pick up updates.
 Each skill file documents its own behavior; these are the cross-cutting choices:
 
 - `babysit` uses `git merge` (not rebase) to avoid force pushes, and replies on review threads after addressing feedback.
+- Both babysit implementations bind feedback API calls to the repository selected by `gh pr view`, not whichever remote the checkout resolves. Codex carries the PR's GraphQL node ID and URL-derived repository coordinates through its watcher; Claude derives the repository from that PR URL before REST calls.
 - The Codex sign-off ping polls the PR body's reactions endpoint (GitHub emits no webhook for reactions) and notifies once per ready-commit via a `codex-ok:<sha>` label.
 - `publish-slack` sends as a draft so the user reviews before posting; Vercel bot comments live on the **issues** endpoint (`/issues/{n}/comments`), not `/pulls/{n}/comments`.

@@ -7,6 +7,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
+from urllib.parse import urlsplit
 
 POLL_SECONDS = 10
 CHECKS_APPEAR_TIMEOUT_SECONDS = 120
@@ -38,6 +39,8 @@ async def sleep(seconds: int | float) -> None:
 class PrInfo:
     number: int
     node_id: str
+    owner: str
+    repo: str
     url: str
     head_sha: str
     mergeable: str | None
@@ -52,6 +55,17 @@ class WatchExit(Exception):
     def __init__(self, code: int):
         super().__init__(code)
         self.code = code
+
+
+def get_repository_from_pr_url(url: str) -> tuple[str, str]:
+    path_parts = urlsplit(url).path.strip("/").split("/")
+    if (
+        len(path_parts) != 4
+        or path_parts[2] != "pull"
+        or not path_parts[3].isdigit()
+    ):
+        raise RuntimeError(f"Unexpected pull request URL: {url}")
+    return path_parts[0], path_parts[1]
 
 
 def is_rate_limit_error(error: str) -> bool:
@@ -92,9 +106,12 @@ async def get_pr_info() -> PrInfo:
         "number,id,url,headRefOid,mergeable,mergeStateStatus",
     )
     parsed = json.loads(data)
+    owner, repo = get_repository_from_pr_url(parsed["url"])
     return PrInfo(
         number=parsed["number"],
         node_id=parsed["id"],
+        owner=owner,
+        repo=repo,
         url=parsed["url"],
         head_sha=parsed["headRefOid"],
         mergeable=parsed.get("mergeable"),
@@ -124,19 +141,31 @@ async def get_paginated_list(endpoint: str) -> list[dict[str, Any]]:
     return items
 
 
-async def get_issue_comments(pr_number: int) -> list[dict[str, Any]]:
+async def get_issue_comments(
+    pr_number: int,
+    owner: str,
+    repo: str,
+) -> list[dict[str, Any]]:
     return await get_paginated_list(
-        f"repos/{{owner}}/{{repo}}/issues/{pr_number}/comments",
+        f"repos/{owner}/{repo}/issues/{pr_number}/comments",
     )
 
 
-async def get_review_comments(pr_number: int) -> list[dict[str, Any]]:
+async def get_review_comments(
+    pr_number: int,
+    owner: str,
+    repo: str,
+) -> list[dict[str, Any]]:
     return await get_paginated_list(
-        f"repos/{{owner}}/{{repo}}/pulls/{pr_number}/comments",
+        f"repos/{owner}/{repo}/pulls/{pr_number}/comments",
     )
 
 
-async def get_reviews(pr_number: int) -> list[dict[str, Any]]:
+async def get_reviews(
+    pr_number: int,
+    owner: str,
+    repo: str,
+) -> list[dict[str, Any]]:
     page = 1
     reviews: list[dict[str, Any]] = []
     while True:
@@ -144,7 +173,7 @@ async def get_reviews(pr_number: int) -> list[dict[str, Any]]:
             "api",
             "--method",
             "GET",
-            f"repos/{{owner}}/{{repo}}/pulls/{pr_number}/reviews",
+            f"repos/{owner}/{repo}/pulls/{pr_number}/reviews",
             "-f",
             "per_page=100",
             "-f",
@@ -231,8 +260,12 @@ def comment_node_ids(comments: list[dict[str, Any]]) -> set[str]:
     }
 
 
-async def get_check_runs(head_sha: str) -> list[dict[str, Any]]:
-    endpoint = f"repos/{{owner}}/{{repo}}/commits/{head_sha}/check-runs"
+async def get_check_runs(
+    head_sha: str,
+    owner: str,
+    repo: str,
+) -> list[dict[str, Any]]:
+    endpoint = f"repos/{owner}/{repo}/commits/{head_sha}/check-runs"
     page = 1
     check_runs: list[dict[str, Any]] = []
     while True:
@@ -262,14 +295,18 @@ def check_runs_page_args(endpoint: str, page: int) -> list[str]:
     ]
 
 
-async def get_commit_status_checks(head_sha: str) -> list[dict[str, Any]]:
+async def get_commit_status_checks(
+    head_sha: str,
+    owner: str,
+    repo: str,
+) -> list[dict[str, Any]]:
     data = await run_gh(
         "api",
         "--method",
         "GET",
         "--paginate",
         "--slurp",
-        f"repos/{{owner}}/{{repo}}/commits/{head_sha}/statuses",
+        f"repos/{owner}/{repo}/commits/{head_sha}/statuses",
         "-f",
         "per_page=100",
     )
@@ -285,9 +322,13 @@ async def get_commit_status_checks(head_sha: str) -> list[dict[str, Any]]:
     ]
 
 
-async def get_ci_results(head_sha: str) -> list[dict[str, Any]]:
-    check_runs = await get_check_runs(head_sha)
-    commit_statuses = await get_commit_status_checks(head_sha)
+async def get_ci_results(
+    head_sha: str,
+    owner: str,
+    repo: str,
+) -> list[dict[str, Any]]:
+    check_runs = await get_check_runs(head_sha, owner, repo)
+    commit_statuses = await get_commit_status_checks(head_sha, owner, repo)
     return check_runs + commit_statuses
 
 
@@ -796,6 +837,8 @@ def is_merge_conflicting(pr: PrInfo) -> bool:
 async def fetch_review_context(
     pr_number: int,
     pull_request_id: str,
+    owner: str,
+    repo: str,
 ) -> tuple[
     list[dict[str, Any]],
     list[dict[str, Any]],
@@ -804,10 +847,10 @@ async def fetch_review_context(
     set[str],
     set[str],
 ]:
-    issue_comments = await get_issue_comments(pr_number)
+    issue_comments = await get_issue_comments(pr_number, owner, repo)
     review_request_at = latest_review_request_at(issue_comments)
-    review_comments = await get_review_comments(pr_number)
-    reviews = await get_reviews(pr_number)
+    review_comments = await get_review_comments(pr_number, owner, repo)
+    reviews = await get_reviews(pr_number, owner, repo)
     active_review_comment_node_ids = await get_active_review_thread_comment_node_ids(
         pull_request_id,
     )
@@ -867,6 +910,8 @@ def raise_on_human_feedback(
 async def wait_for_codex(
     pr_number: int,
     pull_request_id: str,
+    owner: str,
+    repo: str,
     checks_done: asyncio.Event,
 ) -> None:
     print("Waiting for review feedback...", flush=True)
@@ -879,7 +924,12 @@ async def wait_for_codex(
             review_request_at,
             active_review_comment_node_ids,
             trusted_ack_logins,
-        ) = await fetch_review_context(pr_number, pull_request_id)
+        ) = await fetch_review_context(
+            pr_number,
+            pull_request_id,
+            owner,
+            repo,
+        )
         active_review_comments = filter_active_review_thread_comments(
             review_comments,
             active_review_comment_node_ids,
@@ -937,13 +987,18 @@ async def wait_for_codex(
         await sleep(POLL_SECONDS)
 
 
-async def wait_for_checks(head_sha: str, checks_done: asyncio.Event) -> None:
+async def wait_for_checks(
+    head_sha: str,
+    owner: str,
+    repo: str,
+    checks_done: asyncio.Event,
+) -> None:
     print("Waiting for CI checks...", flush=True)
     empty_seconds = 0
     checks_were_green = False
     reported_missing = False
     while True:
-        check_runs = await get_ci_results(head_sha)
+        check_runs = await get_ci_results(head_sha, owner, repo)
         if not check_runs:
             if checks_done.is_set():
                 checks_done.clear()
@@ -994,9 +1049,22 @@ async def watch_pr() -> None:
     head_sha = pr.head_sha
     checks_done = asyncio.Event()
     codex_task = asyncio.create_task(
-        wait_for_codex(pr.number, pr.node_id, checks_done),
+        wait_for_codex(
+            pr.number,
+            pr.node_id,
+            pr.owner,
+            pr.repo,
+            checks_done,
+        ),
     )
-    checks_task = asyncio.create_task(wait_for_checks(head_sha, checks_done))
+    checks_task = asyncio.create_task(
+        wait_for_checks(
+            head_sha,
+            pr.owner,
+            pr.repo,
+            checks_done,
+        ),
+    )
 
     async def head_monitor() -> None:
         while True:
