@@ -33,6 +33,7 @@ class PullRequestIdentityTests(unittest.TestCase):
             pr = asyncio.run(land_watch.get_pr_info())
 
         self.assertEqual(pr.node_id, "PR_node_id")
+        self.assertEqual(pr.hostname, "github.example")
         self.assertEqual((pr.owner, pr.repo), ("owner", "repo"))
         run_gh.assert_awaited_once_with(
             "pr",
@@ -74,11 +75,13 @@ class PullRequestIdentityTests(unittest.TestCase):
             comment_ids = asyncio.run(
                 land_watch.get_active_review_thread_comment_node_ids(
                     "PR_node_id",
+                    "github.example",
                 ),
             )
 
         self.assertEqual(comment_ids, {"comment-id"})
         args = run_gh.await_args.args
+        self.assertEqual(args[:3], ("api", "--hostname", "github.example"))
         self.assertIn("pullRequestId=PR_node_id", args)
         self.assertNotIn("owner", " ".join(args))
         self.assertNotIn("repo", " ".join(args))
@@ -90,6 +93,7 @@ class PullRequestIdentityTests(unittest.TestCase):
             comments = asyncio.run(
                 land_watch.get_issue_comments(
                     42,
+                    "github.example",
                     "selected-owner",
                     "selected-repo",
                 ),
@@ -98,6 +102,8 @@ class PullRequestIdentityTests(unittest.TestCase):
         self.assertEqual(comments, [{"id": 1}])
         run_gh.assert_any_await(
             "api",
+            "--hostname",
+            "github.example",
             "--method",
             "GET",
             "repos/selected-owner/selected-repo/issues/42/comments",
@@ -115,6 +121,7 @@ class PullRequestIdentityTests(unittest.TestCase):
             check_runs = asyncio.run(
                 land_watch.get_check_runs(
                     "abc123",
+                    "github.example",
                     "selected-owner",
                     "selected-repo",
                 ),
@@ -123,6 +130,8 @@ class PullRequestIdentityTests(unittest.TestCase):
         self.assertEqual(check_runs, [])
         run_gh.assert_awaited_once_with(
             "api",
+            "--hostname",
+            "github.example",
             "--method",
             "GET",
             "repos/selected-owner/selected-repo/commits/abc123/check-runs",

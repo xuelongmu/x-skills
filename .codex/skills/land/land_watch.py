@@ -39,6 +39,7 @@ async def sleep(seconds: int | float) -> None:
 class PrInfo:
     number: int
     node_id: str
+    hostname: str
     owner: str
     repo: str
     url: str
@@ -57,15 +58,18 @@ class WatchExit(Exception):
         self.code = code
 
 
-def get_repository_from_pr_url(url: str) -> tuple[str, str]:
-    path_parts = urlsplit(url).path.strip("/").split("/")
+def get_repository_from_pr_url(url: str) -> tuple[str, str, str]:
+    parsed_url = urlsplit(url)
+    path_parts = parsed_url.path.strip("/").split("/")
     if (
-        len(path_parts) != 4
+        not parsed_url.hostname
+        or parsed_url.scheme not in ("http", "https")
+        or len(path_parts) != 4
         or path_parts[2] != "pull"
         or not path_parts[3].isdigit()
     ):
         raise RuntimeError(f"Unexpected pull request URL: {url}")
-    return path_parts[0], path_parts[1]
+    return parsed_url.hostname, path_parts[0], path_parts[1]
 
 
 def is_rate_limit_error(error: str) -> bool:
@@ -106,10 +110,11 @@ async def get_pr_info() -> PrInfo:
         "number,id,url,headRefOid,mergeable,mergeStateStatus",
     )
     parsed = json.loads(data)
-    owner, repo = get_repository_from_pr_url(parsed["url"])
+    hostname, owner, repo = get_repository_from_pr_url(parsed["url"])
     return PrInfo(
         number=parsed["number"],
         node_id=parsed["id"],
+        hostname=hostname,
         owner=owner,
         repo=repo,
         url=parsed["url"],
@@ -119,12 +124,17 @@ async def get_pr_info() -> PrInfo:
     )
 
 
-async def get_paginated_list(endpoint: str) -> list[dict[str, Any]]:
+async def get_paginated_list(
+    hostname: str,
+    endpoint: str,
+) -> list[dict[str, Any]]:
     page = 1
     items: list[dict[str, Any]] = []
     while True:
         data = await run_gh(
             "api",
+            "--hostname",
+            hostname,
             "--method",
             "GET",
             endpoint,
@@ -143,26 +153,31 @@ async def get_paginated_list(endpoint: str) -> list[dict[str, Any]]:
 
 async def get_issue_comments(
     pr_number: int,
+    hostname: str,
     owner: str,
     repo: str,
 ) -> list[dict[str, Any]]:
     return await get_paginated_list(
+        hostname,
         f"repos/{owner}/{repo}/issues/{pr_number}/comments",
     )
 
 
 async def get_review_comments(
     pr_number: int,
+    hostname: str,
     owner: str,
     repo: str,
 ) -> list[dict[str, Any]]:
     return await get_paginated_list(
+        hostname,
         f"repos/{owner}/{repo}/pulls/{pr_number}/comments",
     )
 
 
 async def get_reviews(
     pr_number: int,
+    hostname: str,
     owner: str,
     repo: str,
 ) -> list[dict[str, Any]]:
@@ -171,6 +186,8 @@ async def get_reviews(
     while True:
         data = await run_gh(
             "api",
+            "--hostname",
+            hostname,
             "--method",
             "GET",
             f"repos/{owner}/{repo}/pulls/{pr_number}/reviews",
@@ -187,20 +204,30 @@ async def get_reviews(
     return reviews
 
 
-async def get_authenticated_user_login() -> str | None:
-    data = await run_gh("api", "user", "--jq", ".login")
+async def get_authenticated_user_login(hostname: str) -> str | None:
+    data = await run_gh(
+        "api",
+        "--hostname",
+        hostname,
+        "user",
+        "--jq",
+        ".login",
+    )
     login = data.strip()
     return login or None
 
 
 async def get_active_review_thread_comment_node_ids(
     pull_request_id: str,
+    hostname: str,
 ) -> set[str]:
     cursor: str | None = None
     active_comment_ids: set[str] = set()
     while True:
         args = [
             "api",
+            "--hostname",
+            hostname,
             "graphql",
             "-f",
             f"query={REVIEW_THREADS_QUERY}",
@@ -216,7 +243,7 @@ async def get_active_review_thread_comment_node_ids(
             if thread.get("isResolved") or thread.get("isOutdated"):
                 continue
             active_comment_ids.update(
-                await get_review_thread_comment_node_ids(thread),
+                await get_review_thread_comment_node_ids(thread, hostname),
             )
         page_info = threads["pageInfo"]
         if not page_info["hasNextPage"]:
@@ -227,6 +254,7 @@ async def get_active_review_thread_comment_node_ids(
 
 async def get_review_thread_comment_node_ids(
     thread: dict[str, Any],
+    hostname: str,
 ) -> set[str]:
     thread_id = thread.get("id")
     comments = thread.get("comments") or {}
@@ -236,6 +264,8 @@ async def get_review_thread_comment_node_ids(
     while thread_id and cursor:
         data = await run_gh(
             "api",
+            "--hostname",
+            hostname,
             "graphql",
             "-f",
             f"query={REVIEW_THREAD_COMMENTS_QUERY}",
@@ -262,6 +292,7 @@ def comment_node_ids(comments: list[dict[str, Any]]) -> set[str]:
 
 async def get_check_runs(
     head_sha: str,
+    hostname: str,
     owner: str,
     repo: str,
 ) -> list[dict[str, Any]]:
@@ -269,7 +300,7 @@ async def get_check_runs(
     page = 1
     check_runs: list[dict[str, Any]] = []
     while True:
-        data = await run_gh(*check_runs_page_args(endpoint, page))
+        data = await run_gh(*check_runs_page_args(hostname, endpoint, page))
         payload = json.loads(data)
         batch = payload.get("check_runs", [])
         if not batch:
@@ -282,9 +313,15 @@ async def get_check_runs(
     return check_runs
 
 
-def check_runs_page_args(endpoint: str, page: int) -> list[str]:
+def check_runs_page_args(
+    hostname: str,
+    endpoint: str,
+    page: int,
+) -> list[str]:
     return [
         "api",
+        "--hostname",
+        hostname,
         "--method",
         "GET",
         endpoint,
@@ -297,11 +334,14 @@ def check_runs_page_args(endpoint: str, page: int) -> list[str]:
 
 async def get_commit_status_checks(
     head_sha: str,
+    hostname: str,
     owner: str,
     repo: str,
 ) -> list[dict[str, Any]]:
     data = await run_gh(
         "api",
+        "--hostname",
+        hostname,
         "--method",
         "GET",
         "--paginate",
@@ -324,11 +364,17 @@ async def get_commit_status_checks(
 
 async def get_ci_results(
     head_sha: str,
+    hostname: str,
     owner: str,
     repo: str,
 ) -> list[dict[str, Any]]:
-    check_runs = await get_check_runs(head_sha, owner, repo)
-    commit_statuses = await get_commit_status_checks(head_sha, owner, repo)
+    check_runs = await get_check_runs(head_sha, hostname, owner, repo)
+    commit_statuses = await get_commit_status_checks(
+        head_sha,
+        hostname,
+        owner,
+        repo,
+    )
     return check_runs + commit_statuses
 
 
@@ -837,6 +883,7 @@ def is_merge_conflicting(pr: PrInfo) -> bool:
 async def fetch_review_context(
     pr_number: int,
     pull_request_id: str,
+    hostname: str,
     owner: str,
     repo: str,
 ) -> tuple[
@@ -847,14 +894,20 @@ async def fetch_review_context(
     set[str],
     set[str],
 ]:
-    issue_comments = await get_issue_comments(pr_number, owner, repo)
+    issue_comments = await get_issue_comments(pr_number, hostname, owner, repo)
     review_request_at = latest_review_request_at(issue_comments)
-    review_comments = await get_review_comments(pr_number, owner, repo)
-    reviews = await get_reviews(pr_number, owner, repo)
+    review_comments = await get_review_comments(
+        pr_number,
+        hostname,
+        owner,
+        repo,
+    )
+    reviews = await get_reviews(pr_number, hostname, owner, repo)
     active_review_comment_node_ids = await get_active_review_thread_comment_node_ids(
         pull_request_id,
+        hostname,
     )
-    authenticated_login = await get_authenticated_user_login()
+    authenticated_login = await get_authenticated_user_login(hostname)
     trusted_ack_logins = {authenticated_login} if authenticated_login else set()
     return (
         issue_comments,
@@ -910,6 +963,7 @@ def raise_on_human_feedback(
 async def wait_for_codex(
     pr_number: int,
     pull_request_id: str,
+    hostname: str,
     owner: str,
     repo: str,
     checks_done: asyncio.Event,
@@ -927,6 +981,7 @@ async def wait_for_codex(
         ) = await fetch_review_context(
             pr_number,
             pull_request_id,
+            hostname,
             owner,
             repo,
         )
@@ -989,6 +1044,7 @@ async def wait_for_codex(
 
 async def wait_for_checks(
     head_sha: str,
+    hostname: str,
     owner: str,
     repo: str,
     checks_done: asyncio.Event,
@@ -998,7 +1054,7 @@ async def wait_for_checks(
     checks_were_green = False
     reported_missing = False
     while True:
-        check_runs = await get_ci_results(head_sha, owner, repo)
+        check_runs = await get_ci_results(head_sha, hostname, owner, repo)
         if not check_runs:
             if checks_done.is_set():
                 checks_done.clear()
@@ -1052,6 +1108,7 @@ async def watch_pr() -> None:
         wait_for_codex(
             pr.number,
             pr.node_id,
+            pr.hostname,
             pr.owner,
             pr.repo,
             checks_done,
@@ -1060,6 +1117,7 @@ async def watch_pr() -> None:
     checks_task = asyncio.create_task(
         wait_for_checks(
             head_sha,
+            pr.hostname,
             pr.owner,
             pr.repo,
             checks_done,
