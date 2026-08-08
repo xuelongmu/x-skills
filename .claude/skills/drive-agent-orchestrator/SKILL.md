@@ -1,10 +1,15 @@
 ---
 name: drive-agent-orchestrator
-description: Drive the Agent Orchestrator (AO) when it is installed on this machine: preflight the daemon, register projects, spawn and supervise workers and orchestrators, and monitor sessions without duplicating AO's own supervision. Operating AO only — for authoring coordinator prompts, use prompt-agent-orchestrator.
+description: >-
+  Drive the Agent Orchestrator (AO) when it is installed on this machine:
+  preflight the daemon, register projects, spawn and supervise workers and
+  orchestrators, and monitor sessions without duplicating AO's own supervision.
+  Operating AO only — for authoring coordinator prompts, use
+  prompt-agent-orchestrator.
 argument-hint: "[project path, task, or session to drive]"
 ---
 
-# Drive the Agent Orchestrator
+# Drive Agent Orchestrator
 
 You are driving AO, a daemon that runs and supervises coding-agent sessions.
 Your job is operation: preflight, register, spawn, message, monitor, escalate.

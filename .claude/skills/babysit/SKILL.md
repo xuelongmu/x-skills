@@ -1,6 +1,10 @@
 ---
 name: babysit
-description: Keep a pull request healthy without merging: address review feedback, fix CI, sync the base branch by merge, wait 10 minutes after green checks for late feedback, and push a notification once Codex signs off (👍 on the PR body) with CI green. Designed for /loop 5m /x:babysit.
+description: >-
+  Keep a pull request healthy without merging: address review feedback, fix CI,
+  sync the base branch by merge, wait 10 minutes after green checks for late
+  feedback, and push a notification once Codex signs off (👍 on the PR body)
+  with CI green. Designed for /loop 10m /babysit.
 allowed-tools:
   - Bash
   - Read
@@ -40,7 +44,7 @@ Compute a signature of the PR's feedback surface: `updatedAt`, `reviewDecision`,
 **If `idle_count` reaches 3** (i.e., three consecutive runs with no new feedback), stop the loop and exit — **unless the sign-off ping is still pending**: if `chatgpt-codex-connector[bot]` has any activity on the PR (a review comment or reaction) and the current head's `codex-ok:<sha>` sentinel label (step 4b) is absent, keep looping — the notification hasn't fired yet, whether that's because the 👍 hasn't arrived or because CI isn't green yet. If the bot has no activity on the PR at all, Codex review isn't in play and the idle-stop applies normally.
 
 When stopping:
-- This skill is designed for `/loop 10m /x:babysit`, which registers a cron under the hood. List crons with `CronList` and call `CronDelete` on the matching babysit entry.
+- This skill is designed for `/loop 10m /babysit`, which registers a cron under the hood. List crons with `CronList` and call `CronDelete` on the matching babysit entry.
 - Delete `.git/babysit-state.json`.
 - Report: `Stopping babysit — 3 cycles with no new feedback on PR #<n>. Cron deleted.` If this is the no-Codex-activity case, note that no sign-off ping was expected.
 
