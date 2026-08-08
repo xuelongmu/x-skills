@@ -37,6 +37,7 @@ async def sleep(seconds: int | float) -> None:
 @dataclass
 class PrInfo:
     number: int
+    node_id: str
     url: str
     head_sha: str
     mergeable: str | None
@@ -88,11 +89,12 @@ async def get_pr_info() -> PrInfo:
         "pr",
         "view",
         "--json",
-        "number,url,headRefOid,mergeable,mergeStateStatus",
+        "number,id,url,headRefOid,mergeable,mergeStateStatus",
     )
     parsed = json.loads(data)
     return PrInfo(
         number=parsed["number"],
+        node_id=parsed["id"],
         url=parsed["url"],
         head_sha=parsed["headRefOid"],
         mergeable=parsed.get("mergeable"),
@@ -162,14 +164,9 @@ async def get_authenticated_user_login() -> str | None:
     return login or None
 
 
-async def get_repo_owner_name() -> tuple[str, str]:
-    data = await run_gh("repo", "view", "--json", "owner,name")
-    parsed = json.loads(data)
-    return parsed["owner"]["login"], parsed["name"]
-
-
-async def get_active_review_thread_comment_node_ids(pr_number: int) -> set[str]:
-    owner, repo = await get_repo_owner_name()
+async def get_active_review_thread_comment_node_ids(
+    pull_request_id: str,
+) -> set[str]:
     cursor: str | None = None
     active_comment_ids: set[str] = set()
     while True:
@@ -179,17 +176,13 @@ async def get_active_review_thread_comment_node_ids(pr_number: int) -> set[str]:
             "-f",
             f"query={REVIEW_THREADS_QUERY}",
             "-F",
-            f"owner={owner}",
-            "-F",
-            f"repo={repo}",
-            "-F",
-            f"number={pr_number}",
+            f"pullRequestId={pull_request_id}",
         ]
         if cursor:
             args.extend(["-F", f"cursor={cursor}"])
         data = await run_gh(*args)
         payload = json.loads(data)
-        threads = payload["data"]["repository"]["pullRequest"]["reviewThreads"]
+        threads = payload["data"]["node"]["reviewThreads"]
         for thread in threads.get("nodes") or []:
             if thread.get("isResolved") or thread.get("isOutdated"):
                 continue
@@ -327,9 +320,9 @@ CODEX_REVIEW_HEADING_RE = re.compile(
     re.IGNORECASE,
 )
 REVIEW_THREADS_QUERY = """
-query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
-  repository(owner: $owner, name: $repo) {
-    pullRequest(number: $number) {
+query($pullRequestId: ID!, $cursor: String) {
+  node(id: $pullRequestId) {
+    ... on PullRequest {
       reviewThreads(first: 100, after: $cursor) {
         pageInfo { hasNextPage endCursor }
         nodes {
@@ -802,6 +795,7 @@ def is_merge_conflicting(pr: PrInfo) -> bool:
 
 async def fetch_review_context(
     pr_number: int,
+    pull_request_id: str,
 ) -> tuple[
     list[dict[str, Any]],
     list[dict[str, Any]],
@@ -815,7 +809,7 @@ async def fetch_review_context(
     review_comments = await get_review_comments(pr_number)
     reviews = await get_reviews(pr_number)
     active_review_comment_node_ids = await get_active_review_thread_comment_node_ids(
-        pr_number,
+        pull_request_id,
     )
     authenticated_login = await get_authenticated_user_login()
     trusted_ack_logins = {authenticated_login} if authenticated_login else set()
@@ -870,7 +864,11 @@ def raise_on_human_feedback(
         raise WatchExit(2)
 
 
-async def wait_for_codex(pr_number: int, checks_done: asyncio.Event) -> None:
+async def wait_for_codex(
+    pr_number: int,
+    pull_request_id: str,
+    checks_done: asyncio.Event,
+) -> None:
     print("Waiting for review feedback...", flush=True)
     feedback_grace_started_at: float | None = None
     while True:
@@ -881,7 +879,7 @@ async def wait_for_codex(pr_number: int, checks_done: asyncio.Event) -> None:
             review_request_at,
             active_review_comment_node_ids,
             trusted_ack_logins,
-        ) = await fetch_review_context(pr_number)
+        ) = await fetch_review_context(pr_number, pull_request_id)
         active_review_comments = filter_active_review_thread_comments(
             review_comments,
             active_review_comment_node_ids,
@@ -995,7 +993,9 @@ async def watch_pr() -> None:
         raise WatchExit(5)
     head_sha = pr.head_sha
     checks_done = asyncio.Event()
-    codex_task = asyncio.create_task(wait_for_codex(pr.number, checks_done))
+    codex_task = asyncio.create_task(
+        wait_for_codex(pr.number, pr.node_id, checks_done),
+    )
     checks_task = asyncio.create_task(wait_for_checks(head_sha, checks_done))
 
     async def head_monitor() -> None:
