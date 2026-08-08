@@ -1,0 +1,4 @@
+interface:
+  display_name: "Drive Agent Orchestrator"
+  short_description: "Operate and monitor Agent Orchestrator"
+  default_prompt: "Use $drive-agent-orchestrator to preflight and operate Agent Orchestrator for this project."

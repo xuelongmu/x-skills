@@ -11,7 +11,7 @@ Portable workflow skills for Claude Code and Codex.
 | babysit | Keep the PR ready without merging: fix CI, address review comments, sync the base branch, push-notify when Codex 👍s with CI green | `/loop 10m /babysit` | `babysit` |
 | land | Keep the PR healthy and merge it once checks and feedback gates pass | — | `land` |
 | prompt-agent-orchestrator | Draft and validate multi-issue Agent Orchestrator project prompts | `/prompt-agent-orchestrator <brief>` | `prompt-agent-orchestrator` |
-| drive-agent-orchestrator | Operate Agent Orchestrator: preflight, spawn/supervise workers and orchestrators, monitor sessions | `/drive-agent-orchestrator` | — |
+| drive-agent-orchestrator | Operate Agent Orchestrator: preflight, spawn/supervise workers and orchestrators, monitor sessions | `/drive-agent-orchestrator` | `drive-agent-orchestrator` |
 | browser-evidence | Drive a running app, verify a flow, and capture browser-visible evidence | `/browser-evidence` | `browser-evidence` |
 | steward-research | Organize research repositories for reproducibility and safe handoff | `/steward-research` | `steward-research` |
 
@@ -48,7 +48,7 @@ done
 ```powershell
 $codexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE ".codex" }
 New-Item -ItemType Directory -Force -Path (Join-Path $codexHome "skills")
-foreach ($s in 'publish','babysit','land','prompt-agent-orchestrator','browser-evidence','steward-research') {
+foreach ($s in 'publish','babysit','land','prompt-agent-orchestrator','drive-agent-orchestrator','browser-evidence','steward-research') {
   New-Item -ItemType Junction -Path (Join-Path $codexHome "skills\$s") -Target "C:\path\to\x-skills\.codex\skills\$s"
 }
 ```
@@ -56,7 +56,7 @@ foreach ($s in 'publish','babysit','land','prompt-agent-orchestrator','browser-e
 **macOS / Linux**:
 ```bash
 mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
-for s in publish babysit land prompt-agent-orchestrator browser-evidence steward-research; do
+for s in publish babysit land prompt-agent-orchestrator drive-agent-orchestrator browser-evidence steward-research; do
   ln -s "/path/to/x-skills/.codex/skills/$s" "${CODEX_HOME:-$HOME/.codex}/skills/$s"
 done
 ```
@@ -85,7 +85,7 @@ The watcher resolves from the installed `land` skill directory — project-local
 
 **No local checkout?** Ask Codex to install copies instead:
 
-> Install the `publish`, `babysit`, `land`, `prompt-agent-orchestrator`, `browser-evidence`, and `steward-research`
+> Install the `publish`, `babysit`, `land`, `prompt-agent-orchestrator`, `drive-agent-orchestrator`, `browser-evidence`, and `steward-research`
 > skills from `https://github.com/xuelongmu/x-skills`. Use the corresponding
 > paths under `.codex/skills/`.
 
