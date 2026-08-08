@@ -117,31 +117,6 @@ can run it with explicit inputs and understand its assumptions.
 Leave machine-specific orchestration, personal paths, and unexplained local
 helpers outside the contribution.
 
-## Decide whether automation belongs in this skill
-
-Do not add a bundled Python auditor merely because several checks can be
-automated. First apply this gate:
-
-Add a script only when all are true:
-
-1. the same deterministic check has been repeated across multiple repositories;
-2. the input contract is stable enough to avoid project-specific guessing;
-3. native repository tools do not already cover it;
-4. the script produces materially more reliable results than concise shell or
-   Git commands;
-5. its dependencies and maintenance cost are justified; and
-6. it can default to read-only behavior with clear, actionable output.
-
-Do not script judgments such as whether an experiment is scientifically valid,
-which dirty files belong to the user, whether a result is meaningful, or how a
-repository should structure its documentation. Those require repository
-context and explicit reasoning.
-
-For this skill, use Git and repository-native validators directly. Add no
-bundled Python script until real usage demonstrates repeated deterministic
-checks. If that threshold is later met, begin with a read-only audit command;
-do not make it rewrite documentation, `.gitignore`, or Git state.
-
 ## Validate in proportion to risk
 
 Prefer commands already documented by the repository. At minimum, when the
@@ -158,8 +133,8 @@ relevant tools exist:
    staged.
 
 Report environmental failures separately from defects introduced by the
-change. Do not claim a result was reproduced when only syntax or configuration
-loading was tested.
+change. State the validation level accurately and distinguish syntax or
+configuration checks from full experiment reproduction.
 
 ## Prepare contributions safely
 
