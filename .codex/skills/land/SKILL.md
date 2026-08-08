@@ -157,19 +157,27 @@ acceptable.
   resolved) before requesting a new review or merging.
 - If multiple reviewers comment in the same thread, respond to each comment
   (batching is fine) before closing the thread.
+- Derive API coordinates from the selected PR before fetching or replying; do
+  not use checkout-derived placeholders or the CLI's default hostname:
+  ```sh
+  PR_HOST=$(gh pr view --json url --jq '.url | split("/")[2]')
+  PR_REPO=$(gh pr view --json url --jq '.url | split("/") | .[3:5] | join("/")')
+  PR_NUMBER=$(gh pr view --json number --jq .number)
+  ```
 - Fetch review comments via `gh api` and reply with a prefixed comment.
 - Use review comment endpoints (not issue comments) to find inline feedback:
   - List PR review comments:
     ```
-    gh api repos/{owner}/{repo}/pulls/<pr_number>/comments
+    gh api --hostname "$PR_HOST" "repos/$PR_REPO/pulls/$PR_NUMBER/comments"
     ```
   - PR issue comments (top-level discussion):
     ```
-    gh api repos/{owner}/{repo}/issues/<pr_number>/comments
+    gh api --hostname "$PR_HOST" "repos/$PR_REPO/issues/$PR_NUMBER/comments"
     ```
   - Reply to a specific review comment:
     ```
-    gh api -X POST /repos/{owner}/{repo}/pulls/<pr_number>/comments \
+    gh api --hostname "$PR_HOST" --method POST \
+      "repos/$PR_REPO/pulls/$PR_NUMBER/comments" \
       -f body='[codex] <response>' -F in_reply_to=<comment_id>
     ```
 - `in_reply_to` must be the numeric review comment id (e.g., `2710521800`), not

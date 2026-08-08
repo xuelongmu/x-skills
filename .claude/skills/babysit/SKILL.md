@@ -125,7 +125,10 @@ Do not overstep the boundaries of the original PR. If a comment feels out of sco
 ## Step 4: Check CI status
 
 ```
-gh pr checks
+HOST=$(gh pr view --json url --jq '.url | split("/")[2]')
+REPO=$(gh pr view --json url --jq '.url | split("/") | .[3:5] | join("/")')
+N=$(gh pr view --json number --jq .number)
+gh pr checks "$N" -R "$HOST/$REPO"
 ```
 
 - If checks are **pending**, report status and wait for next cycle
@@ -142,12 +145,12 @@ When Codex finishes a review with no further comments, `chatgpt-codex-connector[
 HOST=$(gh pr view --json url --jq '.url | split("/")[2]')
 REPO=$(gh pr view --json url --jq '.url | split("/") | .[3:5] | join("/")')
 N=$(gh pr view --json number -q .number)
-HEAD=$(gh pr view --json headRefOid -q .headRefOid)
+HEAD=$(gh pr view "$N" -R "$HOST/$REPO" --json headRefOid -q .headRefOid)
 APPROVED=$(gh api --hostname "$HOST" "repos/$REPO/issues/$N/reactions" \
   -q '[.[]|select(.user.login=="chatgpt-codex-connector[bot]" and .content=="+1")]|length')
-NOTOK=$(gh pr checks "$N" --json bucket \
+NOTOK=$(gh pr checks "$N" -R "$HOST/$REPO" --json bucket \
   -q '[.[]|select(.bucket=="fail" or .bucket=="pending" or .bucket=="cancel")]|length' 2>/dev/null || echo 1)
-ALREADY=$(gh pr view --json labels -q "[.labels[].name|select(.==\"codex-ok:$HEAD\")]|length")
+ALREADY=$(gh pr view "$N" -R "$HOST/$REPO" --json labels -q "[.labels[].name|select(.==\"codex-ok:$HEAD\")]|length")
 ```
 
 **If `APPROVED ≥ 1` AND `NOTOK == 0` AND `ALREADY == 0`** → it just became ready:
@@ -155,11 +158,11 @@ ALREADY=$(gh pr view --json labels -q "[.labels[].name|select(.==\"codex-ok:$HEA
 1. Send a push with the **PushNotification** tool — title `PR #<N> approved by Codex`, body `CI green + Codex 👍 — ready to merge: <URL>`.
 2. Mark this head so later cycles stay quiet, clearing any stale sentinel first (a new commit re-arms automatically, since its sha won't match the old label):
    ```bash
-   for L in $(gh pr view --json labels -q '.labels[].name|select(startswith("codex-ok:"))'); do
-     gh pr edit "$N" --remove-label "$L" 2>/dev/null || true
+   for L in $(gh pr view "$N" -R "$HOST/$REPO" --json labels -q '.labels[].name|select(startswith("codex-ok:"))'); do
+     gh pr edit "$N" -R "$HOST/$REPO" --remove-label "$L" 2>/dev/null || true
    done
-   gh label create "codex-ok:$HEAD" -c 2DA44E -f 2>/dev/null || true
-   gh pr edit "$N" --add-label "codex-ok:$HEAD"
+   gh label create "codex-ok:$HEAD" -R "$HOST/$REPO" -c 2DA44E -f 2>/dev/null || true
+   gh pr edit "$N" -R "$HOST/$REPO" --add-label "codex-ok:$HEAD"
    ```
 
 If already pinged for this head (`ALREADY ≥ 1`), stay quiet. One ping per ready-commit — the label sentinel guarantees it even though `/loop` restarts the session each cycle.
