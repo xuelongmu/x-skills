@@ -1,6 +1,6 @@
 # x-skills
 
-Portable PR workflow skills for Claude Code and Codex.
+Portable workflow skills for Claude Code and Codex.
 
 ## Skills
 
@@ -13,6 +13,7 @@ Portable PR workflow skills for Claude Code and Codex.
 | prompt-agent-orchestrator | Draft and validate multi-issue Agent Orchestrator project prompts | `/prompt-agent-orchestrator <brief>` | `prompt-agent-orchestrator` |
 | drive-agent-orchestrator | Operate Agent Orchestrator: preflight, spawn/supervise workers and orchestrators, monitor sessions | `/drive-agent-orchestrator` | — |
 | browser-evidence | Drive a running app, verify a flow, and capture browser-visible evidence | `/browser-evidence` | `browser-evidence` |
+| steward-research | Organize research repositories for reproducibility and safe handoff | `/steward-research` | `steward-research` |
 
 - `babysit` never merges, enables auto-merge, or deletes branches — it prints the merge command when ready. `land` is the only skill that merges.
 - Codex `babysit` reuses `land/land_watch.py`, so always install `land` alongside it. Codex has no `/loop`; a single run uses that watcher, and continuous monitoring uses a Codex cron automation.
@@ -28,7 +29,7 @@ Replace `C:\path\to\x-skills` / `/path/to/x-skills` with your clone's location.
 **Windows** (PowerShell):
 ```powershell
 New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.claude\skills"
-foreach ($s in 'publish','publish-slack','babysit','prompt-agent-orchestrator','drive-agent-orchestrator','browser-evidence') {
+foreach ($s in 'publish','publish-slack','babysit','prompt-agent-orchestrator','drive-agent-orchestrator','browser-evidence','steward-research') {
   New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\skills\$s" -Target "C:\path\to\x-skills\.claude\skills\$s"
 }
 ```
@@ -36,7 +37,7 @@ foreach ($s in 'publish','publish-slack','babysit','prompt-agent-orchestrator','
 **macOS / Linux**:
 ```bash
 mkdir -p ~/.claude/skills
-for s in publish publish-slack babysit prompt-agent-orchestrator drive-agent-orchestrator browser-evidence; do
+for s in publish publish-slack babysit prompt-agent-orchestrator drive-agent-orchestrator browser-evidence steward-research; do
   ln -s "/path/to/x-skills/.claude/skills/$s" "$HOME/.claude/skills/$s"
 done
 ```
@@ -47,7 +48,7 @@ done
 ```powershell
 $codexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE ".codex" }
 New-Item -ItemType Directory -Force -Path (Join-Path $codexHome "skills")
-foreach ($s in 'publish','babysit','land','prompt-agent-orchestrator','browser-evidence') {
+foreach ($s in 'publish','babysit','land','prompt-agent-orchestrator','browser-evidence','steward-research') {
   New-Item -ItemType Junction -Path (Join-Path $codexHome "skills\$s") -Target "C:\path\to\x-skills\.codex\skills\$s"
 }
 ```
@@ -55,7 +56,7 @@ foreach ($s in 'publish','babysit','land','prompt-agent-orchestrator','browser-e
 **macOS / Linux**:
 ```bash
 mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
-for s in publish babysit land prompt-agent-orchestrator browser-evidence; do
+for s in publish babysit land prompt-agent-orchestrator browser-evidence steward-research; do
   ln -s "/path/to/x-skills/.codex/skills/$s" "${CODEX_HOME:-$HOME/.codex}/skills/$s"
 done
 ```
@@ -84,7 +85,7 @@ The watcher resolves from the installed `land` skill directory — project-local
 
 **No local checkout?** Ask Codex to install copies instead:
 
-> Install the `publish`, `babysit`, `land`, `prompt-agent-orchestrator`, and `browser-evidence`
+> Install the `publish`, `babysit`, `land`, `prompt-agent-orchestrator`, `browser-evidence`, and `steward-research`
 > skills from `https://github.com/xuelongmu/x-skills`. Use the corresponding
 > paths under `.codex/skills/`.
 

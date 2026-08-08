@@ -1,0 +1,4 @@
+interface:
+  display_name: "Research Repository Steward"
+  short_description: "Make research repositories reproducible"
+  default_prompt: "Use $steward-research to organize this research repository for reproducibility and safe handoff."
