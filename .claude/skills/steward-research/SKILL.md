@@ -122,7 +122,7 @@ helpers outside the contribution.
 Prefer commands already documented by the repository. At minimum, when the
 relevant tools exist:
 
-1. run `git diff --check`;
+1. run `git diff --check` and `git diff --cached --check`;
 2. parse changed structured configuration with its native loader;
 3. run focused tests and syntax checks for changed tooling;
 4. validate documentation links and command paths;
