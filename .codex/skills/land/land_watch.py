@@ -11,7 +11,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 DEFAULT_POLL_SECONDS = 30
-MIN_POLL_SECONDS = 10
+MIN_POLL_SECONDS = 30
 MAX_POLL_SECONDS = 300
 POLL_SECONDS_ENV = "LAND_WATCH_POLL_SECONDS"
 
@@ -906,6 +906,42 @@ def is_merge_conflicting(pr: PrInfo) -> bool:
     return pr.mergeable == "CONFLICTING" or pr.merge_state in ("BEHIND", "DIRTY")
 
 
+async def validate_final_readiness(
+    expected_head_sha: str,
+    hostname: str,
+    owner: str,
+    repo: str,
+    checks_done: asyncio.Event,
+) -> bool:
+    check_runs = await get_ci_results(expected_head_sha, hostname, owner, repo)
+    if check_runs:
+        pending, failed, failures = summarize_checks(check_runs)
+        if failed:
+            print("Checks failed during final readiness validation:")
+            for failure in failures:
+                print(f"- {failure}")
+            raise WatchExit(3)
+        if pending:
+            checks_done.clear()
+            print(
+                "Checks are pending during final readiness validation; "
+                "restarting feedback grace after they pass.",
+                flush=True,
+            )
+            return False
+
+    current_pr = await get_pr_info()
+    if is_merge_conflicting(current_pr):
+        print(
+            "PR is behind, conflicting, or dirty during final readiness validation.",
+        )
+        raise WatchExit(5)
+    if current_pr.head_sha != expected_head_sha:
+        print("PR head updated during final readiness validation.")
+        raise WatchExit(4)
+    return True
+
+
 async def fetch_review_context(
     pr_number: int,
     pull_request_id: str,
@@ -992,6 +1028,7 @@ async def wait_for_codex(
     hostname: str,
     owner: str,
     repo: str,
+    head_sha: str,
     checks_done: asyncio.Event,
 ) -> None:
     print("Waiting for review feedback...", flush=True)
@@ -1057,8 +1094,19 @@ async def wait_for_codex(
                     flush=True,
                 )
             elif now - feedback_grace_started_at >= FEEDBACK_GRACE_SECONDS:
-                print("Feedback wait complete; no review feedback detected.", flush=True)
-                return
+                if await validate_final_readiness(
+                    head_sha,
+                    hostname,
+                    owner,
+                    repo,
+                    checks_done,
+                ):
+                    print(
+                        "Feedback wait complete; no review feedback detected.",
+                        flush=True,
+                    )
+                    return
+                feedback_grace_started_at = None
         elif feedback_grace_started_at is not None:
             feedback_grace_started_at = None
             print(
@@ -1140,6 +1188,7 @@ async def watch_pr() -> None:
             pr.hostname,
             pr.owner,
             pr.repo,
+            head_sha,
             checks_done,
         ),
     )

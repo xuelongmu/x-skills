@@ -25,11 +25,11 @@ class PollIntervalTests(unittest.TestCase):
         self.assertEqual(land_watch.parse_poll_seconds("60"), 60)
 
     def test_poll_interval_rejects_values_below_minimum(self) -> None:
-        with self.assertRaisesRegex(RuntimeError, "at least 10 seconds"):
-            land_watch.parse_poll_seconds("9")
+        with self.assertRaisesRegex(RuntimeError, "at least 30 seconds"):
+            land_watch.parse_poll_seconds("29")
 
     def test_poll_interval_rejects_non_integer_values(self) -> None:
-        with self.assertRaisesRegex(RuntimeError, "must be an integer from 10 to 300"):
+        with self.assertRaisesRegex(RuntimeError, "must be an integer from 30 to 300"):
             land_watch.parse_poll_seconds("slow")
 
     def test_poll_interval_rejects_values_above_grace_safe_maximum(self) -> None:
@@ -85,6 +85,142 @@ class PollIntervalTests(unittest.TestCase):
                 )
 
         self.assertTrue(checks_done.is_set())
+
+
+class FinalReadinessTests(unittest.TestCase):
+    @staticmethod
+    def pr_info(
+        head_sha: str = "abc123",
+        mergeable: str = "MERGEABLE",
+        merge_state: str = "CLEAN",
+    ) -> land_watch.PrInfo:
+        return land_watch.PrInfo(
+            number=42,
+            node_id="PR_node_id",
+            hostname="github.com",
+            owner="owner",
+            repo="repo",
+            url="https://github.com/owner/repo/pull/42",
+            head_sha=head_sha,
+            mergeable=mergeable,
+            merge_state=merge_state,
+        )
+
+    def test_final_readiness_accepts_current_head_with_no_checks(self) -> None:
+        checks_done = asyncio.Event()
+        checks_done.set()
+        with (
+            patch.object(land_watch, "get_ci_results", AsyncMock(return_value=[])),
+            patch.object(
+                land_watch,
+                "get_pr_info",
+                AsyncMock(return_value=self.pr_info()),
+            ),
+        ):
+            ready = asyncio.run(
+                land_watch.validate_final_readiness(
+                    "abc123",
+                    "github.com",
+                    "owner",
+                    "repo",
+                    checks_done,
+                ),
+            )
+
+        self.assertTrue(ready)
+        self.assertTrue(checks_done.is_set())
+
+    def test_final_readiness_restarts_for_pending_checks(self) -> None:
+        checks_done = asyncio.Event()
+        checks_done.set()
+        pending_check = {
+            "id": 1,
+            "name": "tests",
+            "status": "in_progress",
+            "conclusion": None,
+            "app": {"id": 1},
+        }
+        with patch.object(
+            land_watch,
+            "get_ci_results",
+            AsyncMock(return_value=[pending_check]),
+        ):
+            ready = asyncio.run(
+                land_watch.validate_final_readiness(
+                    "abc123",
+                    "github.com",
+                    "owner",
+                    "repo",
+                    checks_done,
+                ),
+            )
+
+        self.assertFalse(ready)
+        self.assertFalse(checks_done.is_set())
+
+    def test_final_readiness_rejects_failed_checks(self) -> None:
+        failed_check = {
+            "id": 1,
+            "name": "tests",
+            "status": "completed",
+            "conclusion": "failure",
+            "app": {"id": 1},
+        }
+        with patch.object(
+            land_watch,
+            "get_ci_results",
+            AsyncMock(return_value=[failed_check]),
+        ):
+            with self.assertRaisesRegex(land_watch.WatchExit, "3"):
+                asyncio.run(
+                    land_watch.validate_final_readiness(
+                        "abc123",
+                        "github.com",
+                        "owner",
+                        "repo",
+                        asyncio.Event(),
+                    ),
+                )
+
+    def test_final_readiness_rejects_changed_head(self) -> None:
+        with (
+            patch.object(land_watch, "get_ci_results", AsyncMock(return_value=[])),
+            patch.object(
+                land_watch,
+                "get_pr_info",
+                AsyncMock(return_value=self.pr_info(head_sha="def456")),
+            ),
+        ):
+            with self.assertRaisesRegex(land_watch.WatchExit, "4"):
+                asyncio.run(
+                    land_watch.validate_final_readiness(
+                        "abc123",
+                        "github.com",
+                        "owner",
+                        "repo",
+                        asyncio.Event(),
+                    ),
+                )
+
+    def test_final_readiness_rejects_conflicting_pr(self) -> None:
+        with (
+            patch.object(land_watch, "get_ci_results", AsyncMock(return_value=[])),
+            patch.object(
+                land_watch,
+                "get_pr_info",
+                AsyncMock(return_value=self.pr_info(mergeable="CONFLICTING")),
+            ),
+        ):
+            with self.assertRaisesRegex(land_watch.WatchExit, "5"):
+                asyncio.run(
+                    land_watch.validate_final_readiness(
+                        "abc123",
+                        "github.com",
+                        "owner",
+                        "repo",
+                        asyncio.Event(),
+                    ),
+                )
 
 
 class PullRequestIdentityTests(unittest.TestCase):

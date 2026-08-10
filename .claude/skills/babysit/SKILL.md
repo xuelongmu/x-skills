@@ -203,6 +203,7 @@ After all required checks pass, wait 10 minutes before declaring the PR ready. D
 4. If new actionable feedback appears, address it, commit, push, and restart at step 3.
 5. If checks become pending or failed, restart at step 4.
 6. If the PR head changes, fetch the new head and restart at step 1.
+7. Immediately before completing the grace period, synchronously refresh CI, the PR head, and merge state. Restart or stop if that final state is pending, failed, changed, behind, conflicting, or dirty; do not rely on independently scheduled polls for the readiness verdict.
 
 No Codex review is required to arrive. Absence of new feedback for the full 10 minutes after green checks is acceptable.
 
