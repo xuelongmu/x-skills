@@ -17,6 +17,22 @@ sys.modules[SPEC.name] = land_watch
 SPEC.loader.exec_module(land_watch)
 
 
+class PollIntervalTests(unittest.TestCase):
+    def test_default_poll_interval_is_30_seconds(self) -> None:
+        self.assertEqual(land_watch.parse_poll_seconds(None), 30)
+
+    def test_poll_interval_can_be_increased(self) -> None:
+        self.assertEqual(land_watch.parse_poll_seconds("60"), 60)
+
+    def test_poll_interval_rejects_values_below_minimum(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "at least 10 seconds"):
+            land_watch.parse_poll_seconds("9")
+
+    def test_poll_interval_rejects_non_integer_values(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "must be an integer"):
+            land_watch.parse_poll_seconds("slow")
+
+
 class PullRequestIdentityTests(unittest.TestCase):
     def test_run_gh_routes_custom_port_through_process_environment(self) -> None:
         process = AsyncMock()

@@ -10,7 +10,28 @@ from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlsplit
 
-POLL_SECONDS = 10
+DEFAULT_POLL_SECONDS = 30
+MIN_POLL_SECONDS = 10
+POLL_SECONDS_ENV = "LAND_WATCH_POLL_SECONDS"
+
+
+def parse_poll_seconds(raw_value: str | None) -> int:
+    if raw_value is None:
+        return DEFAULT_POLL_SECONDS
+    try:
+        poll_seconds = int(raw_value)
+    except ValueError as exc:
+        raise RuntimeError(
+            f"{POLL_SECONDS_ENV} must be an integer of at least {MIN_POLL_SECONDS} seconds",
+        ) from exc
+    if poll_seconds < MIN_POLL_SECONDS:
+        raise RuntimeError(
+            f"{POLL_SECONDS_ENV} must be at least {MIN_POLL_SECONDS} seconds",
+        )
+    return poll_seconds
+
+
+POLL_SECONDS = parse_poll_seconds(os.environ.get(POLL_SECONDS_ENV))
 CHECKS_APPEAR_TIMEOUT_SECONDS = 120
 FEEDBACK_GRACE_SECONDS = 600
 CODEX_BOT_LOGINS = {

@@ -114,6 +114,14 @@ watcher. Prefer the current repo's `.codex/skills/land` when present; otherwise 
 `%USERPROFILE%\.codex\skills\land`. Run the command from the PR repository
 working directory so `gh` uses the right repo.
 
+The watcher polls GitHub every 30 seconds by default to avoid exhausting API
+limits. For a slower cadence, set `LAND_WATCH_POLL_SECONDS` to an integer of at
+least 10 before launching it, for example:
+
+```
+LAND_WATCH_POLL_SECONDS=60 python3 "$LAND_SKILL_DIR/land_watch.py"
+```
+
 Exit codes:
 
 - 2: Review comments detected before merge (address feedback)
