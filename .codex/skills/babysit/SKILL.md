@@ -50,6 +50,7 @@ description: Keep a pull request healthy without merging it; use when Codex need
    python "$LAND_SKILL_DIR/land_watch.py"
    ```
    Resolve `LAND_SKILL_DIR` before running: prefer the current repo's `.codex/skills/land` when present, otherwise use `${CODEX_HOME:-$HOME/.codex}/skills/land` or `%USERPROFILE%\.codex\skills\land`. Run the command from the PR repository working directory so `gh` uses the right repo. Use `python3` instead of `python` when that is the available launcher.
+   The watcher polls GitHub every 30 seconds by default. To reduce API traffic further, set `LAND_WATCH_POLL_SECONDS` to an integer from 30 to 300 seconds before launching it. Before reporting readiness, it synchronously refreshes feedback, CI, the PR head, and merge state until consecutive feedback and PR snapshots are unchanged.
 7. If the watcher exits `2`, fetch top-level comments, inline review comments, review summaries, unresolved threads when available, latest checks, and bot feedback. Classify each item, address actionable feedback, commit, push, leave `[codex]` response comments for addressed or intentionally deferred feedback, and rerun the watcher.
 8. If the watcher exits `3`, inspect failing checks with `GH_HOST="$PR_HOST" gh pr checks "$PR_NUMBER" -R "$PR_REPO"` and `GH_HOST="$PR_HOST" gh run view <run-id> -R "$PR_REPO" --log`, fix the failure when concrete, commit, push, leave a `[codex]` response if the failure was reported in PR feedback, and rerun the watcher.
 9. If the watcher exits `4`, refresh local state from the remote branch and rerun the watcher.
@@ -70,7 +71,7 @@ description: Keep a pull request healthy without merging it; use when Codex need
 
 ## Watcher Semantics
 
-The shared `land` watcher monitors feedback, checks, and PR head changes in parallel. It returns success only after the PR is conflict-free and a 10-minute feedback grace window completes with no outstanding feedback. CI checks and review feedback are monitored independently; when no CI checks are detected, the watcher still runs the feedback grace window while continuing to poll for checks.
+The shared `land` watcher monitors feedback, checks, and PR head changes in parallel at a 30-second default polling cadence. It returns success only after the PR is conflict-free and a 10-minute feedback grace window completes with no outstanding feedback, followed by authoritative final feedback, CI, PR-head, and merge-state refreshes that converge on unchanged feedback and PR snapshots. CI checks and review feedback are monitored independently; when no CI checks are detected, the watcher still runs the feedback grace window while continuing to poll for checks.
 
 A Codex review is not required to arrive. Absence of new actionable feedback for the full 10-minute post-green wait is acceptable.
 

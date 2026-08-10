@@ -10,7 +10,34 @@ from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlsplit
 
-POLL_SECONDS = 10
+DEFAULT_POLL_SECONDS = 30
+MIN_POLL_SECONDS = 30
+MAX_POLL_SECONDS = 300
+POLL_SECONDS_ENV = "LAND_WATCH_POLL_SECONDS"
+
+
+def parse_poll_seconds(raw_value: str | None) -> int:
+    if raw_value is None:
+        return DEFAULT_POLL_SECONDS
+    try:
+        poll_seconds = int(raw_value)
+    except ValueError as exc:
+        raise RuntimeError(
+            f"{POLL_SECONDS_ENV} must be an integer from {MIN_POLL_SECONDS} "
+            f"to {MAX_POLL_SECONDS} seconds",
+        ) from exc
+    if poll_seconds < MIN_POLL_SECONDS:
+        raise RuntimeError(
+            f"{POLL_SECONDS_ENV} must be at least {MIN_POLL_SECONDS} seconds",
+        )
+    if poll_seconds > MAX_POLL_SECONDS:
+        raise RuntimeError(
+            f"{POLL_SECONDS_ENV} must be at most {MAX_POLL_SECONDS} seconds",
+        )
+    return poll_seconds
+
+
+POLL_SECONDS = parse_poll_seconds(os.environ.get(POLL_SECONDS_ENV))
 CHECKS_APPEAR_TIMEOUT_SECONDS = 120
 FEEDBACK_GRACE_SECONDS = 600
 CODEX_BOT_LOGINS = {
@@ -879,6 +906,55 @@ def is_merge_conflicting(pr: PrInfo) -> bool:
     return pr.mergeable == "CONFLICTING" or pr.merge_state in ("BEHIND", "DIRTY")
 
 
+async def validate_final_readiness(
+    expected_head_sha: str,
+    hostname: str,
+    owner: str,
+    repo: str,
+    checks_done: asyncio.Event,
+) -> bool:
+    await validate_final_pr_state(expected_head_sha)
+    check_runs = await get_ci_results(expected_head_sha, hostname, owner, repo)
+    if check_runs:
+        pending, failed, failures = summarize_checks(check_runs)
+        if failed:
+            print("Checks failed during final readiness validation:")
+            for failure in failures:
+                print(f"- {failure}")
+            raise WatchExit(3)
+        if pending:
+            checks_done.clear()
+            print(
+                "Checks are pending during final readiness validation; "
+                "restarting feedback grace after they pass.",
+                flush=True,
+            )
+            return False
+
+    await validate_final_pr_state(expected_head_sha)
+    if not checks_done.is_set():
+        print(
+            "A newer CI poll found unsatisfied checks during final readiness "
+            "validation; restarting feedback grace after they pass.",
+            flush=True,
+        )
+        return False
+    return True
+
+
+async def validate_final_pr_state(expected_head_sha: str) -> tuple[str, str | None, str | None]:
+    current_pr = await get_pr_info()
+    if is_merge_conflicting(current_pr):
+        print(
+            "PR is behind, conflicting, or dirty during final readiness validation.",
+        )
+        raise WatchExit(5)
+    if current_pr.head_sha != expected_head_sha:
+        print("PR head updated during final readiness validation.")
+        raise WatchExit(4)
+    return current_pr.head_sha, current_pr.mergeable, current_pr.merge_state
+
+
 async def fetch_review_context(
     pr_number: int,
     pull_request_id: str,
@@ -959,68 +1035,172 @@ def raise_on_human_feedback(
         raise WatchExit(2)
 
 
-async def wait_for_codex(
+async def check_review_feedback(
     pr_number: int,
     pull_request_id: str,
     hostname: str,
     owner: str,
     repo: str,
+) -> tuple[Any, ...]:
+    (
+        issue_comments,
+        review_comments,
+        reviews,
+        review_request_at,
+        active_review_comment_node_ids,
+        trusted_ack_logins,
+    ) = await fetch_review_context(
+        pr_number,
+        pull_request_id,
+        hostname,
+        owner,
+        repo,
+    )
+    active_review_comments = filter_active_review_thread_comments(
+        review_comments,
+        active_review_comment_node_ids,
+    )
+    codex_review_ids = codex_review_ids_after_request(
+        reviews,
+        review_request_at,
+    )
+    bot_issue_comments = filter_codex_comments(
+        issue_comments,
+        review_request_at,
+        trusted_ack_logins=trusted_ack_logins,
+    )
+    bot_review_comments = filter_codex_comments(
+        active_review_comments,
+        review_request_at,
+        codex_review_ids,
+        trusted_ack_logins,
+    )
+    bot_comments = bot_issue_comments + bot_review_comments
+    raise_on_human_feedback(
+        issue_comments,
+        active_review_comments,
+        reviews,
+        review_request_at,
+        trusted_ack_logins,
+    )
+    if bot_comments:
+        latest = max(
+            bot_comments,
+            key=lambda comment: parse_time(comment["created_at"]),
+        )
+        body = sanitize_terminal_output(latest.get("body") or "").strip()
+        if body:
+            print("Codex left comments. Address feedback before merge.")
+            print(body)
+            raise WatchExit(2)
+    return (
+        tuple(
+            sorted(
+                (
+                    comment.get("id"),
+                    comment.get("updated_at"),
+                    comment.get("body"),
+                )
+                for comment in issue_comments
+            ),
+        ),
+        tuple(
+            sorted(
+                (
+                    comment.get("id"),
+                    comment.get("updated_at"),
+                    comment.get("body"),
+                )
+                for comment in review_comments
+            ),
+        ),
+        tuple(
+            sorted(
+                (
+                    review.get("id"),
+                    review.get("state"),
+                    review.get("submitted_at"),
+                    review.get("body"),
+                )
+                for review in reviews
+            ),
+        ),
+        tuple(sorted(active_review_comment_node_ids)),
+    )
+
+
+async def validate_stable_final_readiness(
+    pr_number: int,
+    pull_request_id: str,
+    hostname: str,
+    owner: str,
+    repo: str,
+    head_sha: str,
     checks_done: asyncio.Event,
-) -> None:
-    print("Waiting for review feedback...", flush=True)
-    feedback_grace_started_at: float | None = None
+) -> bool:
+    previous_snapshot: tuple[tuple[Any, ...], tuple[str, str | None, str | None]] | None = None
     while True:
-        (
-            issue_comments,
-            review_comments,
-            reviews,
-            review_request_at,
-            active_review_comment_node_ids,
-            trusted_ack_logins,
-        ) = await fetch_review_context(
+        await check_review_feedback(
             pr_number,
             pull_request_id,
             hostname,
             owner,
             repo,
         )
-        active_review_comments = filter_active_review_thread_comments(
-            review_comments,
-            active_review_comment_node_ids,
+        await validate_final_pr_state(head_sha)
+        if not await validate_final_readiness(
+            head_sha,
+            hostname,
+            owner,
+            repo,
+            checks_done,
+        ):
+            return False
+        feedback_signature = await check_review_feedback(
+            pr_number,
+            pull_request_id,
+            hostname,
+            owner,
+            repo,
         )
-        codex_review_ids = codex_review_ids_after_request(
-            reviews,
-            review_request_at,
-        )
-        bot_issue_comments = filter_codex_comments(
-            issue_comments,
-            review_request_at,
-            trusted_ack_logins=trusted_ack_logins,
-        )
-        bot_review_comments = filter_codex_comments(
-            active_review_comments,
-            review_request_at,
-            codex_review_ids,
-            trusted_ack_logins,
-        )
-        bot_comments = bot_issue_comments + bot_review_comments
-        raise_on_human_feedback(
-            issue_comments,
-            active_review_comments,
-            reviews,
-            review_request_at,
-            trusted_ack_logins,
-        )
-        if bot_comments:
-            latest = max(
-                bot_comments,
-                key=lambda comment: parse_time(comment["created_at"]),
+        pr_signature = await validate_final_pr_state(head_sha)
+        if not checks_done.is_set():
+            print(
+                "A newer CI poll found unsatisfied checks during final state "
+                "stabilization; restarting feedback grace after they pass.",
+                flush=True,
             )
-            body = sanitize_terminal_output(latest.get("body") or "").strip()
-            if body:
-                print("Codex left comments. Address feedback before merge.")
-                print(body)
-                raise WatchExit(2)
+            return False
+        snapshot = feedback_signature, pr_signature
+        if snapshot == previous_snapshot:
+            return True
+        previous_snapshot = snapshot
+        print(
+            "Final feedback and PR state captured; rechecking CI and confirming "
+            "they remain unchanged.",
+            flush=True,
+        )
+
+
+async def wait_for_codex(
+    pr_number: int,
+    pull_request_id: str,
+    hostname: str,
+    owner: str,
+    repo: str,
+    head_sha: str,
+    checks_done: asyncio.Event,
+) -> None:
+    print("Waiting for review feedback...", flush=True)
+    feedback_grace_started_at: float | None = None
+    while True:
+        await check_review_feedback(
+            pr_number,
+            pull_request_id,
+            hostname,
+            owner,
+            repo,
+        )
         if checks_done.is_set():
             now = monotonic_seconds()
             if feedback_grace_started_at is None:
@@ -1030,8 +1210,21 @@ async def wait_for_codex(
                     flush=True,
                 )
             elif now - feedback_grace_started_at >= FEEDBACK_GRACE_SECONDS:
-                print("Feedback wait complete; no review feedback detected.", flush=True)
-                return
+                if await validate_stable_final_readiness(
+                    pr_number,
+                    pull_request_id,
+                    hostname,
+                    owner,
+                    repo,
+                    head_sha,
+                    checks_done,
+                ):
+                    print(
+                        "Feedback wait complete; no review feedback detected.",
+                        flush=True,
+                    )
+                    return
+                feedback_grace_started_at = None
         elif feedback_grace_started_at is not None:
             feedback_grace_started_at = None
             print(
@@ -1049,7 +1242,7 @@ async def wait_for_checks(
     checks_done: asyncio.Event,
 ) -> None:
     print("Waiting for CI checks...", flush=True)
-    empty_seconds = 0
+    empty_started_at: float | None = None
     checks_were_green = False
     reported_missing = False
     while True:
@@ -1059,18 +1252,21 @@ async def wait_for_checks(
                 checks_done.clear()
                 checks_were_green = False
                 reported_missing = False
-            empty_seconds += POLL_SECONDS
-            if empty_seconds >= CHECKS_APPEAR_TIMEOUT_SECONDS:
+            now = monotonic_seconds()
+            if empty_started_at is None:
+                empty_started_at = now
+            if now - empty_started_at >= CHECKS_APPEAR_TIMEOUT_SECONDS:
                 if not reported_missing:
                     print(
-                        "No checks detected after 120s; continuing to monitor feedback and checks.",
+                        f"No checks detected after {CHECKS_APPEAR_TIMEOUT_SECONDS}s; "
+                        "continuing to monitor feedback and checks.",
                         flush=True,
                     )
                     reported_missing = True
                 checks_done.set()
             await sleep(POLL_SECONDS)
             continue
-        empty_seconds = 0
+        empty_started_at = None
         reported_missing = False
         pending, failed, failures = summarize_checks(check_runs)
         if failed:
@@ -1110,6 +1306,7 @@ async def watch_pr() -> None:
             pr.hostname,
             pr.owner,
             pr.repo,
+            head_sha,
             checks_done,
         ),
     )
