@@ -90,6 +90,7 @@ if ! python3 "$LAND_SKILL_DIR/land_watch.py"; then
   # Exit code 3 means checks failed.
   # Exit code 4 means the PR head changed and local state must be refreshed.
   # Exit code 5 means the PR is behind, conflicting, or dirty.
+  # Exit code 6 means the PR was merged or closed while being watched.
   exit 1
 fi
 
@@ -129,6 +130,8 @@ Exit codes:
 - 2: Review comments detected before merge (address feedback)
 - 3: CI checks failed
 - 4: PR head updated (autofix commit detected)
+- 5: PR is behind, conflicting, or dirty
+- 6: PR is merged or closed; refresh state and stop watching
 
 The helper returns success only after the PR is conflict-free, checks are green,
 and 10 minutes pass after green checks with no outstanding feedback. It does not
@@ -151,6 +154,7 @@ acceptable.
 - If all jobs fail with corrupted pnpm lockfile errors on the merge commit, the
   remediation is to fetch latest `origin/main`, merge, force-push, and rerun CI.
 - If mergeability is `UNKNOWN`, wait and re-check.
+- If the watcher exits `6`, refresh the PR state. Treat `MERGED` as successful external completion; treat `CLOSED` without merge as terminal and report that no merge occurred.
 - Do not merge while review comments (human or Codex review) are outstanding.
 - Codex review jobs retry on failure and are non-blocking; merge is gated by
   outstanding feedback plus the 10-minute post-green feedback wait, not by a
