@@ -913,6 +913,7 @@ async def validate_final_readiness(
     repo: str,
     checks_done: asyncio.Event,
 ) -> bool:
+    await validate_final_pr_state(expected_head_sha)
     check_runs = await get_ci_results(expected_head_sha, hostname, owner, repo)
     if check_runs:
         pending, failed, failures = summarize_checks(check_runs)
@@ -930,6 +931,18 @@ async def validate_final_readiness(
             )
             return False
 
+    await validate_final_pr_state(expected_head_sha)
+    if not checks_done.is_set():
+        print(
+            "A newer CI poll found unsatisfied checks during final readiness "
+            "validation; restarting feedback grace after they pass.",
+            flush=True,
+        )
+        return False
+    return True
+
+
+async def validate_final_pr_state(expected_head_sha: str) -> None:
     current_pr = await get_pr_info()
     if is_merge_conflicting(current_pr):
         print(
@@ -939,14 +952,6 @@ async def validate_final_readiness(
     if current_pr.head_sha != expected_head_sha:
         print("PR head updated during final readiness validation.")
         raise WatchExit(4)
-    if not checks_done.is_set():
-        print(
-            "A newer CI poll found unsatisfied checks during final readiness "
-            "validation; restarting feedback grace after they pass.",
-            flush=True,
-        )
-        return False
-    return True
 
 
 async def fetch_review_context(
@@ -1131,6 +1136,7 @@ async def wait_for_codex(
                         owner,
                         repo,
                     )
+                    await validate_final_pr_state(head_sha)
                     if not checks_done.is_set():
                         print(
                             "A newer CI poll found unsatisfied checks during the "

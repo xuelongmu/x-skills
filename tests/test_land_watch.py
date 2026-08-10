@@ -140,10 +140,17 @@ class FinalReadinessTests(unittest.TestCase):
             "conclusion": None,
             "app": {"id": 1},
         }
-        with patch.object(
-            land_watch,
-            "get_ci_results",
-            AsyncMock(return_value=[pending_check]),
+        with (
+            patch.object(
+                land_watch,
+                "get_ci_results",
+                AsyncMock(return_value=[pending_check]),
+            ),
+            patch.object(
+                land_watch,
+                "get_pr_info",
+                AsyncMock(return_value=self.pr_info()),
+            ),
         ):
             ready = asyncio.run(
                 land_watch.validate_final_readiness(
@@ -166,10 +173,17 @@ class FinalReadinessTests(unittest.TestCase):
             "conclusion": "failure",
             "app": {"id": 1},
         }
-        with patch.object(
-            land_watch,
-            "get_ci_results",
-            AsyncMock(return_value=[failed_check]),
+        with (
+            patch.object(
+                land_watch,
+                "get_ci_results",
+                AsyncMock(return_value=[failed_check]),
+            ),
+            patch.object(
+                land_watch,
+                "get_pr_info",
+                AsyncMock(return_value=self.pr_info()),
+            ),
         ):
             with self.assertRaisesRegex(land_watch.WatchExit, "3"):
                 asyncio.run(
@@ -183,8 +197,9 @@ class FinalReadinessTests(unittest.TestCase):
                 )
 
     def test_final_readiness_rejects_changed_head(self) -> None:
+        get_ci_results = AsyncMock(return_value=[])
         with (
-            patch.object(land_watch, "get_ci_results", AsyncMock(return_value=[])),
+            patch.object(land_watch, "get_ci_results", get_ci_results),
             patch.object(
                 land_watch,
                 "get_pr_info",
@@ -201,6 +216,7 @@ class FinalReadinessTests(unittest.TestCase):
                         asyncio.Event(),
                     ),
                 )
+        get_ci_results.assert_not_awaited()
 
     def test_final_readiness_rejects_conflicting_pr(self) -> None:
         with (
@@ -271,6 +287,11 @@ class WatcherCompletionTests(unittest.TestCase):
                 "validate_final_readiness",
                 AsyncMock(return_value=True),
             ),
+            patch.object(
+                land_watch,
+                "validate_final_pr_state",
+                AsyncMock(),
+            ) as validate_final_pr_state,
         ):
             asyncio.run(
                 land_watch.wait_for_codex(
@@ -285,6 +306,7 @@ class WatcherCompletionTests(unittest.TestCase):
             )
 
         self.assertEqual(check_review_feedback.await_count, 3)
+        validate_final_pr_state.assert_awaited_once_with("abc123")
 
 
 class PullRequestIdentityTests(unittest.TestCase):
