@@ -939,6 +939,13 @@ async def validate_final_readiness(
     if current_pr.head_sha != expected_head_sha:
         print("PR head updated during final readiness validation.")
         raise WatchExit(4)
+    if not checks_done.is_set():
+        print(
+            "A newer CI poll found unsatisfied checks during final readiness "
+            "validation; restarting feedback grace after they pass.",
+            flush=True,
+        )
+        return False
     return True
 
 
@@ -1022,6 +1029,66 @@ def raise_on_human_feedback(
         raise WatchExit(2)
 
 
+async def check_review_feedback(
+    pr_number: int,
+    pull_request_id: str,
+    hostname: str,
+    owner: str,
+    repo: str,
+) -> None:
+    (
+        issue_comments,
+        review_comments,
+        reviews,
+        review_request_at,
+        active_review_comment_node_ids,
+        trusted_ack_logins,
+    ) = await fetch_review_context(
+        pr_number,
+        pull_request_id,
+        hostname,
+        owner,
+        repo,
+    )
+    active_review_comments = filter_active_review_thread_comments(
+        review_comments,
+        active_review_comment_node_ids,
+    )
+    codex_review_ids = codex_review_ids_after_request(
+        reviews,
+        review_request_at,
+    )
+    bot_issue_comments = filter_codex_comments(
+        issue_comments,
+        review_request_at,
+        trusted_ack_logins=trusted_ack_logins,
+    )
+    bot_review_comments = filter_codex_comments(
+        active_review_comments,
+        review_request_at,
+        codex_review_ids,
+        trusted_ack_logins,
+    )
+    bot_comments = bot_issue_comments + bot_review_comments
+    raise_on_human_feedback(
+        issue_comments,
+        active_review_comments,
+        reviews,
+        review_request_at,
+        trusted_ack_logins,
+    )
+    if bot_comments:
+        latest = max(
+            bot_comments,
+            key=lambda comment: parse_time(comment["created_at"]),
+        )
+        body = sanitize_terminal_output(latest.get("body") or "").strip()
+        if body:
+            print("Codex left comments. Address feedback before merge.")
+            print(body)
+            raise WatchExit(2)
+
+
 async def wait_for_codex(
     pr_number: int,
     pull_request_id: str,
@@ -1034,57 +1101,13 @@ async def wait_for_codex(
     print("Waiting for review feedback...", flush=True)
     feedback_grace_started_at: float | None = None
     while True:
-        (
-            issue_comments,
-            review_comments,
-            reviews,
-            review_request_at,
-            active_review_comment_node_ids,
-            trusted_ack_logins,
-        ) = await fetch_review_context(
+        await check_review_feedback(
             pr_number,
             pull_request_id,
             hostname,
             owner,
             repo,
         )
-        active_review_comments = filter_active_review_thread_comments(
-            review_comments,
-            active_review_comment_node_ids,
-        )
-        codex_review_ids = codex_review_ids_after_request(
-            reviews,
-            review_request_at,
-        )
-        bot_issue_comments = filter_codex_comments(
-            issue_comments,
-            review_request_at,
-            trusted_ack_logins=trusted_ack_logins,
-        )
-        bot_review_comments = filter_codex_comments(
-            active_review_comments,
-            review_request_at,
-            codex_review_ids,
-            trusted_ack_logins,
-        )
-        bot_comments = bot_issue_comments + bot_review_comments
-        raise_on_human_feedback(
-            issue_comments,
-            active_review_comments,
-            reviews,
-            review_request_at,
-            trusted_ack_logins,
-        )
-        if bot_comments:
-            latest = max(
-                bot_comments,
-                key=lambda comment: parse_time(comment["created_at"]),
-            )
-            body = sanitize_terminal_output(latest.get("body") or "").strip()
-            if body:
-                print("Codex left comments. Address feedback before merge.")
-                print(body)
-                raise WatchExit(2)
         if checks_done.is_set():
             now = monotonic_seconds()
             if feedback_grace_started_at is None:
@@ -1101,6 +1124,22 @@ async def wait_for_codex(
                     repo,
                     checks_done,
                 ):
+                    await check_review_feedback(
+                        pr_number,
+                        pull_request_id,
+                        hostname,
+                        owner,
+                        repo,
+                    )
+                    if not checks_done.is_set():
+                        print(
+                            "A newer CI poll found unsatisfied checks during the "
+                            "final feedback refresh; restarting feedback grace after "
+                            "they pass.",
+                            flush=True,
+                        )
+                        feedback_grace_started_at = None
+                        continue
                     print(
                         "Feedback wait complete; no review feedback detected.",
                         flush=True,

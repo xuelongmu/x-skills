@@ -222,6 +222,70 @@ class FinalReadinessTests(unittest.TestCase):
                     ),
                 )
 
+    def test_final_readiness_honors_newer_unsatisfied_ci_poll(self) -> None:
+        checks_done = asyncio.Event()
+        checks_done.set()
+
+        async def clear_checks_during_pr_refresh() -> land_watch.PrInfo:
+            checks_done.clear()
+            return self.pr_info()
+
+        with (
+            patch.object(land_watch, "get_ci_results", AsyncMock(return_value=[])),
+            patch.object(
+                land_watch,
+                "get_pr_info",
+                AsyncMock(side_effect=clear_checks_during_pr_refresh),
+            ),
+        ):
+            ready = asyncio.run(
+                land_watch.validate_final_readiness(
+                    "abc123",
+                    "github.com",
+                    "owner",
+                    "repo",
+                    checks_done,
+                ),
+            )
+
+        self.assertFalse(ready)
+
+
+class WatcherCompletionTests(unittest.TestCase):
+    def test_feedback_is_refetched_after_final_readiness_validation(self) -> None:
+        checks_done = asyncio.Event()
+        checks_done.set()
+        check_review_feedback = AsyncMock()
+
+        with (
+            patch.object(land_watch, "FEEDBACK_GRACE_SECONDS", 0),
+            patch.object(land_watch, "monotonic_seconds", return_value=0),
+            patch.object(land_watch, "sleep", AsyncMock()),
+            patch.object(
+                land_watch,
+                "check_review_feedback",
+                check_review_feedback,
+            ),
+            patch.object(
+                land_watch,
+                "validate_final_readiness",
+                AsyncMock(return_value=True),
+            ),
+        ):
+            asyncio.run(
+                land_watch.wait_for_codex(
+                    42,
+                    "PR_node_id",
+                    "github.com",
+                    "owner",
+                    "repo",
+                    "abc123",
+                    checks_done,
+                ),
+            )
+
+        self.assertEqual(check_review_feedback.await_count, 3)
+
 
 class PullRequestIdentityTests(unittest.TestCase):
     def test_run_gh_routes_custom_port_through_process_environment(self) -> None:
