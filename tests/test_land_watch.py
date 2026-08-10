@@ -93,6 +93,7 @@ class FinalReadinessTests(unittest.TestCase):
         head_sha: str = "abc123",
         mergeable: str = "MERGEABLE",
         merge_state: str = "CLEAN",
+        state: str = "OPEN",
     ) -> land_watch.PrInfo:
         return land_watch.PrInfo(
             number=42,
@@ -104,6 +105,7 @@ class FinalReadinessTests(unittest.TestCase):
             head_sha=head_sha,
             mergeable=mergeable,
             merge_state=merge_state,
+            state=state,
         )
 
     def test_final_readiness_accepts_current_head_with_no_checks(self) -> None:
@@ -238,6 +240,30 @@ class FinalReadinessTests(unittest.TestCase):
                     ),
                 )
 
+    def test_final_readiness_stops_for_terminal_pr(self) -> None:
+        for state in ("MERGED", "CLOSED"):
+            with self.subTest(state=state):
+                get_ci_results = AsyncMock(return_value=[])
+                with (
+                    patch.object(land_watch, "get_ci_results", get_ci_results),
+                    patch.object(
+                        land_watch,
+                        "get_pr_info",
+                        AsyncMock(return_value=self.pr_info(state=state)),
+                    ),
+                ):
+                    with self.assertRaisesRegex(land_watch.WatchExit, "6"):
+                        asyncio.run(
+                            land_watch.validate_final_readiness(
+                                "abc123",
+                                "github.com",
+                                "owner",
+                                "repo",
+                                asyncio.Event(),
+                            ),
+                        )
+                get_ci_results.assert_not_awaited()
+
     def test_final_readiness_honors_newer_unsatisfied_ci_poll(self) -> None:
         checks_done = asyncio.Event()
         checks_done.set()
@@ -346,6 +372,7 @@ class PullRequestIdentityTests(unittest.TestCase):
             "headRefOid": "abc123",
             "mergeable": "MERGEABLE",
             "mergeStateStatus": "CLEAN",
+            "state": "OPEN",
         }
         run_gh = AsyncMock(return_value=json.dumps(payload))
 
@@ -353,13 +380,14 @@ class PullRequestIdentityTests(unittest.TestCase):
             pr = asyncio.run(land_watch.get_pr_info())
 
         self.assertEqual(pr.node_id, "PR_node_id")
+        self.assertEqual(pr.state, "OPEN")
         self.assertEqual(pr.hostname, "github.example:8443")
         self.assertEqual((pr.owner, pr.repo), ("owner", "repo"))
         run_gh.assert_awaited_once_with(
             "pr",
             "view",
             "--json",
-            "number,id,url,headRefOid,mergeable,mergeStateStatus",
+            "number,id,url,headRefOid,mergeable,mergeStateStatus,state",
         )
 
     def test_review_threads_are_looked_up_by_pull_request_node_id(self) -> None:

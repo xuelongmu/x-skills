@@ -74,6 +74,7 @@ class PrInfo:
     head_sha: str
     mergeable: str | None
     merge_state: str | None
+    state: str
 
 
 class RateLimitError(RuntimeError):
@@ -140,7 +141,7 @@ async def get_pr_info() -> PrInfo:
         "pr",
         "view",
         "--json",
-        "number,id,url,headRefOid,mergeable,mergeStateStatus",
+        "number,id,url,headRefOid,mergeable,mergeStateStatus,state",
     )
     parsed = json.loads(data)
     hostname, owner, repo = get_repository_from_pr_url(parsed["url"])
@@ -154,6 +155,7 @@ async def get_pr_info() -> PrInfo:
         head_sha=parsed["headRefOid"],
         mergeable=parsed.get("mergeable"),
         merge_state=parsed.get("mergeStateStatus"),
+        state=parsed["state"],
     )
 
 
@@ -906,6 +908,12 @@ def is_merge_conflicting(pr: PrInfo) -> bool:
     return pr.mergeable == "CONFLICTING" or pr.merge_state in ("BEHIND", "DIRTY")
 
 
+def raise_if_pr_terminal(pr: PrInfo) -> None:
+    if pr.state in ("MERGED", "CLOSED"):
+        print(f"PR #{pr.number} is {pr.state}; stopping watcher.", flush=True)
+        raise WatchExit(6)
+
+
 async def validate_final_readiness(
     expected_head_sha: str,
     hostname: str,
@@ -944,6 +952,7 @@ async def validate_final_readiness(
 
 async def validate_final_pr_state(expected_head_sha: str) -> tuple[str, str | None, str | None]:
     current_pr = await get_pr_info()
+    raise_if_pr_terminal(current_pr)
     if is_merge_conflicting(current_pr):
         print(
             "PR is behind, conflicting, or dirty during final readiness validation.",
@@ -1291,6 +1300,7 @@ async def wait_for_checks(
 
 async def watch_pr() -> None:
     pr = await get_pr_info()
+    raise_if_pr_terminal(pr)
     if is_merge_conflicting(pr):
         print(
             "PR is behind, conflicting, or dirty. Merge/rebase against main and push before "
@@ -1323,6 +1333,7 @@ async def watch_pr() -> None:
     async def head_monitor() -> None:
         while True:
             current = await get_pr_info()
+            raise_if_pr_terminal(current)
             if is_merge_conflicting(current):
                 print(
                     "PR is behind, conflicting, or dirty. Merge/rebase against main and push "
