@@ -1070,7 +1070,7 @@ async def wait_for_checks(
     checks_done: asyncio.Event,
 ) -> None:
     print("Waiting for CI checks...", flush=True)
-    empty_seconds = 0
+    empty_started_at: float | None = None
     checks_were_green = False
     reported_missing = False
     while True:
@@ -1080,18 +1080,21 @@ async def wait_for_checks(
                 checks_done.clear()
                 checks_were_green = False
                 reported_missing = False
-            empty_seconds += POLL_SECONDS
-            if empty_seconds >= CHECKS_APPEAR_TIMEOUT_SECONDS:
+            now = monotonic_seconds()
+            if empty_started_at is None:
+                empty_started_at = now
+            if now - empty_started_at >= CHECKS_APPEAR_TIMEOUT_SECONDS:
                 if not reported_missing:
                     print(
-                        "No checks detected after 120s; continuing to monitor feedback and checks.",
+                        f"No checks detected after {CHECKS_APPEAR_TIMEOUT_SECONDS}s; "
+                        "continuing to monitor feedback and checks.",
                         flush=True,
                     )
                     reported_missing = True
                 checks_done.set()
             await sleep(POLL_SECONDS)
             continue
-        empty_seconds = 0
+        empty_started_at = None
         reported_missing = False
         pending, failed, failures = summarize_checks(check_runs)
         if failed:

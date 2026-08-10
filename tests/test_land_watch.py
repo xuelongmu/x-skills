@@ -32,6 +32,56 @@ class PollIntervalTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "must be an integer"):
             land_watch.parse_poll_seconds("slow")
 
+    def test_long_poll_interval_does_not_skip_check_appearance_timeout(self) -> None:
+        checks_done = asyncio.Event()
+        get_ci_results = AsyncMock(
+            side_effect=[[], land_watch.WatchExit(99)],
+        )
+
+        with (
+            patch.object(land_watch, "POLL_SECONDS", 900),
+            patch.object(land_watch, "get_ci_results", get_ci_results),
+            patch.object(land_watch, "monotonic_seconds", return_value=0),
+            patch.object(land_watch, "sleep", AsyncMock()),
+        ):
+            with self.assertRaises(land_watch.WatchExit):
+                asyncio.run(
+                    land_watch.wait_for_checks(
+                        "abc123",
+                        "github.com",
+                        "owner",
+                        "repo",
+                        checks_done,
+                    ),
+                )
+
+        self.assertFalse(checks_done.is_set())
+
+    def test_check_appearance_timeout_uses_monotonic_elapsed_time(self) -> None:
+        checks_done = asyncio.Event()
+        get_ci_results = AsyncMock(
+            side_effect=[[], [], land_watch.WatchExit(99)],
+        )
+
+        with (
+            patch.object(land_watch, "POLL_SECONDS", 900),
+            patch.object(land_watch, "get_ci_results", get_ci_results),
+            patch.object(land_watch, "monotonic_seconds", side_effect=[0, 121]),
+            patch.object(land_watch, "sleep", AsyncMock()),
+        ):
+            with self.assertRaises(land_watch.WatchExit):
+                asyncio.run(
+                    land_watch.wait_for_checks(
+                        "abc123",
+                        "github.com",
+                        "owner",
+                        "repo",
+                        checks_done,
+                    ),
+                )
+
+        self.assertTrue(checks_done.is_set())
+
 
 class PullRequestIdentityTests(unittest.TestCase):
     def test_run_gh_routes_custom_port_through_process_environment(self) -> None:
