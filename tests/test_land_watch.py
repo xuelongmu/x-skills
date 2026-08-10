@@ -29,8 +29,12 @@ class PollIntervalTests(unittest.TestCase):
             land_watch.parse_poll_seconds("9")
 
     def test_poll_interval_rejects_non_integer_values(self) -> None:
-        with self.assertRaisesRegex(RuntimeError, "must be an integer"):
+        with self.assertRaisesRegex(RuntimeError, "must be an integer from 10 to 300"):
             land_watch.parse_poll_seconds("slow")
+
+    def test_poll_interval_rejects_values_above_grace_safe_maximum(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "at most 300 seconds"):
+            land_watch.parse_poll_seconds("301")
 
     def test_long_poll_interval_does_not_skip_check_appearance_timeout(self) -> None:
         checks_done = asyncio.Event()
@@ -39,7 +43,7 @@ class PollIntervalTests(unittest.TestCase):
         )
 
         with (
-            patch.object(land_watch, "POLL_SECONDS", 900),
+            patch.object(land_watch, "POLL_SECONDS", 300),
             patch.object(land_watch, "get_ci_results", get_ci_results),
             patch.object(land_watch, "monotonic_seconds", return_value=0),
             patch.object(land_watch, "sleep", AsyncMock()),
@@ -64,7 +68,7 @@ class PollIntervalTests(unittest.TestCase):
         )
 
         with (
-            patch.object(land_watch, "POLL_SECONDS", 900),
+            patch.object(land_watch, "POLL_SECONDS", 300),
             patch.object(land_watch, "get_ci_results", get_ci_results),
             patch.object(land_watch, "monotonic_seconds", side_effect=[0, 121]),
             patch.object(land_watch, "sleep", AsyncMock()),

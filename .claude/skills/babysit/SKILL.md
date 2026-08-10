@@ -197,7 +197,7 @@ If already pinged for this head (`ALREADY ≥ 1`), stay quiet. One ping per read
 
 After all required checks pass, wait 10 minutes before declaring the PR ready. During this grace period:
 
-1. Poll PR feedback every 30 seconds. Do not use a faster sweep; increase the interval if GitHub API limits are constrained.
+1. Poll PR feedback every 30 seconds. Do not use a faster sweep; if GitHub API limits are constrained, increase the interval to no more than 300 seconds so CI is checked multiple times during the grace window.
 2. Re-fetch top-level comments, inline review comments, review summaries/states, unresolved review threads when available, latest check status, and bot feedback.
 3. Re-run the step 4b ping check on each poll, so a Codex 👍 that lands mid-wait notifies immediately.
 4. If new actionable feedback appears, address it, commit, push, and restart at step 3.

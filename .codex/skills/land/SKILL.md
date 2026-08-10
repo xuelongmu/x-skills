@@ -115,8 +115,9 @@ watcher. Prefer the current repo's `.codex/skills/land` when present; otherwise 
 working directory so `gh` uses the right repo.
 
 The watcher polls GitHub every 30 seconds by default to avoid exhausting API
-limits. For a slower cadence, set `LAND_WATCH_POLL_SECONDS` to an integer of at
-least 10 before launching it, for example:
+limits. For a slower cadence, set `LAND_WATCH_POLL_SECONDS` to an integer from
+10 to 300 before launching it. The upper bound keeps CI polling active multiple
+times during the 10-minute feedback grace window. For example:
 
 ```
 LAND_WATCH_POLL_SECONDS=60 python3 "$LAND_SKILL_DIR/land_watch.py"

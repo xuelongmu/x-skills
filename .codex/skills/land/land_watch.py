@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 
 DEFAULT_POLL_SECONDS = 30
 MIN_POLL_SECONDS = 10
+MAX_POLL_SECONDS = 300
 POLL_SECONDS_ENV = "LAND_WATCH_POLL_SECONDS"
 
 
@@ -22,11 +23,16 @@ def parse_poll_seconds(raw_value: str | None) -> int:
         poll_seconds = int(raw_value)
     except ValueError as exc:
         raise RuntimeError(
-            f"{POLL_SECONDS_ENV} must be an integer of at least {MIN_POLL_SECONDS} seconds",
+            f"{POLL_SECONDS_ENV} must be an integer from {MIN_POLL_SECONDS} "
+            f"to {MAX_POLL_SECONDS} seconds",
         ) from exc
     if poll_seconds < MIN_POLL_SECONDS:
         raise RuntimeError(
             f"{POLL_SECONDS_ENV} must be at least {MIN_POLL_SECONDS} seconds",
+        )
+    if poll_seconds > MAX_POLL_SECONDS:
+        raise RuntimeError(
+            f"{POLL_SECONDS_ENV} must be at most {MAX_POLL_SECONDS} seconds",
         )
     return poll_seconds
 

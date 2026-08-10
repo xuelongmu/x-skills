@@ -50,7 +50,7 @@ description: Keep a pull request healthy without merging it; use when Codex need
    python "$LAND_SKILL_DIR/land_watch.py"
    ```
    Resolve `LAND_SKILL_DIR` before running: prefer the current repo's `.codex/skills/land` when present, otherwise use `${CODEX_HOME:-$HOME/.codex}/skills/land` or `%USERPROFILE%\.codex\skills\land`. Run the command from the PR repository working directory so `gh` uses the right repo. Use `python3` instead of `python` when that is the available launcher.
-   The watcher polls GitHub every 30 seconds by default. To reduce API traffic further, set `LAND_WATCH_POLL_SECONDS` to a larger integer before launching it (minimum: 10 seconds).
+   The watcher polls GitHub every 30 seconds by default. To reduce API traffic further, set `LAND_WATCH_POLL_SECONDS` to an integer from 10 to 300 seconds before launching it. The upper bound keeps CI polling active throughout the feedback grace window.
 7. If the watcher exits `2`, fetch top-level comments, inline review comments, review summaries, unresolved threads when available, latest checks, and bot feedback. Classify each item, address actionable feedback, commit, push, leave `[codex]` response comments for addressed or intentionally deferred feedback, and rerun the watcher.
 8. If the watcher exits `3`, inspect failing checks with `GH_HOST="$PR_HOST" gh pr checks "$PR_NUMBER" -R "$PR_REPO"` and `GH_HOST="$PR_HOST" gh run view <run-id> -R "$PR_REPO" --log`, fix the failure when concrete, commit, push, leave a `[codex]` response if the failure was reported in PR feedback, and rerun the watcher.
 9. If the watcher exits `4`, refresh local state from the remote branch and rerun the watcher.
