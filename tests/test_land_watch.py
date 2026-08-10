@@ -268,15 +268,15 @@ class FinalReadinessTests(unittest.TestCase):
 
 
 class WatcherCompletionTests(unittest.TestCase):
-    def test_feedback_is_refetched_after_final_readiness_validation(self) -> None:
+    def test_final_state_loops_until_feedback_and_pr_are_stable(self) -> None:
         checks_done = asyncio.Event()
         checks_done.set()
-        check_review_feedback = AsyncMock()
+        check_review_feedback = AsyncMock(return_value=("feedback",))
+        validate_final_pr_state = AsyncMock(
+            return_value=("abc123", "MERGEABLE", "CLEAN"),
+        )
 
         with (
-            patch.object(land_watch, "FEEDBACK_GRACE_SECONDS", 0),
-            patch.object(land_watch, "monotonic_seconds", return_value=0),
-            patch.object(land_watch, "sleep", AsyncMock()),
             patch.object(
                 land_watch,
                 "check_review_feedback",
@@ -286,15 +286,15 @@ class WatcherCompletionTests(unittest.TestCase):
                 land_watch,
                 "validate_final_readiness",
                 AsyncMock(return_value=True),
-            ),
+            ) as validate_final_readiness,
             patch.object(
                 land_watch,
                 "validate_final_pr_state",
-                AsyncMock(),
+                validate_final_pr_state,
             ) as validate_final_pr_state,
         ):
-            asyncio.run(
-                land_watch.wait_for_codex(
+            ready = asyncio.run(
+                land_watch.validate_stable_final_readiness(
                     42,
                     "PR_node_id",
                     "github.com",
@@ -305,8 +305,10 @@ class WatcherCompletionTests(unittest.TestCase):
                 ),
             )
 
-        self.assertEqual(check_review_feedback.await_count, 3)
-        validate_final_pr_state.assert_awaited_once_with("abc123")
+        self.assertTrue(ready)
+        self.assertEqual(check_review_feedback.await_count, 4)
+        self.assertEqual(validate_final_pr_state.await_count, 4)
+        self.assertEqual(validate_final_readiness.await_count, 2)
 
 
 class PullRequestIdentityTests(unittest.TestCase):
