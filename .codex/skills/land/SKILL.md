@@ -36,8 +36,8 @@ description:
    resolve conflicts, then use the `push` skill to publish the updated branch.
 6. Ensure Codex review comments (if present) are acknowledged and any required
    fixes are handled before merging.
-7. Watch checks until complete, then continue watching PR feedback for 10
-   minutes before merging.
+7. Watch checks until complete, then continue watching PR feedback for the
+   configured grace window (15 minutes by default) before merging.
 8. If checks fail, pull logs, fix the issue, commit with the `commit` skill,
    push with the `push` skill, and re-run checks.
 9. After all merge gates pass, use the repository's customary method: prefer
@@ -82,9 +82,9 @@ fi
 
 # Preferred: use the Async Watch Helper below. It watches review feedback,
 # checks, and PR head changes in parallel. After checks pass (or when no CI
-# checks are detected), it keeps polling feedback for 10 minutes. A Codex
-# review is not required to arrive; no actionable feedback during the 10-minute
-# wait is enough to proceed.
+# checks are detected), it keeps polling feedback for the configured grace
+# window (15 minutes by default). A Codex review is not required to arrive; no
+# actionable feedback during that wait is enough to proceed.
 if ! python3 "$LAND_SKILL_DIR/land_watch.py"; then
   # Exit code 2 means review feedback must be handled.
   # Exit code 3 means checks failed.
@@ -117,12 +117,14 @@ working directory so `gh` uses the right repo.
 
 The watcher polls GitHub every 30 seconds by default to avoid exhausting API
 limits. For a slower cadence, set `LAND_WATCH_POLL_SECONDS` to an integer from
-30 to 300 before launching it. Before returning success, the watcher performs
+30 to 300 before launching it. The feedback grace window defaults to 900
+seconds (15 minutes); set `LAND_WATCH_FEEDBACK_GRACE_SECONDS` to an integer from
+30 to 86400 to override it. Before returning success, the watcher performs
 authoritative final CI, PR-head, merge-state, and feedback refreshes until
 consecutive feedback and PR snapshots are unchanged. For example:
 
 ```
-LAND_WATCH_POLL_SECONDS=60 python3 "$LAND_SKILL_DIR/land_watch.py"
+LAND_WATCH_POLL_SECONDS=60 LAND_WATCH_FEEDBACK_GRACE_SECONDS=600 python3 "$LAND_SKILL_DIR/land_watch.py"
 ```
 
 Exit codes:
@@ -134,9 +136,9 @@ Exit codes:
 - 6: PR is merged or closed; refresh state and stop watching
 
 The helper returns success only after the PR is conflict-free, checks are green,
-and 10 minutes pass after green checks with no outstanding feedback. It does not
-require a Codex review to arrive; absence of feedback after the grace period is
-acceptable.
+and the configured feedback grace period passes after green checks with no
+outstanding feedback. It does not require a Codex review to arrive; absence of
+feedback after the grace period is acceptable.
 
 ## Failure Handling
 
@@ -157,7 +159,7 @@ acceptable.
 - If the watcher exits `6`, refresh the PR state. Treat `MERGED` as successful external completion; treat `CLOSED` without merge as terminal and report that no merge occurred.
 - Do not merge while review comments (human or Codex review) are outstanding.
 - Codex review jobs retry on failure and are non-blocking; merge is gated by
-  outstanding feedback plus the 10-minute post-green feedback wait, not by a
+  outstanding feedback plus the configured post-green feedback wait, not by a
   requirement that a Codex review comment must arrive.
 - Do not enable auto-merge; this repo has no required checks so auto-merge can
   skip tests.

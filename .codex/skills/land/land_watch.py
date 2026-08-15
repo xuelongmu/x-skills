@@ -14,6 +14,10 @@ DEFAULT_POLL_SECONDS = 30
 MIN_POLL_SECONDS = 30
 MAX_POLL_SECONDS = 300
 POLL_SECONDS_ENV = "LAND_WATCH_POLL_SECONDS"
+DEFAULT_FEEDBACK_GRACE_SECONDS = 900
+MIN_FEEDBACK_GRACE_SECONDS = 30
+MAX_FEEDBACK_GRACE_SECONDS = 86400
+FEEDBACK_GRACE_SECONDS_ENV = "LAND_WATCH_FEEDBACK_GRACE_SECONDS"
 
 
 def parse_poll_seconds(raw_value: str | None) -> int:
@@ -37,9 +41,34 @@ def parse_poll_seconds(raw_value: str | None) -> int:
     return poll_seconds
 
 
+def parse_feedback_grace_seconds(raw_value: str | None) -> int:
+    if raw_value is None:
+        return DEFAULT_FEEDBACK_GRACE_SECONDS
+    try:
+        grace_seconds = int(raw_value)
+    except ValueError as exc:
+        raise RuntimeError(
+            f"{FEEDBACK_GRACE_SECONDS_ENV} must be an integer from "
+            f"{MIN_FEEDBACK_GRACE_SECONDS} to {MAX_FEEDBACK_GRACE_SECONDS} seconds",
+        ) from exc
+    if grace_seconds < MIN_FEEDBACK_GRACE_SECONDS:
+        raise RuntimeError(
+            f"{FEEDBACK_GRACE_SECONDS_ENV} must be at least "
+            f"{MIN_FEEDBACK_GRACE_SECONDS} seconds",
+        )
+    if grace_seconds > MAX_FEEDBACK_GRACE_SECONDS:
+        raise RuntimeError(
+            f"{FEEDBACK_GRACE_SECONDS_ENV} must be at most "
+            f"{MAX_FEEDBACK_GRACE_SECONDS} seconds",
+        )
+    return grace_seconds
+
+
 POLL_SECONDS = parse_poll_seconds(os.environ.get(POLL_SECONDS_ENV))
 CHECKS_APPEAR_TIMEOUT_SECONDS = 120
-FEEDBACK_GRACE_SECONDS = 600
+FEEDBACK_GRACE_SECONDS = parse_feedback_grace_seconds(
+    os.environ.get(FEEDBACK_GRACE_SECONDS_ENV),
+)
 CODEX_BOT_LOGINS = {
     "chatgpt-codex-connector",
     "chatgpt-codex-connector[bot]",
