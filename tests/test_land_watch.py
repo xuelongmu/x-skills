@@ -18,6 +18,27 @@ SPEC.loader.exec_module(land_watch)
 
 
 class PollIntervalTests(unittest.TestCase):
+    def test_feedback_grace_is_15_minutes(self) -> None:
+        self.assertEqual(land_watch.parse_feedback_grace_seconds(None), 15 * 60)
+
+    def test_feedback_grace_can_be_configured(self) -> None:
+        self.assertEqual(land_watch.parse_feedback_grace_seconds("600"), 600)
+
+    def test_feedback_grace_rejects_values_below_minimum(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "at least 30 seconds"):
+            land_watch.parse_feedback_grace_seconds("29")
+
+    def test_feedback_grace_rejects_non_integer_values(self) -> None:
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "must be an integer from 30 to 86400",
+        ):
+            land_watch.parse_feedback_grace_seconds("long")
+
+    def test_feedback_grace_rejects_values_above_maximum(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "at most 86400 seconds"):
+            land_watch.parse_feedback_grace_seconds("86401")
+
     def test_default_poll_interval_is_30_seconds(self) -> None:
         self.assertEqual(land_watch.parse_poll_seconds(None), 30)
 

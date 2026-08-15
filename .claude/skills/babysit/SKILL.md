@@ -2,8 +2,8 @@
 name: babysit
 description: >-
   Keep a pull request healthy without merging: address review feedback, fix CI,
-  sync the base branch by merge, wait 10 minutes after green checks for late
-  feedback, and push a notification once Codex signs off (👍 on the PR body)
+  sync the base branch by merge, wait 15 minutes by default after green checks
+  for late feedback, and push a notification once Codex signs off (👍 on the PR body)
   with CI green. Designed for /loop 10m /babysit.
 allowed-tools:
   - Bash
@@ -165,7 +165,7 @@ GH_HOST="$HOST" gh pr checks "$N" -R "$REPO"
 
 ## Step 4b: Ping when Codex signs off
 
-When Codex finishes a review with no further comments, `chatgpt-codex-connector[bot]` adds a `+1` (👍) reaction to the PR **body**. GitHub emits no webhook for reactions, so poll it. Run this check as soon as checks are green — do **not** hold the notification for step 5's 10-minute grace wait (that wait gates the `Ready` verdict, not the ping):
+When Codex finishes a review with no further comments, `chatgpt-codex-connector[bot]` adds a `+1` (👍) reaction to the PR **body**. GitHub emits no webhook for reactions, so poll it. Run this check as soon as checks are green — do **not** hold the notification for step 5's configured grace wait (that wait gates the `Ready` verdict, not the ping):
 
 ```bash
 HOST=$(gh pr view --json url --jq '.url | split("/")[2]')
@@ -195,7 +195,7 @@ If already pinged for this head (`ALREADY ≥ 1`), stay quiet. One ping per read
 
 ## Step 5: Wait for late feedback
 
-After all required checks pass, wait 10 minutes before declaring the PR ready. During this grace period:
+After all required checks pass, wait 15 minutes before declaring the PR ready. If `LAND_WATCH_FEEDBACK_GRACE_SECONDS` is set to an integer from 30 to 86400, use that many seconds instead. Reject invalid values rather than silently falling back to the default. During this grace period:
 
 1. Poll PR feedback every 30 seconds. Do not use a faster sweep; if GitHub API limits are constrained, increase the interval to no more than 300 seconds so CI is checked multiple times during the grace window.
 2. Re-fetch the PR state, top-level comments, inline review comments, review summaries/states, unresolved review threads when available, latest check status, and bot feedback. If the state is `MERGED` or `CLOSED`, apply step 1's immediate terminal stop.
@@ -205,7 +205,7 @@ After all required checks pass, wait 10 minutes before declaring the PR ready. D
 6. If the PR head changes, fetch the new head and restart at step 1.
 7. Immediately before completing the grace period, synchronously refresh feedback, the PR head, merge state, and CI. Repeat until consecutive feedback and PR snapshots are unchanged, with CI revalidated between them. Restart or stop if that final state is pending, failed, changed, behind, conflicting, or dirty; do not rely on independently scheduled polls for the readiness verdict.
 
-No Codex review is required to arrive. Absence of new feedback for the full 10 minutes after green checks is acceptable.
+No Codex review is required to arrive. Absence of new feedback for the full configured grace period after green checks is acceptable.
 
 ## Step 6: Assess merge readiness
 
@@ -215,7 +215,7 @@ The PR is ready to merge when ALL of these are true:
 - Branch is up to date with base (not `BEHIND`)
 - No unresolved review threads
 - No outstanding actionable human, Codex, bot, or CI feedback
-- The 10-minute post-green feedback wait completed without new actionable feedback
+- The configured post-green feedback wait completed without new actionable feedback
 
 If ready: report that the PR is ready to merge but do NOT auto-merge. Print the merge command for the user:
 ```
