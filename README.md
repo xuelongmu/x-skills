@@ -9,13 +9,13 @@ Portable workflow skills for Claude Code and Codex.
 | publish | Commit intended changes, validate, push, and open a PR ready for review (draft only on request) | `/publish` | `publish` |
 | publish-slack | Post the current PR to Slack as a draft message with its Vercel preview link | `/publish-slack [channel]` (default `#zerogen`) | — |
 | babysit | Keep the PR ready without merging: fix CI, address review comments, sync the base branch, push-notify when Codex 👍s with CI green | `/loop 10m /babysit` | `babysit` |
-| land | Keep the PR healthy and merge it once checks and feedback gates pass | — | `land` |
+| land | Open a PR for intended local work when needed, then keep it healthy and merge once checks and feedback gates pass | — | `land` |
 | prompt-agent-orchestrator | Draft and validate multi-issue Agent Orchestrator project prompts | `/prompt-agent-orchestrator <brief>` | `prompt-agent-orchestrator` |
 | drive-agent-orchestrator | Operate Agent Orchestrator: preflight, spawn/supervise workers and orchestrators, monitor sessions | `/drive-agent-orchestrator` | `drive-agent-orchestrator` |
 | browser-evidence | Drive a running app, verify a flow, and capture browser-visible evidence | `/browser-evidence` | `browser-evidence` |
 | steward-research | Organize research repositories for reproducibility and safe handoff | `/steward-research` | `steward-research` |
 
-- `babysit` never merges, enables auto-merge, or deletes branches — it prints the merge command when ready. `land` is the only skill that merges.
+- `babysit` never merges, enables auto-merge, or deletes branches — it prints the merge command when ready. Codex-only `land` can publish a missing PR and is the only skill that merges; Claude Code has no `land` implementation.
 - Codex `babysit` reuses `land/land_watch.py`, so always install `land` alongside it. Codex has no `/loop`; a single run uses that watcher, and continuous monitoring uses a Codex cron automation.
 
 ## Setup

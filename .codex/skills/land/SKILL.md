@@ -1,9 +1,10 @@
 ---
 name: land
 description:
-  Land a PR by resolving conflicts, keeping CI green, handling feedback, and
-  using the repository's customary merge method; use when asked to land, merge,
-  or shepherd a PR to completion.
+  Publish local changes into a pull request when needed, then land the PR by
+  resolving conflicts, keeping CI green, handling feedback, and using the
+  repository's customary merge method; use when asked to land, merge, or
+  shepherd work or a PR to completion.
 ---
 
 # Land
@@ -11,6 +12,7 @@ description:
 ## Goals
 
 - Ensure the PR is conflict-free with main.
+- Open a ready-for-review PR when the intended work does not already have one.
 - Keep CI green and fix failures when they occur.
 - Use the repository's customary merge method: merge commit, rebase, or squash.
 - Do not yield to the user until the PR is merged; keep the watcher loop running
@@ -20,51 +22,106 @@ description:
 
 ## Preconditions
 
-- `gh` CLI is authenticated.
-- You are on the PR branch with a clean working tree.
+- Require a local Git repository with an accessible GitHub remote.
+- Require an authenticated connected GitHub app or `gh` CLI session for the
+  selected host.
+- When `gh` is unavailable but the connected GitHub app is authenticated, use
+  the app for PR creation and perform equivalent CI, feedback, head, and merge
+  polling; never skip a land gate because the bundled watcher cannot run.
 - This skill may be installed project-locally in `.codex/skills/land` or globally in `$CODEX_HOME/skills/land` / `~/.codex/skills/land`.
 - Run watcher commands from the PR repository working directory. The watcher script path comes from this installed skill directory, but `gh` resolves repository context from the process cwd.
 
 ## Steps
 
-1. Locate the PR for the current branch.
-2. Confirm the full gauntlet is green locally before any push.
-3. If the working tree has uncommitted changes, commit with the `commit` skill
-   and push with the `push` skill before proceeding.
-4. Check mergeability and conflicts against main.
-5. If conflicts exist, use the `pull` skill to fetch/merge `origin/main` and
+1. Establish the intended scope, GitHub remote, target repository, and base
+   branch. Inspect the complete status, diff, untracked files, and branch range;
+   never include unrelated changes silently.
+2. Locate an open PR for the current branch in the target repository.
+3. If no open PR exists, prepare and publish one using the **Open a PR when
+   needed** workflow below. Create it ready for review unless the user
+   explicitly requested a draft.
+4. Before every push, confirm the full gauntlet is green locally. If the PR
+   already existed and the worktree has intended changes, stage only those
+   changes, commit them, and push them to the selected PR branch.
+5. Check mergeability and conflicts against the target base branch.
+6. If conflicts exist, use the `pull` skill to fetch/merge the target base and
    resolve conflicts, then use the `push` skill to publish the updated branch.
-6. Ensure Codex review comments (if present) are acknowledged and any required
+7. Ensure Codex review comments (if present) are acknowledged and any required
    fixes are handled before merging.
-7. Watch checks until complete, then continue watching PR feedback for the
+8. Watch checks until complete, then continue watching PR feedback for the
    configured grace window (15 minutes by default) before merging.
-8. If checks fail, pull logs, fix the issue, commit with the `commit` skill,
+9. If checks fail, pull logs, fix the issue, commit with the `commit` skill,
    push with the `push` skill, and re-run checks.
-9. After all merge gates pass, use the repository's customary method: prefer
+10. After all merge gates pass, use the repository's customary method: prefer
    explicit guidance, otherwise infer from recent merge history. Confirm the
    method is enabled; if ambiguous, ask instead of guessing. Do not manually
    delete the remote branch.
-10. **Context guard:** Before implementing review feedback, confirm it does not
+11. **Context guard:** Before implementing review feedback, confirm it does not
     conflict with the user’s stated intent or task context. If it conflicts,
     respond inline with a justification and ask the user before changing code.
-11. **Pushback template:** When disagreeing, reply inline with: acknowledge +
+12. **Pushback template:** When disagreeing, reply inline with: acknowledge +
     rationale + offer alternative.
-12. **Ambiguity gate:** When ambiguity blocks progress, use the clarification
+13. **Ambiguity gate:** When ambiguity blocks progress, use the clarification
     flow (assign PR to current GH user, mention them, wait for response). Do not
     implement until ambiguity is resolved.
     - If you are confident you know better than the reviewer, you may proceed
       without asking the user, but reply inline with your rationale.
-13. **Per-comment mode:** For each review comment, choose one of: accept,
+14. **Per-comment mode:** For each review comment, choose one of: accept,
     clarify, or push back. Reply inline (or in the issue thread for Codex
     reviews) stating the mode before changing code.
-14. **Reply before change:** Always respond with intended action before pushing
+15. **Reply before change:** Always respond with intended action before pushing
     code changes (inline for review comments, issue thread for Codex reviews).
+
+## Open a PR when needed
+
+When the current work has no open PR:
+
+1. Select and verify the push remote, GitHub hostname, head repository, target
+   repository, and base branch. Preserve an explicitly requested base; otherwise
+   use the repository default. Keep head and base repositories distinct for
+   fork workflows.
+2. If detached or on the target base branch, create a focused branch before
+   staging or committing. Otherwise keep the current branch unless the user
+   requested a new one.
+3. Refresh the target base ref. Inspect `git log <base-ref>..HEAD --oneline` and
+   `git diff <base-ref>...HEAD` together with the worktree diff and every
+   intended untracked file. Stop if scope is ambiguous or there is nothing to
+   publish.
+4. Run the relevant local validation. Fix attributable failures within scope.
+5. Stage only intended files and create a terse commit when staged changes
+   exist. Reuse unpublished branch commits; never create an empty commit.
+6. Push the selected branch with upstream tracking. Never force-push unless the
+   user explicitly authorized it or the established workflow clearly requires
+   it and the target is verified.
+7. Recheck for an open PR after the push to avoid duplicates. If none exists,
+   prefer the connected GitHub app to create one; use `gh` only as fallback.
+   Explicitly target the selected base/head repositories and branches, and set
+   draft to false unless the user requested a draft.
+8. Write a title for the full branch diff and a Markdown body covering what and
+   why, user impact, validation, and any limitations. Treat the new PR as the
+   selected PR and continue the land workflow without yielding.
+
+For a same-repository CLI fallback:
+
+```sh
+gh pr create --repo "<base-owner>/<base-repository>" \
+  --base "<base-branch>" \
+  --head "$(git branch --show-current)" \
+  --title "<title>" \
+  --body-file "<body-file>"
+```
+
+For a user-owned fork, use `<head-owner>:<head-branch>`. For an
+organization-owned fork, use the connected GitHub app or `gh api` with explicit
+base/head repositories and branches; do not rely on the unsupported CLI
+`--head <organization>:<branch>` path.
 
 ## Commands
 
 ```
 # Ensure branch and PR context
 branch=$(git branch --show-current)
+# If no open PR resolves here, run "Open a PR when needed" above, then retry.
 pr_number=$(gh pr view --json number -q .number)
 pr_host=$(gh pr view --json url --jq '.url | split("/")[2]')
 pr_repo=$(gh pr view --json url --jq '.url | split("/") | .[3:5] | join("/")')
