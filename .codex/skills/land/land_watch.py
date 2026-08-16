@@ -465,6 +465,8 @@ def normalize_pr_status_check(check: dict[str, Any]) -> dict[str, Any]:
             "details_url": check.get("targetUrl"),
             "app": {"id": "status-rollup", "name": "status-rollup"},
         }
+    workflow_name = check.get("workflowName")
+    app = {"name": workflow_name} if workflow_name else check.get("app") or {}
     return {
         "name": check.get("name") or "unknown",
         "status": str(check.get("status") or "queued").lower(),
@@ -472,7 +474,7 @@ def normalize_pr_status_check(check: dict[str, Any]) -> dict[str, Any]:
         "started_at": check.get("startedAt"),
         "completed_at": check.get("completedAt"),
         "details_url": check.get("detailsUrl"),
-        "app": check.get("workflowName") or check.get("app") or {},
+        "app": app,
     }
 
 

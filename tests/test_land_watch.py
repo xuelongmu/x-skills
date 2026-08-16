@@ -115,6 +115,7 @@ class PullRequestStatusRollupTests(unittest.TestCase):
                 {
                     "__typename": "CheckRun",
                     "name": "tests",
+                    "workflowName": "CI",
                     "status": "IN_PROGRESS",
                     "conclusion": "",
                     "detailsUrl": "https://github.com/fork/repo/actions/runs/1",
@@ -154,6 +155,11 @@ class PullRequestStatusRollupTests(unittest.TestCase):
         self.assertEqual(
             checks[0]["details_url"],
             payload["statusCheckRollup"][0]["detailsUrl"],
+        )
+        self.assertEqual(checks[0]["app"], {"name": "CI"})
+        self.assertEqual(
+            land_watch.summarize_checks(checks),
+            (True, True, ["lint: failure"]),
         )
         self.assertEqual(checks[1]["status"], "completed")
         self.assertEqual(checks[1]["conclusion"], "failure")
