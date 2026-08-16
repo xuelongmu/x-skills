@@ -1,5 +1,7 @@
 import asyncio
+import contextlib
 import importlib.util
+import io
 import json
 import sys
 import unittest
@@ -164,11 +166,24 @@ class PullRequestStatusRollupTests(unittest.TestCase):
         self.assertEqual(checks[1]["status"], "completed")
         self.assertEqual(checks[1]["conclusion"], "failure")
 
+    def test_same_named_checks_without_producer_identity_are_not_deduplicated(self) -> None:
+        checks = [
+            {"name": "scan", "status": "completed", "conclusion": "failure"},
+            {"name": "scan", "status": "completed", "conclusion": "success"},
+        ]
+
+        self.assertEqual(len(land_watch.dedupe_check_runs(checks)), 2)
+        self.assertEqual(
+            land_watch.summarize_checks(checks),
+            (False, True, ["scan: failure"]),
+        )
+
 
 class FinalReadinessTests(unittest.TestCase):
     @staticmethod
     def pr_info(
         head_sha: str = "abc123",
+        base_ref_name: str = "main",
         mergeable: str = "MERGEABLE",
         merge_state: str = "CLEAN",
         state: str = "OPEN",
@@ -181,10 +196,31 @@ class FinalReadinessTests(unittest.TestCase):
             repo="repo",
             url="https://github.com/owner/repo/pull/42",
             head_sha=head_sha,
+            base_ref_name=base_ref_name,
             mergeable=mergeable,
             merge_state=merge_state,
             state=state,
         )
+
+    def test_initial_conflict_names_selected_base(self) -> None:
+        output = io.StringIO()
+        with (
+            patch.object(
+                land_watch,
+                "get_pr_info",
+                AsyncMock(
+                    return_value=self.pr_info(
+                        base_ref_name="release/next",
+                        mergeable="CONFLICTING",
+                    ),
+                ),
+            ),
+            contextlib.redirect_stdout(output),
+        ):
+            with self.assertRaisesRegex(land_watch.WatchExit, "5"):
+                asyncio.run(land_watch.watch_pr())
+
+        self.assertIn("against release/next", output.getvalue())
 
     def test_final_readiness_accepts_current_head_with_no_checks(self) -> None:
         checks_done = asyncio.Event()
@@ -448,6 +484,7 @@ class PullRequestIdentityTests(unittest.TestCase):
             "id": "PR_node_id",
             "url": "https://github.example:8443/owner/repo/pull/42",
             "headRefOid": "abc123",
+            "baseRefName": "release/next",
             "mergeable": "MERGEABLE",
             "mergeStateStatus": "CLEAN",
             "state": "OPEN",
@@ -460,12 +497,13 @@ class PullRequestIdentityTests(unittest.TestCase):
         self.assertEqual(pr.node_id, "PR_node_id")
         self.assertEqual(pr.state, "OPEN")
         self.assertEqual(pr.hostname, "github.example:8443")
+        self.assertEqual(pr.base_ref_name, "release/next")
         self.assertEqual((pr.owner, pr.repo), ("owner", "repo"))
         run_gh.assert_awaited_once_with(
             "pr",
             "view",
             "--json",
-            "number,id,url,headRefOid,mergeable,mergeStateStatus,state",
+            "number,id,url,headRefOid,baseRefName,mergeable,mergeStateStatus,state",
         )
 
     def test_get_pr_info_uses_explicit_pr_selector(self) -> None:
@@ -474,6 +512,7 @@ class PullRequestIdentityTests(unittest.TestCase):
             "id": "PR_node_id",
             "url": "https://github.example/owner/repo/pull/42",
             "headRefOid": "abc123",
+            "baseRefName": "main",
             "mergeable": "MERGEABLE",
             "mergeStateStatus": "CLEAN",
             "state": "OPEN",
@@ -491,8 +530,16 @@ class PullRequestIdentityTests(unittest.TestCase):
             "view",
             payload["url"],
             "--json",
-            "number,id,url,headRefOid,mergeable,mergeStateStatus,state",
+            "number,id,url,headRefOid,baseRefName,mergeable,mergeStateStatus,state",
         )
+
+
+class LandSkillDocumentationTests(unittest.TestCase):
+    def test_organization_fork_api_fallback_routes_selected_host(self) -> None:
+        skill_path = WATCHER_PATH.with_name("SKILL.md")
+        skill = skill_path.read_text(encoding="utf-8")
+
+        self.assertIn('GH_HOST="<host>" gh api', skill)
 
     def test_review_threads_are_looked_up_by_pull_request_node_id(self) -> None:
         payload = {

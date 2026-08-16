@@ -123,9 +123,10 @@ gh pr create --repo "<host>/<base-owner>/<base-repository>" \
 ```
 
 For a user-owned fork, use `<head-owner>:<head-branch>`. For an
-organization-owned fork, use the connected GitHub app or `gh api` with explicit
-base/head repositories and branches; do not rely on the unsupported CLI
-`--head <organization>:<branch>` path.
+organization-owned fork, use the connected GitHub app or
+`GH_HOST="<host>" gh api` with explicit base/head repositories and branches;
+do not rely on the unsupported CLI `--head <organization>:<branch>` path or an
+unqualified API call that defaults to `github.com`.
 
 ## Commands
 

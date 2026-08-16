@@ -103,6 +103,7 @@ class PrInfo:
     repo: str
     url: str
     head_sha: str
+    base_ref_name: str
     mergeable: str | None
     merge_state: str | None
     state: str
@@ -174,7 +175,7 @@ async def get_pr_info() -> PrInfo:
     args.extend(
         [
             "--json",
-            "number,id,url,headRefOid,mergeable,mergeStateStatus,state",
+            "number,id,url,headRefOid,baseRefName,mergeable,mergeStateStatus,state",
         ],
     )
     data = await run_gh(*args)
@@ -188,6 +189,7 @@ async def get_pr_info() -> PrInfo:
         repo=repo,
         url=parsed["url"],
         head_sha=parsed["headRefOid"],
+        base_ref_name=parsed["baseRefName"],
         mergeable=parsed.get("mergeable"),
         merge_state=parsed.get("mergeStateStatus"),
         state=parsed["state"],
@@ -558,8 +560,12 @@ def check_timestamp(check: dict[str, Any]) -> datetime | None:
 
 def dedupe_check_runs(check_runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     latest_by_key: dict[tuple[str, str], dict[str, Any]] = {}
+    unidentified: list[dict[str, Any]] = []
     for check in check_runs:
         key = check_run_key(check)
+        if key is None:
+            unidentified.append(check)
+            continue
         timestamp = check_timestamp(check)
         if key not in latest_by_key:
             latest_by_key[key] = check
@@ -570,12 +576,14 @@ def dedupe_check_runs(check_runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
             continue
         if existing_timestamp is None or timestamp > existing_timestamp:
             latest_by_key[key] = check
-    return list(latest_by_key.values())
+    return list(latest_by_key.values()) + unidentified
 
 
-def check_run_key(check: dict[str, Any]) -> tuple[str, str]:
+def check_run_key(check: dict[str, Any]) -> tuple[str, str] | None:
     app = check.get("app") or {}
-    app_key = app.get("id") or app.get("slug") or app.get("name") or "unknown-app"
+    app_key = app.get("id") or app.get("slug") or app.get("name")
+    if not app_key:
+        return None
     name = check.get("name") or "unknown"
     return str(app_key), str(name)
 
@@ -1375,8 +1383,8 @@ async def watch_pr() -> None:
     raise_if_pr_terminal(pr)
     if is_merge_conflicting(pr):
         print(
-            "PR is behind, conflicting, or dirty. Merge/rebase against main and push before "
-            "running land_watch again.",
+            f"PR is behind, conflicting, or dirty. Merge/rebase against "
+            f"{pr.base_ref_name} and push before running land_watch again.",
         )
         raise WatchExit(5)
     head_sha = pr.head_sha
@@ -1408,8 +1416,8 @@ async def watch_pr() -> None:
             raise_if_pr_terminal(current)
             if is_merge_conflicting(current):
                 print(
-                    "PR is behind, conflicting, or dirty. Merge/rebase against main and push "
-                    "before running land_watch again.",
+                    f"PR is behind, conflicting, or dirty. Merge/rebase against "
+                    f"{current.base_ref_name} and push before running land_watch again.",
                 )
                 raise WatchExit(5)
             if current.head_sha != head_sha:
