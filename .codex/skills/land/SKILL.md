@@ -195,10 +195,13 @@ fi
 # rebase: GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --rebase --match-head-commit "$head_sha"
 # squash: GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --squash --match-head-commit "$head_sha" --subject "$pr_title" --body "$pr_body"
 
-# A successful merge command only enqueues the PR when the base branch uses a
-# merge queue, and a queued PR can be ejected. Re-check until GitHub reports
-# MERGED; rerun the watcher if it comes back blocked.
-GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json state,mergeStateStatus
+# A successful merge command is not proof of a merge: with a merge queue the PR
+# is only enqueued (and can be ejected), and if a required check went pending in
+# the gap `gh pr merge` enables auto-merge instead, which would later merge with
+# no grace window. If autoMergeRequest is non-null, disable it at once and rerun
+# the watcher; otherwise re-check until GitHub reports MERGED.
+GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json state,mergeStateStatus,autoMergeRequest
+# GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --disable-auto
 ```
 
 ## Async Watch Helper
@@ -264,6 +267,9 @@ feedback after the grace period is acceptable.
 - If mergeability is `UNKNOWN`, wait and re-check.
 - If the watcher exits `6`, refresh the PR state. Treat `MERGED` as successful external completion; treat `CLOSED` without merge as terminal and report that no merge occurred.
 - Do not merge while review comments (human or Codex review) are outstanding.
+- Do not merge while a `CHANGES_REQUESTED` review is active, even after every
+  thread is addressed; without branch protection GitHub still allows it. Wait
+  for the reviewer to dismiss or supersede the review.
 - Codex review jobs retry on failure and are non-blocking; merge is gated by
   outstanding feedback plus the configured post-green feedback wait, not by a
   requirement that a Codex review comment must arrive.

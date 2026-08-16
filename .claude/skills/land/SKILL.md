@@ -195,7 +195,7 @@ No Codex review is required to arrive. Absence of new actionable feedback for th
 
 ## Step 7: Merge
 
-Merge only when all of these hold: not a draft, conflict-free and not behind, all checks green, every review thread addressed with no outstanding actionable feedback, and the grace window completed unchanged.
+Merge only when all of these hold: not a draft, conflict-free and not behind, all checks green, `reviewDecision` is not `CHANGES_REQUESTED`, every review thread addressed with no outstanding actionable feedback, and the grace window completed unchanged. Resolving the threads under a change-request review does not clear it — without branch protection GitHub will still let the merge through, so wait for the reviewer to dismiss or supersede it.
 
 Use the repository's customary method. Prefer explicit user guidance; otherwise infer it from recent merge history (`git log <base-branch> -20 --merges` versus a linear history). Confirm the method is enabled on the repository; if it is ambiguous, ask instead of guessing.
 
@@ -209,13 +209,15 @@ Pin the merge to `$HEAD_SHA` — the sha carried over from the Step 6 convergenc
 
 If the merge is rejected because the head moved, return to Step 4 and revalidate — do not retry blindly.
 
-A successful command is not proof of a merge: with a merge queue on the base branch, `gh pr merge` only enqueues the PR, which can later be ejected. Re-check state until GitHub reports `MERGED`, and go back to Step 4 if it reopens as blocked:
+A successful command is not proof of a merge. With a merge queue the PR is only enqueued and can be ejected, and if a required check went pending in the gap `gh pr merge` silently *enables auto-merge* instead — which would later merge with no grace window at all. Check what actually happened:
 
 ```sh
-GH_HOST="$HOST" gh pr view "$N" -R "$REPO" --json state,mergeStateStatus
+GH_HOST="$HOST" gh pr view "$N" -R "$REPO" --json state,mergeStateStatus,autoMergeRequest
 ```
 
-Do not enable auto-merge — a repository without required checks can auto-merge past a failing test. Do not delete the remote branch manually.
+If `autoMergeRequest` is non-null, disable it immediately with `GH_HOST="$HOST" gh pr merge "$N" -R "$REPO" --disable-auto` and return to Step 4. Otherwise re-check until GitHub reports `MERGED`, going back to Step 4 if it reopens as blocked.
+
+Never enable auto-merge deliberately — a repository without required checks can auto-merge past a failing test. Do not delete the remote branch manually.
 
 ## Scope and PR metadata
 
