@@ -349,6 +349,8 @@ class WatcherCompletionTests(unittest.TestCase):
                     "repo",
                     "abc123",
                     checks_done,
+                    "fork-owner",
+                    "fork-repo",
                 ),
             )
 
@@ -356,6 +358,8 @@ class WatcherCompletionTests(unittest.TestCase):
         self.assertEqual(check_review_feedback.await_count, 4)
         self.assertEqual(validate_final_pr_state.await_count, 4)
         self.assertEqual(validate_final_readiness.await_count, 2)
+        for call in validate_final_readiness.await_args_list:
+            self.assertEqual(call.args[2:4], ("fork-owner", "fork-repo"))
 
 
 class PullRequestIdentityTests(unittest.TestCase):
@@ -391,6 +395,7 @@ class PullRequestIdentityTests(unittest.TestCase):
             "id": "PR_node_id",
             "url": "https://github.example:8443/owner/repo/pull/42",
             "headRefOid": "abc123",
+            "headRepository": {"nameWithOwner": "fork-owner/fork-repo"},
             "mergeable": "MERGEABLE",
             "mergeStateStatus": "CLEAN",
             "state": "OPEN",
@@ -404,11 +409,12 @@ class PullRequestIdentityTests(unittest.TestCase):
         self.assertEqual(pr.state, "OPEN")
         self.assertEqual(pr.hostname, "github.example:8443")
         self.assertEqual((pr.owner, pr.repo), ("owner", "repo"))
+        self.assertEqual((pr.head_owner, pr.head_repo), ("fork-owner", "fork-repo"))
         run_gh.assert_awaited_once_with(
             "pr",
             "view",
             "--json",
-            "number,id,url,headRefOid,mergeable,mergeStateStatus,state",
+            "number,id,url,headRefOid,headRepository,mergeable,mergeStateStatus,state",
         )
 
     def test_get_pr_info_uses_explicit_pr_selector(self) -> None:
@@ -434,7 +440,7 @@ class PullRequestIdentityTests(unittest.TestCase):
             "view",
             payload["url"],
             "--json",
-            "number,id,url,headRefOid,mergeable,mergeStateStatus,state",
+            "number,id,url,headRefOid,headRepository,mergeable,mergeStateStatus,state",
         )
 
     def test_review_threads_are_looked_up_by_pull_request_node_id(self) -> None:

@@ -106,6 +106,8 @@ class PrInfo:
     mergeable: str | None
     merge_state: str | None
     state: str
+    head_owner: str | None = None
+    head_repo: str | None = None
 
 
 class RateLimitError(RuntimeError):
@@ -174,12 +176,17 @@ async def get_pr_info() -> PrInfo:
     args.extend(
         [
             "--json",
-            "number,id,url,headRefOid,mergeable,mergeStateStatus,state",
+            "number,id,url,headRefOid,headRepository,mergeable,mergeStateStatus,state",
         ],
     )
     data = await run_gh(*args)
     parsed = json.loads(data)
     hostname, owner, repo = get_repository_from_pr_url(parsed["url"])
+    head_repository = parsed.get("headRepository") or {}
+    head_name_with_owner = head_repository.get("nameWithOwner") or ""
+    head_parts = head_name_with_owner.split("/", 1)
+    head_owner = head_parts[0] if len(head_parts) == 2 else owner
+    head_repo = head_parts[1] if len(head_parts) == 2 else repo
     return PrInfo(
         number=parsed["number"],
         node_id=parsed["id"],
@@ -191,6 +198,8 @@ async def get_pr_info() -> PrInfo:
         mergeable=parsed.get("mergeable"),
         merge_state=parsed.get("mergeStateStatus"),
         state=parsed["state"],
+        head_owner=head_owner,
+        head_repo=head_repo,
     )
 
 
@@ -1181,7 +1190,11 @@ async def validate_stable_final_readiness(
     repo: str,
     head_sha: str,
     checks_done: asyncio.Event,
+    ci_owner: str | None = None,
+    ci_repo: str | None = None,
 ) -> bool:
+    ci_owner = ci_owner or owner
+    ci_repo = ci_repo or repo
     previous_snapshot: tuple[tuple[Any, ...], tuple[str, str | None, str | None]] | None = None
     while True:
         await check_review_feedback(
@@ -1195,8 +1208,8 @@ async def validate_stable_final_readiness(
         if not await validate_final_readiness(
             head_sha,
             hostname,
-            owner,
-            repo,
+            ci_owner,
+            ci_repo,
             checks_done,
         ):
             return False
@@ -1234,6 +1247,8 @@ async def wait_for_codex(
     repo: str,
     head_sha: str,
     checks_done: asyncio.Event,
+    ci_owner: str | None = None,
+    ci_repo: str | None = None,
 ) -> None:
     print("Waiting for review feedback...", flush=True)
     feedback_grace_started_at: float | None = None
@@ -1262,6 +1277,8 @@ async def wait_for_codex(
                     repo,
                     head_sha,
                     checks_done,
+                    ci_owner,
+                    ci_repo,
                 ):
                     print(
                         "Feedback wait complete; no review feedback detected.",
@@ -1343,6 +1360,8 @@ async def watch_pr() -> None:
         )
         raise WatchExit(5)
     head_sha = pr.head_sha
+    ci_owner = pr.head_owner or pr.owner
+    ci_repo = pr.head_repo or pr.repo
     checks_done = asyncio.Event()
     codex_task = asyncio.create_task(
         wait_for_codex(
@@ -1353,14 +1372,16 @@ async def watch_pr() -> None:
             pr.repo,
             head_sha,
             checks_done,
+            ci_owner,
+            ci_repo,
         ),
     )
     checks_task = asyncio.create_task(
         wait_for_checks(
             head_sha,
             pr.hostname,
-            pr.owner,
-            pr.repo,
+            ci_owner,
+            ci_repo,
             checks_done,
         ),
     )

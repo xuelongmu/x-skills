@@ -92,22 +92,25 @@ When the current work has no open PR:
    yet.
 5. Run the relevant local validation against that exact staged worktree. Fix
    attributable failures within scope, stage the fixes, review the staged diff
-   again, and rerun affected checks. Then create a terse commit when staged
-   changes exist. Reuse unpublished branch commits; never create an empty
-   commit.
+   again, and rerun affected checks. When unrelated unstaged changes coexist,
+   materialize the index in an isolated temporary worktree and validate there;
+   do not test the mixed working tree or stash the user's changes. Then create a
+   terse commit when staged changes exist. Reuse unpublished branch commits;
+   never create an empty commit.
 6. Push the selected branch with upstream tracking. Never force-push unless the
    user explicitly authorized it or the established workflow clearly requires
    it and the target is verified.
-7. Recheck for an open PR after the push to avoid duplicates. If none exists,
-   prefer the connected GitHub app to create one; use `gh` only as fallback.
-   Explicitly target the selected base/head repositories and branches, and set
-   draft to false unless the user requested a draft.
-8. Write a title for the full branch diff and a Markdown body covering what and
-   why, user impact, validation, and any limitations. Persist the returned PR
-   URL, number, hostname, and repository; pass that exact identity through the
-   watcher and merge flow. If the user requested a draft, stop after publishing
-   it and explain that landing is paused until they authorize marking it ready.
-   Otherwise continue the land workflow without yielding.
+7. Write a title for the full branch diff and a Markdown body covering what and
+   why, user impact, validation, and any limitations.
+8. Recheck for an open PR after the push to avoid duplicates. If none exists,
+   create it with the prepared title and body. Prefer the connected GitHub app;
+   use `gh` only as fallback. Explicitly target the selected base/head
+   repositories and branches, and set draft to false unless the user requested
+   a draft. Persist the returned PR URL, number, hostname, and repository; pass
+   that exact identity through the watcher, review-handling, and merge flows. If
+   the user requested a draft, stop after publishing it and explain that landing
+   is paused until they authorize marking it ready. Otherwise continue the land
+   workflow without yielding.
 
 For a same-repository CLI fallback:
 
@@ -253,9 +256,10 @@ feedback after the grace period is acceptable.
 - Derive API coordinates from the selected PR before fetching or replying; do
   not use checkout-derived placeholders or the CLI's default hostname:
   ```sh
-  PR_HOST=$(gh pr view --json url --jq '.url | split("/")[2]')
-  PR_REPO=$(gh pr view --json url --jq '.url | split("/") | .[3:5] | join("/")')
-  PR_NUMBER=$(gh pr view --json number --jq .number)
+  PR_URL="${LAND_WATCH_PR:-$(gh pr view --json url --jq .url)}"
+  PR_HOST=$(gh pr view "$PR_URL" --json url --jq '.url | split("/")[2]')
+  PR_REPO=$(gh pr view "$PR_URL" --json url --jq '.url | split("/") | .[3:5] | join("/")')
+  PR_NUMBER=$(gh pr view "$PR_URL" --json number --jq .number)
   ```
 - Fetch review comments via `gh api` and reply with a prefixed comment.
 - Use review comment endpoints (not issue comments) to find inline feedback:
