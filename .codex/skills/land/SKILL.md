@@ -219,7 +219,9 @@ feedback after the grace period is acceptable.
 
 - If checks fail, pull details with
   `GH_HOST="$pr_host" gh pr checks "$pr_number" -R "$pr_selector"` and
-  `GH_HOST="$pr_host" gh run view <run-id> -R "$pr_selector" --log`, then fix locally, commit
+  derive the repository that owns the failed run from its rollup details URL,
+  then use `GH_HOST="$pr_host" gh run view <run-id> -R "<check-repository>" --log`.
+  Fix locally, commit
   with the `commit` skill, push with the `push` skill, and re-run the watch.
 - Treat every reported CI failure as blocking. If a failure looks flaky (for
   example, a timeout on one platform), rerun or re-watch until the check is
