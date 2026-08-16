@@ -40,7 +40,10 @@ description:
    PR the user named by number or URL over current-branch discovery. Read
    `isDraft` with the rest of the PR fields: a draft cannot merge, so mark it
    ready before watching when the user asked to land it, or stop and say
-   landing is paused when they explicitly want it kept as a draft.
+   landing is paused when they explicitly want it kept as a draft. Treat a
+   `MERGED`/`CLOSED` result as terminal only when the user named that PR;
+   `gh pr view` also resolves stale branch PRs, so publish the branch's newer
+   work through step 3 instead.
 3. If no open PR exists, prepare and publish one using the **Open a PR when
    needed** workflow below. Create it ready for review unless the user
    explicitly requested a draft.
@@ -150,6 +153,19 @@ pr_selector="$pr_repo"
 pr_title=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json title -q .title)
 pr_body=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json body -q .body)
 
+# Check out the selected PR before touching Git state; otherwise conflict
+# resolution and CI fixes mutate whatever branch happens to be checked out.
+# Use `git worktree add` instead when the current worktree must be preserved.
+pr_head=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json headRefName -q .headRefName)
+if [ "$branch" != "$pr_head" ]; then
+  GH_HOST="$pr_host" gh pr checkout "$pr_number" -R "$pr_selector"
+fi
+
+# Capture the head BEFORE watching. A successful watcher run proves this exact
+# sha stayed green (it exits 4 on any head change), so it is the validated sha
+# to pin at merge; re-querying after the watcher would bless an unvalidated commit.
+head_sha=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json headRefOid -q .headRefOid)
+
 # Check mergeability and conflicts
 mergeable=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json mergeable -q .mergeable)
 
@@ -172,15 +188,17 @@ if ! LAND_WATCH_PR="$pr_url" python3 "$LAND_SKILL_DIR/land_watch.py"; then
   exit 1
 fi
 
-# Pin the merge to the head the watcher validated, so a commit pushed in the
-# gap is rejected instead of merged unvalidated. On rejection, re-run the
-# watcher against the new head instead of retrying.
-head_sha=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json headRefOid -q .headRefOid)
-
-# Run the customary enabled method:
+# Run the customary enabled method, pinned to the validated head so a commit
+# pushed in the gap is rejected. On rejection, re-run the watcher against the
+# new head instead of retrying.
 # merge:  GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --merge  --match-head-commit "$head_sha"
 # rebase: GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --rebase --match-head-commit "$head_sha"
 # squash: GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --squash --match-head-commit "$head_sha" --subject "$pr_title" --body "$pr_body"
+
+# A successful merge command only enqueues the PR when the base branch uses a
+# merge queue, and a queued PR can be ejected. Re-check until GitHub reports
+# MERGED; rerun the watcher if it comes back blocked.
+GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json state,mergeStateStatus
 ```
 
 ## Async Watch Helper
@@ -277,11 +295,16 @@ feedback after the grace period is acceptable.
 - Use review comment endpoints (not issue comments) to find inline feedback:
   - List PR review comments:
     ```
-    GH_HOST="$PR_HOST" gh api "repos/$PR_REPO/pulls/$PR_NUMBER/comments"
+    GH_HOST="$PR_HOST" gh api --paginate "repos/$PR_REPO/pulls/$PR_NUMBER/comments"
     ```
   - PR issue comments (top-level discussion):
     ```
-    GH_HOST="$PR_HOST" gh api "repos/$PR_REPO/issues/$PR_NUMBER/comments"
+    GH_HOST="$PR_HOST" gh api --paginate "repos/$PR_REPO/issues/$PR_NUMBER/comments"
+    ```
+  - Review summaries (feedback left only in a review body appears in neither
+    list above):
+    ```
+    GH_HOST="$PR_HOST" gh api --paginate "repos/$PR_REPO/pulls/$PR_NUMBER/reviews"
     ```
   - Reply to a specific review comment:
     ```

@@ -65,8 +65,10 @@ Keep `$PR_URL` for the whole run and re-select from it, never from the branch, s
 
 - If no open PR exists, run **Step 2: Open a PR when needed**, then re-derive these coordinates from the PR you created.
 - If `isDraft` is true, the merge will be rejected no matter how many gates pass. Do not enter the watch loop first: if the user asked to land this PR, mark it ready now with `GH_HOST="$HOST" gh pr ready "$N" -R "$REPO"`; if they explicitly wanted it kept as a draft, stop and say landing is paused until they authorize marking it ready.
-- If the PR state is `MERGED`, report successful external completion and stop. If it is `CLOSED` without a merge, that is terminal — report that no merge occurred and stop.
-- Pass `GH_HOST="$HOST"` on every `gh` call so custom GitHub Enterprise hosts and ports survive; do not fall back implicitly to `github.com`.
+- If the state is `MERGED`/`CLOSED`, terminal handling depends on how the PR was found. For a PR the user named explicitly, stop: report the merge as external completion, or the close as terminal with no merge. For a stale hit from branch discovery (`gh pr view` still resolves closed PRs), go to **Step 2** and publish the branch's newer work instead.
+- Pass `GH_HOST="$HOST"` on every `gh` call; do not fall back implicitly to `github.com`.
+
+Check out the PR before touching Git state — landing PR #N while the checkout sits elsewhere would commit and push into unrelated work. If the current branch is not the PR's `headRefName`, run `GH_HOST="$HOST" gh pr checkout "$N" -R "$REPO"`, or use `git worktree add` when the current worktree holds changes worth keeping.
 
 If the PR already existed and the worktree has intended uncommitted changes, stage only those changes, review the staged diff, run the relevant validation against that exact state, commit, and push before watching.
 
@@ -122,12 +124,12 @@ Poll the PR every 30 seconds. If GitHub API limits are constrained, slow to at m
 ```bash
 GH_HOST="$HOST" gh pr view "$N" -R "$REPO" --json state,isDraft,headRefOid,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,updatedAt
 GH_HOST="$HOST" gh pr checks "$N" -R "$REPO"
-GH_HOST="$HOST" gh api "repos/$REPO/issues/$N/comments"
-GH_HOST="$HOST" gh api "repos/$REPO/pulls/$N/comments"
-GH_HOST="$HOST" gh api "repos/$REPO/pulls/$N/reviews"
+GH_HOST="$HOST" gh api --paginate "repos/$REPO/issues/$N/comments"
+GH_HOST="$HOST" gh api --paginate "repos/$REPO/pulls/$N/comments"
+GH_HOST="$HOST" gh api --paginate "repos/$REPO/pulls/$N/reviews"
 ```
 
-The `reviews` endpoint is not optional. A reviewer can put actionable feedback in the review **summary body** alone, which appears in neither the issue-comment nor the review-comment list, and a `COMMENTED` review does not move `reviewDecision` — without this call the grace window can expire and merge over feedback you never saw.
+`--paginate` is required on all three — a busy PR pushes older feedback off page one. So is the `reviews` call: a review summary body appears in neither comment list, and a `COMMENTED` review does not move `reviewDecision`, so without it the grace window can expire over feedback you never saw.
 
 React to whatever changed:
 
@@ -184,7 +186,7 @@ Before starting this wait, make sure checks have actually appeared. An empty che
 
 After all required checks are green, wait 15 minutes before merging. If `LAND_WATCH_FEEDBACK_GRACE_SECONDS` is set to an integer from 30 to 86400, use that many seconds instead; reject invalid values rather than silently falling back to the default. During the wait, keep polling on the Step 4 cadence and restart the corresponding step whenever feedback appears, checks go pending or red, the head changes, or the merge state degrades.
 
-Immediately before merging, synchronously refresh feedback, CI, the PR head, and merge state, and repeat until consecutive feedback and PR snapshots are unchanged with CI revalidated between them. Do not rely on an independently scheduled poll for the readiness verdict.
+Immediately before merging, synchronously refresh feedback, CI, the PR head, and merge state, and repeat until consecutive feedback and PR snapshots are unchanged with CI revalidated between them. Do not rely on an independently scheduled poll for the readiness verdict. Record that converged `headRefOid` as `$HEAD_SHA` and carry it into Step 7.
 
 No Codex review is required to arrive. Absence of new actionable feedback for the full grace period after green checks is enough to proceed.
 
@@ -194,17 +196,21 @@ Merge only when all of these hold: not a draft, conflict-free and not behind, al
 
 Use the repository's customary method. Prefer explicit user guidance; otherwise infer it from recent merge history (`git log <base-branch> -20 --merges` versus a linear history). Confirm the method is enabled on the repository; if it is ambiguous, ask instead of guessing.
 
-Pin the merge to the exact head you validated. A commit pushed between the final snapshot and the merge call would otherwise be merged unvalidated; `--match-head-commit` makes GitHub reject the merge instead:
+Pin the merge to `$HEAD_SHA` — the sha carried over from the Step 6 convergence check, not a fresh query here, which would re-read (and bless) a commit nobody validated:
 
 ```sh
-HEAD_SHA=$(GH_HOST="$HOST" gh pr view "$N" -R "$REPO" --json headRefOid -q .headRefOid)  # the validated head
-
 # merge:  GH_HOST="$HOST" gh pr merge "$N" -R "$REPO" --merge  --match-head-commit "$HEAD_SHA"
 # rebase: GH_HOST="$HOST" gh pr merge "$N" -R "$REPO" --rebase --match-head-commit "$HEAD_SHA"
 # squash: GH_HOST="$HOST" gh pr merge "$N" -R "$REPO" --squash --match-head-commit "$HEAD_SHA" --subject "<pr-title>" --body "<pr-body>"
 ```
 
-If the merge is rejected because the head moved, do not retry blindly — go back to Step 4 and revalidate the new head.
+If the merge is rejected because the head moved, return to Step 4 and revalidate — do not retry blindly.
+
+A successful command is not proof of a merge: with a merge queue on the base branch, `gh pr merge` only enqueues the PR, which can later be ejected. Re-check state until GitHub reports `MERGED`, and go back to Step 4 if it reopens as blocked:
+
+```sh
+GH_HOST="$HOST" gh pr view "$N" -R "$REPO" --json state,mergeStateStatus
+```
 
 Do not enable auto-merge — a repository without required checks can auto-merge past a failing test. Do not delete the remote branch manually.
 
