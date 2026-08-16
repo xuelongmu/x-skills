@@ -36,7 +36,11 @@ description:
 1. Establish the intended scope, GitHub remote, target repository, and base
    branch. Inspect the complete status, diff, untracked files, and branch range;
    never include unrelated changes silently.
-2. Locate an open PR for the current branch in the target repository.
+2. Locate an open PR for the current branch in the target repository. Prefer a
+   PR the user named by number or URL over current-branch discovery. Read
+   `isDraft` with the rest of the PR fields: a draft cannot merge, so mark it
+   ready before watching when the user asked to land it, or stop and say
+   landing is paused when they explicitly want it kept as a draft.
 3. If no open PR exists, prepare and publish one using the **Open a PR when
    needed** workflow below. Create it ready for review unless the user
    explicitly requested a draft.
@@ -168,10 +172,15 @@ if ! LAND_WATCH_PR="$pr_url" python3 "$LAND_SKILL_DIR/land_watch.py"; then
   exit 1
 fi
 
+# Pin the merge to the head the watcher validated, so a commit pushed in the
+# gap is rejected instead of merged unvalidated. On rejection, re-run the
+# watcher against the new head instead of retrying.
+head_sha=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json headRefOid -q .headRefOid)
+
 # Run the customary enabled method:
-# merge:  GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --merge
-# rebase: GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --rebase
-# squash: GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --squash --subject "$pr_title" --body "$pr_body"
+# merge:  GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --merge  --match-head-commit "$head_sha"
+# rebase: GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --rebase --match-head-commit "$head_sha"
+# squash: GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --squash --match-head-commit "$head_sha" --subject "$pr_title" --body "$pr_body"
 ```
 
 ## Async Watch Helper
