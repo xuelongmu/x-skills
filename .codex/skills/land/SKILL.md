@@ -40,9 +40,10 @@ description:
 3. If no open PR exists, prepare and publish one using the **Open a PR when
    needed** workflow below. Create it ready for review unless the user
    explicitly requested a draft.
-4. Before every push, confirm the full gauntlet is green locally. If the PR
-   already existed and the worktree has intended changes, stage only those
-   changes, commit them, and push them to the selected PR branch.
+4. Before every push, stage and review only the intended changes, then confirm
+   the full gauntlet is green against that exact state. If the PR already
+   existed, commit the validated staged changes and push them to the selected PR
+   branch.
 5. Check mergeability and conflicts against the target base branch.
 6. If conflicts exist, use the `pull` skill to fetch/merge the target base and
    resolve conflicts, then use the `push` skill to publish the updated branch.
@@ -87,9 +88,13 @@ When the current work has no open PR:
    `git diff <base-ref>...HEAD` together with the worktree diff and every
    intended untracked file. Stop if scope is ambiguous or there is nothing to
    publish.
-4. Run the relevant local validation. Fix attributable failures within scope.
-5. Stage only intended files and create a terse commit when staged changes
-   exist. Reuse unpublished branch commits; never create an empty commit.
+4. Stage only intended files and review the complete staged diff. Do not commit
+   yet.
+5. Run the relevant local validation against that exact staged worktree. Fix
+   attributable failures within scope, stage the fixes, review the staged diff
+   again, and rerun affected checks. Then create a terse commit when staged
+   changes exist. Reuse unpublished branch commits; never create an empty
+   commit.
 6. Push the selected branch with upstream tracking. Never force-push unless the
    user explicitly authorized it or the established workflow clearly requires
    it and the target is verified.
@@ -125,7 +130,11 @@ base/head repositories and branches; do not rely on the unsupported CLI
 # Ensure branch and PR context
 branch=$(git branch --show-current)
 # If no open PR resolves here, run "Open a PR when needed" above, then retry.
-pr_url=$(gh pr view --json url -q .url)
+pr_url="${LAND_WATCH_PR:-}"
+if [ -z "$pr_url" ]; then
+  pr_url=$(gh pr view --json url -q .url)
+fi
+export LAND_WATCH_PR="$pr_url"
 pr_number=$(gh pr view "$pr_url" --json number -q .number)
 pr_host=$(gh pr view "$pr_url" --json url --jq '.url | split("/")[2]')
 pr_repo=$(gh pr view "$pr_url" --json url --jq '.url | split("/") | .[3:5] | join("/")')
