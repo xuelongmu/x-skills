@@ -7,16 +7,16 @@ Portable workflow skills for Claude Code and Codex.
 | Skill | What it does | Claude Code | Codex |
 |---|---|---|---|
 | publish | Commit intended changes, validate, push, and open a PR ready for review (draft only on request) | `/publish` | `publish` |
-| publish-slack | Post the current PR to Slack as a draft message with its Vercel preview link | `/publish-slack [channel]` (default `#zerogen`) | — |
 | babysit | Keep the PR ready without merging: fix CI, address review comments, sync the base branch, push-notify when Codex 👍s with CI green | `/loop 10m /babysit` | `babysit` |
-| land | Open a PR for intended local work when needed, then keep it healthy and merge once checks and feedback gates pass | — | `land` |
+| land | Open a PR for intended local work when needed, then keep it healthy and merge once checks and feedback gates pass | `/land` | `land` |
 | prompt-agent-orchestrator | Draft and validate multi-issue Agent Orchestrator project prompts | `/prompt-agent-orchestrator <brief>` | `prompt-agent-orchestrator` |
 | drive-agent-orchestrator | Operate Agent Orchestrator: preflight, spawn/supervise workers and orchestrators, monitor sessions | `/drive-agent-orchestrator` | `drive-agent-orchestrator` |
 | browser-evidence | Drive a running app, verify a flow, and capture browser-visible evidence | `/browser-evidence` | `browser-evidence` |
 | steward-research | Organize research repositories for reproducibility and safe handoff | `/steward-research` | `steward-research` |
 
-- `babysit` never merges, enables auto-merge, or deletes branches — it prints the merge command when ready. Codex-only `land` can publish a missing PR and is the only skill that merges; Claude Code has no `land` implementation.
-- Codex `babysit` reuses `land/land_watch.py`, so always install `land` alongside it. Codex has no `/loop`; a single run uses that watcher, and continuous monitoring uses a Codex cron automation.
+- `babysit` never merges, enables auto-merge, or deletes branches — it prints the merge command when ready. `land` can publish a missing PR and is the only skill that merges.
+- Codex `babysit` and `land` share `land/land_watch.py`, so on Codex always install `land` alongside `babysit`. Codex has no `/loop`; a single `babysit` run uses that watcher, and continuous monitoring uses a Codex cron automation.
+- Claude Code has no bundled watcher script: both Claude `babysit` and Claude `land` poll GitHub inline through `gh` instead of `land_watch.py`. The gates are the same (conflict-free, green checks, no outstanding feedback, converged final snapshots after the grace window); only the polling mechanism differs.
 
 ## Setup
 
@@ -29,7 +29,7 @@ Replace `C:\path\to\x-skills` / `/path/to/x-skills` with your clone's location.
 **Windows** (PowerShell):
 ```powershell
 New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.claude\skills"
-foreach ($s in 'publish','publish-slack','babysit','prompt-agent-orchestrator','drive-agent-orchestrator','browser-evidence','steward-research') {
+foreach ($s in 'publish','babysit','land','prompt-agent-orchestrator','drive-agent-orchestrator','browser-evidence','steward-research') {
   New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\skills\$s" -Target "C:\path\to\x-skills\.claude\skills\$s"
 }
 ```
@@ -37,7 +37,7 @@ foreach ($s in 'publish','publish-slack','babysit','prompt-agent-orchestrator','
 **macOS / Linux**:
 ```bash
 mkdir -p ~/.claude/skills
-for s in publish publish-slack babysit prompt-agent-orchestrator drive-agent-orchestrator browser-evidence steward-research; do
+for s in publish babysit land prompt-agent-orchestrator drive-agent-orchestrator browser-evidence steward-research; do
   ln -s "/path/to/x-skills/.claude/skills/$s" "$HOME/.claude/skills/$s"
 done
 ```
@@ -100,4 +100,4 @@ Each skill file documents its own behavior; these are the cross-cutting choices:
 - The Codex sign-off ping polls the PR body's reactions endpoint (GitHub emits no webhook for reactions) and notifies once per ready-commit via a `codex-ok:<sha>` label.
 - The shared Codex PR watcher polls GitHub every 30 seconds by default; set `LAND_WATCH_POLL_SECONDS` from 30 to 300 seconds when a repository needs a lower API request rate. The feedback grace window defaults to 900 seconds (15 minutes) and can be overridden for both hosts with `LAND_WATCH_FEEDBACK_GRACE_SECONDS` from 30 to 86400 seconds. Both hosts require final feedback and PR snapshots to converge unchanged, with CI revalidated between them, after that window.
 - Continuous `babysit` stops immediately when its PR is merged or closed and removes its automation state. Otherwise it stops after three consecutive unchanged feedback cycles (about 30 minutes at the documented 10-minute schedule), except while a Codex sign-off notification is still pending.
-- `publish-slack` sends as a draft so the user reviews before posting; Vercel bot comments live on the **issues** endpoint (`/issues/{n}/comments`), not `/pulls/{n}/comments`.
+- `land` merges with the repository's customary method (inferred from merge history when the user does not say), never enables auto-merge, and leaves branch deletion to the repository's auto-delete setting.
