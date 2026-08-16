@@ -411,6 +411,32 @@ class PullRequestIdentityTests(unittest.TestCase):
             "number,id,url,headRefOid,mergeable,mergeStateStatus,state",
         )
 
+    def test_get_pr_info_uses_explicit_pr_selector(self) -> None:
+        payload = {
+            "number": 42,
+            "id": "PR_node_id",
+            "url": "https://github.example/owner/repo/pull/42",
+            "headRefOid": "abc123",
+            "mergeable": "MERGEABLE",
+            "mergeStateStatus": "CLEAN",
+            "state": "OPEN",
+        }
+        run_gh = AsyncMock(return_value=json.dumps(payload))
+
+        with (
+            patch.object(land_watch, "PR_SELECTOR", payload["url"]),
+            patch.object(land_watch, "run_gh", run_gh),
+        ):
+            asyncio.run(land_watch.get_pr_info())
+
+        run_gh.assert_awaited_once_with(
+            "pr",
+            "view",
+            payload["url"],
+            "--json",
+            "number,id,url,headRefOid,mergeable,mergeStateStatus,state",
+        )
+
     def test_review_threads_are_looked_up_by_pull_request_node_id(self) -> None:
         payload = {
             "data": {

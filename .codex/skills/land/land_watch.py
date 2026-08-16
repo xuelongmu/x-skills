@@ -14,6 +14,7 @@ DEFAULT_POLL_SECONDS = 30
 MIN_POLL_SECONDS = 30
 MAX_POLL_SECONDS = 300
 POLL_SECONDS_ENV = "LAND_WATCH_POLL_SECONDS"
+PR_SELECTOR_ENV = "LAND_WATCH_PR"
 DEFAULT_FEEDBACK_GRACE_SECONDS = 900
 MIN_FEEDBACK_GRACE_SECONDS = 30
 MAX_FEEDBACK_GRACE_SECONDS = 86400
@@ -65,6 +66,7 @@ def parse_feedback_grace_seconds(raw_value: str | None) -> int:
 
 
 POLL_SECONDS = parse_poll_seconds(os.environ.get(POLL_SECONDS_ENV))
+PR_SELECTOR = os.environ.get(PR_SELECTOR_ENV) or None
 CHECKS_APPEAR_TIMEOUT_SECONDS = 120
 FEEDBACK_GRACE_SECONDS = parse_feedback_grace_seconds(
     os.environ.get(FEEDBACK_GRACE_SECONDS_ENV),
@@ -166,12 +168,16 @@ async def run_gh(*args: str, api_host: str | None = None) -> str:
 
 
 async def get_pr_info() -> PrInfo:
-    data = await run_gh(
-        "pr",
-        "view",
-        "--json",
-        "number,id,url,headRefOid,mergeable,mergeStateStatus,state",
+    args = ["pr", "view"]
+    if PR_SELECTOR:
+        args.append(PR_SELECTOR)
+    args.extend(
+        [
+            "--json",
+            "number,id,url,headRefOid,mergeable,mergeStateStatus,state",
+        ],
     )
+    data = await run_gh(*args)
     parsed = json.loads(data)
     hostname, owner, repo = get_repository_from_pr_url(parsed["url"])
     return PrInfo(

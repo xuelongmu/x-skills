@@ -98,13 +98,16 @@ When the current work has no open PR:
    Explicitly target the selected base/head repositories and branches, and set
    draft to false unless the user requested a draft.
 8. Write a title for the full branch diff and a Markdown body covering what and
-   why, user impact, validation, and any limitations. Treat the new PR as the
-   selected PR and continue the land workflow without yielding.
+   why, user impact, validation, and any limitations. Persist the returned PR
+   URL, number, hostname, and repository; pass that exact identity through the
+   watcher and merge flow. If the user requested a draft, stop after publishing
+   it and explain that landing is paused until they authorize marking it ready.
+   Otherwise continue the land workflow without yielding.
 
 For a same-repository CLI fallback:
 
 ```sh
-gh pr create --repo "<base-owner>/<base-repository>" \
+gh pr create --repo "<host>/<base-owner>/<base-repository>" \
   --base "<base-branch>" \
   --head "$(git branch --show-current)" \
   --title "<title>" \
@@ -122,9 +125,10 @@ base/head repositories and branches; do not rely on the unsupported CLI
 # Ensure branch and PR context
 branch=$(git branch --show-current)
 # If no open PR resolves here, run "Open a PR when needed" above, then retry.
-pr_number=$(gh pr view --json number -q .number)
-pr_host=$(gh pr view --json url --jq '.url | split("/")[2]')
-pr_repo=$(gh pr view --json url --jq '.url | split("/") | .[3:5] | join("/")')
+pr_url=$(gh pr view --json url -q .url)
+pr_number=$(gh pr view "$pr_url" --json number -q .number)
+pr_host=$(gh pr view "$pr_url" --json url --jq '.url | split("/")[2]')
+pr_repo=$(gh pr view "$pr_url" --json url --jq '.url | split("/") | .[3:5] | join("/")')
 pr_selector="$pr_repo"
 pr_title=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json title -q .title)
 pr_body=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json body -q .body)
@@ -142,7 +146,7 @@ fi
 # checks are detected), it keeps polling feedback for the configured grace
 # window (15 minutes by default). A Codex review is not required to arrive; no
 # actionable feedback during that wait is enough to proceed.
-if ! python3 "$LAND_SKILL_DIR/land_watch.py"; then
+if ! LAND_WATCH_PR="$pr_url" python3 "$LAND_SKILL_DIR/land_watch.py"; then
   # Exit code 2 means review feedback must be handled.
   # Exit code 3 means checks failed.
   # Exit code 4 means the PR head changed and local state must be refreshed.
@@ -176,12 +180,14 @@ The watcher polls GitHub every 30 seconds by default to avoid exhausting API
 limits. For a slower cadence, set `LAND_WATCH_POLL_SECONDS` to an integer from
 30 to 300 before launching it. The feedback grace window defaults to 900
 seconds (15 minutes); set `LAND_WATCH_FEEDBACK_GRACE_SECONDS` to an integer from
-30 to 86400 to override it. Before returning success, the watcher performs
+30 to 86400 to override it. Set `LAND_WATCH_PR` to the exact PR URL returned by
+creation so the watcher cannot resolve another PR for the same branch or
+checkout. Before returning success, the watcher performs
 authoritative final CI, PR-head, merge-state, and feedback refreshes until
 consecutive feedback and PR snapshots are unchanged. For example:
 
 ```
-LAND_WATCH_POLL_SECONDS=60 LAND_WATCH_FEEDBACK_GRACE_SECONDS=600 python3 "$LAND_SKILL_DIR/land_watch.py"
+LAND_WATCH_PR="$pr_url" LAND_WATCH_POLL_SECONDS=60 LAND_WATCH_FEEDBACK_GRACE_SECONDS=600 python3 "$LAND_SKILL_DIR/land_watch.py"
 ```
 
 Exit codes:
@@ -208,10 +214,11 @@ feedback after the grace period is acceptable.
   green before proceeding.
 - If CI pushes an auto-fix commit (authored by GitHub Actions), it does not
   trigger a fresh CI run. Detect the updated PR head, pull locally, merge
-  `origin/main` if needed, add a real author commit, and force-push to retrigger
-  CI, then restart the checks loop.
+  the selected target base ref if needed, add a real author commit, and push to
+  the verified PR remote to retrigger CI, then restart the checks loop.
 - If all jobs fail with corrupted pnpm lockfile errors on the merge commit, the
-  remediation is to fetch latest `origin/main`, merge, force-push, and rerun CI.
+  remediation is to fetch and merge the selected target base ref, push to the
+  verified PR remote, and rerun CI.
 - If mergeability is `UNKNOWN`, wait and re-check.
 - If the watcher exits `6`, refresh the PR state. Treat `MERGED` as successful external completion; treat `CLOSED` without merge as terminal and report that no merge occurred.
 - Do not merge while review comments (human or Codex review) are outstanding.
