@@ -16,7 +16,7 @@ Portable workflow skills for Claude Code and Codex.
 
 - `babysit` never merges, enables auto-merge, or deletes branches — it prints the merge command when ready. `land` can publish a missing PR and is the only skill that merges.
 - Codex `babysit` and `land` share `land/land_watch.py`, so on Codex always install `land` alongside `babysit`. Codex has no `/loop`; a single `babysit` run uses that watcher, and continuous monitoring uses a Codex cron automation.
-- Claude Code has no bundled watcher script: both Claude `babysit` and Claude `land` poll GitHub inline through `gh` instead of `land_watch.py`. The gates are the same (conflict-free, green checks, no outstanding feedback, converged final snapshots after the grace window); only the polling mechanism differs.
+- Claude Code has no bundled watcher script: both Claude `babysit` and Claude `land` poll GitHub inline through `gh` instead of `land_watch.py`. The gates are the same on both hosts — conflict-free, green checks, no outstanding feedback, converged final snapshots after the grace window, and no required Codex review unless the agent itself requested a re-review; only the polling mechanism differs.
 
 ## Setup
 

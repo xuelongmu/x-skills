@@ -68,7 +68,7 @@ Keep `$PR_URL` for the whole run and re-select from it, never from the branch, s
 - If the state is `MERGED`/`CLOSED`, terminal handling depends on how the PR was found. For a PR the user named explicitly, stop: report the merge as external completion, or the close as terminal with no merge. For a stale hit from branch discovery (`gh pr view` still resolves closed PRs), go to **Step 2** and publish the branch's newer work instead.
 - Pass `GH_HOST="$HOST"` on every `gh` call; do not fall back implicitly to `github.com`.
 
-Check out the PR before touching Git state — landing PR #N while the checkout sits elsewhere would commit and push into unrelated work. If the current branch is not the PR's `headRefName`, run `GH_HOST="$HOST" gh pr checkout "$N" -R "$REPO"`, or use `git worktree add` when the current worktree holds changes worth keeping.
+Check out the PR by number before touching Git state — landing PR #N while the checkout sits elsewhere would commit and push into unrelated work: `GH_HOST="$HOST" gh pr checkout "$N" -R "$REPO"`, or `git worktree add` when the current worktree holds changes worth keeping. Do not skip this because the branch name already matches; a fork's head branch can share the name while pointing at unrelated commits.
 
 If the PR already existed and the worktree has intended uncommitted changes, stage only those changes, review the staged diff, run the relevant validation against that exact state, commit, and push before watching.
 
@@ -115,7 +115,7 @@ GH_HOST="$HOST" gh pr view "$N" -R "$REPO" --json mergeable,mergeStateStatus
 - If `mergeable` is `UNKNOWN`, wait and re-check; GitHub computes it asynchronously.
 - If `mergeStateStatus` is `BEHIND`, or `mergeable` is `CONFLICTING`, merge the base branch in (`git fetch <remote>` then `git merge <remote>/<base-branch>`). Use `git merge`, not rebase, so no force push is needed.
 - Resolve conflicts by reading the conflicting files and reconciling both sides' intent — never by blindly taking one side. Complete the merge commit, re-run the relevant validation, and push.
-- If the remote branch advanced because of your own earlier push or merge, avoid a redundant merge; re-run the formatter locally if needed and push with `git push --force-with-lease`.
+- If the remote branch advanced, fetch and fast-forward or merge that head before pushing again — do not force-push over it. `--force-with-lease` only checks the remote ref against what you last fetched, so once you fetch, it will happily discard CI fixes or another worktree's commits. Reserve force-pushing for a history rewrite the user explicitly authorized.
 
 ## Step 4: Watch checks and feedback
 
@@ -148,8 +148,9 @@ Treat every reported CI failure as blocking. If a failure looks flaky (for examp
 - Fetch inline feedback from the **review comment** endpoint and top-level discussion from the **issue comment** endpoint:
 
   ```bash
-  GH_HOST="$HOST" gh api "repos/$REPO/pulls/$N/comments"
-  GH_HOST="$HOST" gh api "repos/$REPO/issues/$N/comments"
+  GH_HOST="$HOST" gh api --paginate "repos/$REPO/pulls/$N/comments"
+  GH_HOST="$HOST" gh api --paginate "repos/$REPO/issues/$N/comments"
+  GH_HOST="$HOST" gh api --paginate "repos/$REPO/pulls/$N/reviews"
   ```
 
   For unresolved threads, query `reviewThreads` via `gh api graphql --paginate` on the PR node id, selecting threads where `isResolved` and `isOutdated` are both false, and paginating each thread's own `comments` connection when `hasNextPage` is true.
@@ -179,6 +180,8 @@ Then implement the fix, commit, push, and post the outcome (what changed plus th
   Commits: <sha>, <sha>
   Tests: <commands run>
   ```
+
+  Having requested one, wait for that review to arrive before merging. This is the only case where a Codex review is required — see Step 6 for the default.
 
 ## Step 6: Wait for late feedback
 

@@ -153,18 +153,12 @@ pr_selector="$pr_repo"
 pr_title=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json title -q .title)
 pr_body=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json body -q .body)
 
-# Check out the selected PR before touching Git state; otherwise conflict
-# resolution and CI fixes mutate whatever branch happens to be checked out.
-# Use `git worktree add` instead when the current worktree must be preserved.
-pr_head=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json headRefName -q .headRefName)
-if [ "$branch" != "$pr_head" ]; then
-  GH_HOST="$pr_host" gh pr checkout "$pr_number" -R "$pr_selector"
-fi
-
-# Capture the head BEFORE watching. A successful watcher run proves this exact
-# sha stayed green (it exits 4 on any head change), so it is the validated sha
-# to pin at merge; re-querying after the watcher would bless an unvalidated commit.
-head_sha=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json headRefOid -q .headRefOid)
+# Check out the selected PR by number before touching Git state; otherwise
+# conflict resolution and CI fixes mutate whatever branch happens to be checked
+# out. Do not skip this on a matching branch name — a fork's head branch can
+# share the local name while pointing at unrelated commits. Use
+# `git worktree add` instead when the current worktree must be preserved.
+GH_HOST="$pr_host" gh pr checkout "$pr_number" -R "$pr_selector"
 
 # Check mergeability and conflicts
 mergeable=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json mergeable -q .mergeable)
@@ -173,6 +167,12 @@ if [ "$mergeable" = "CONFLICTING" ]; then
   # Run the `pull` skill to handle fetch + merge + conflict resolution.
   # Then run the `push` skill to publish the updated branch.
 fi
+
+# Capture the head immediately before watching — after any conflict-resolution
+# push above, or the merge would pin a superseded sha and be rejected. A clean
+# watcher exit proves this exact sha stayed green (it exits 4 on any head
+# change), so it is the validated sha to pin at merge.
+head_sha=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json headRefOid -q .headRefOid)
 
 # Preferred: use the Async Watch Helper below. It watches review feedback,
 # checks, and PR head changes in parallel. After checks pass (or when no CI
@@ -269,9 +269,12 @@ feedback after the grace period is acceptable.
   requirement that a Codex review comment must arrive.
 - Do not enable auto-merge; this repo has no required checks so auto-merge can
   skip tests.
-- If the remote PR branch advanced due to your own prior force-push or merge,
-  avoid redundant merges; re-run the formatter locally if needed and
-  `git push --force-with-lease`.
+- If the remote PR branch advanced, fetch and fast-forward or merge that head
+  before pushing again; avoid redundant merges and re-run the formatter locally
+  if needed. Do not force-push over it: `--force-with-lease` only compares the
+  remote ref against your last fetch, so after a fetch it will still discard CI
+  fixes or another worktree's commits. Reserve force-pushing for a history
+  rewrite the user explicitly authorized.
 
 ## Review Handling
 
@@ -349,7 +352,9 @@ feedback after the grace period is acceptable.
     ```
   - Only request a new review if there is at least one new commit since the
     previous request.
-  - Wait for the next Codex review comment before merging.
+  - Having requested one, wait for that review to arrive before merging. This
+    is the only case where a Codex review is required; otherwise the grace
+    window alone gates the merge.
 
 ## Scope + PR Metadata
 
