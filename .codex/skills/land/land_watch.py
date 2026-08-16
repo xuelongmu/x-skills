@@ -712,10 +712,21 @@ def is_codex_review_body(body: str) -> bool:
     return False
 
 
+def is_codex_clean_review_body(body: str) -> bool:
+    normalized = body.casefold().replace("’", "'")
+    return (
+        "didn't find any major issues" in normalized
+        or "did not find any major issues" in normalized
+    )
+
+
 def is_codex_feedback_comment(
     comment: dict[str, Any],
     codex_review_ids: set[int],
 ) -> bool:
+    body = (comment.get("body") or "").strip()
+    if is_codex_clean_review_body(body):
+        return False
     review_id = comment.get("pull_request_review_id")
     if review_id in codex_review_ids:
         return True
@@ -723,7 +734,6 @@ def is_codex_feedback_comment(
     if is_codex_bot_user(user):
         return True
     if is_codex_bridge_bot_user(user):
-        body = (comment.get("body") or "").strip()
         return is_codex_reply_body(body) or is_codex_review_body(body)
     return False
 

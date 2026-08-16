@@ -541,6 +541,18 @@ class LandSkillDocumentationTests(unittest.TestCase):
 
         self.assertIn('GH_HOST="<host>" gh api', skill)
 
+    def test_clean_codex_review_summary_is_not_feedback(self) -> None:
+        comment = {
+            "user": {"login": "github-actions[bot]", "type": "Bot"},
+            "body": "Codex Review: Didn't find any major issues. Delightful!",
+        }
+
+        self.assertFalse(land_watch.is_codex_feedback_comment(comment, set()))
+        self.assertEqual(
+            land_watch.filter_codex_review_issue_comments([comment], set()),
+            [],
+        )
+
     def test_review_threads_are_looked_up_by_pull_request_node_id(self) -> None:
         payload = {
             "data": {
