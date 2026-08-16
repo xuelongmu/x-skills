@@ -14,6 +14,7 @@ DEFAULT_POLL_SECONDS = 30
 MIN_POLL_SECONDS = 30
 MAX_POLL_SECONDS = 300
 POLL_SECONDS_ENV = "LAND_WATCH_POLL_SECONDS"
+PR_SELECTOR_ENV = "LAND_WATCH_PR"
 DEFAULT_FEEDBACK_GRACE_SECONDS = 900
 MIN_FEEDBACK_GRACE_SECONDS = 30
 MAX_FEEDBACK_GRACE_SECONDS = 86400
@@ -65,6 +66,7 @@ def parse_feedback_grace_seconds(raw_value: str | None) -> int:
 
 
 POLL_SECONDS = parse_poll_seconds(os.environ.get(POLL_SECONDS_ENV))
+PR_SELECTOR = os.environ.get(PR_SELECTOR_ENV) or None
 CHECKS_APPEAR_TIMEOUT_SECONDS = 120
 FEEDBACK_GRACE_SECONDS = parse_feedback_grace_seconds(
     os.environ.get(FEEDBACK_GRACE_SECONDS_ENV),
@@ -101,6 +103,7 @@ class PrInfo:
     repo: str
     url: str
     head_sha: str
+    base_ref_name: str
     mergeable: str | None
     merge_state: str | None
     state: str
@@ -166,12 +169,16 @@ async def run_gh(*args: str, api_host: str | None = None) -> str:
 
 
 async def get_pr_info() -> PrInfo:
-    data = await run_gh(
-        "pr",
-        "view",
-        "--json",
-        "number,id,url,headRefOid,mergeable,mergeStateStatus,state",
+    args = ["pr", "view"]
+    if PR_SELECTOR:
+        args.append(PR_SELECTOR)
+    args.extend(
+        [
+            "--json",
+            "number,id,url,headRefOid,baseRefName,mergeable,mergeStateStatus,state",
+        ],
     )
+    data = await run_gh(*args)
     parsed = json.loads(data)
     hostname, owner, repo = get_repository_from_pr_url(parsed["url"])
     return PrInfo(
@@ -182,6 +189,7 @@ async def get_pr_info() -> PrInfo:
         repo=repo,
         url=parsed["url"],
         head_sha=parsed["headRefOid"],
+        base_ref_name=parsed["baseRefName"],
         mergeable=parsed.get("mergeable"),
         merge_state=parsed.get("mergeStateStatus"),
         state=parsed["state"],
@@ -425,6 +433,19 @@ async def get_ci_results(
     owner: str,
     repo: str,
 ) -> list[dict[str, Any]]:
+    if PR_SELECTOR:
+        data = await run_gh(
+            "pr",
+            "view",
+            PR_SELECTOR,
+            "--json",
+            "statusCheckRollup",
+        )
+        payload = json.loads(data)
+        return [
+            normalize_pr_status_check(check)
+            for check in payload.get("statusCheckRollup") or []
+        ]
     check_runs = await get_check_runs(head_sha, hostname, owner, repo)
     commit_statuses = await get_commit_status_checks(
         head_sha,
@@ -433,6 +454,30 @@ async def get_ci_results(
         repo,
     )
     return check_runs + commit_statuses
+
+
+def normalize_pr_status_check(check: dict[str, Any]) -> dict[str, Any]:
+    if check.get("__typename") == "StatusContext" or "context" in check:
+        state = str(check.get("state") or "pending").lower()
+        completed = state not in ("pending", "expected")
+        return {
+            "name": check.get("context") or "legacy-status",
+            "status": "completed" if completed else "in_progress",
+            "conclusion": "success" if state == "success" else state,
+            "details_url": check.get("targetUrl"),
+            "app": {"id": "status-rollup", "name": "status-rollup"},
+        }
+    workflow_name = check.get("workflowName")
+    app = {"name": workflow_name} if workflow_name else check.get("app") or {}
+    return {
+        "name": check.get("name") or "unknown",
+        "status": str(check.get("status") or "queued").lower(),
+        "conclusion": str(check.get("conclusion") or "").lower() or None,
+        "started_at": check.get("startedAt"),
+        "completed_at": check.get("completedAt"),
+        "details_url": check.get("detailsUrl"),
+        "app": app,
+    }
 
 
 def normalize_commit_status(status: dict[str, Any]) -> dict[str, Any]:
@@ -515,8 +560,12 @@ def check_timestamp(check: dict[str, Any]) -> datetime | None:
 
 def dedupe_check_runs(check_runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     latest_by_key: dict[tuple[str, str], dict[str, Any]] = {}
+    unidentified: list[dict[str, Any]] = []
     for check in check_runs:
         key = check_run_key(check)
+        if key is None:
+            unidentified.append(check)
+            continue
         timestamp = check_timestamp(check)
         if key not in latest_by_key:
             latest_by_key[key] = check
@@ -527,12 +576,14 @@ def dedupe_check_runs(check_runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
             continue
         if existing_timestamp is None or timestamp > existing_timestamp:
             latest_by_key[key] = check
-    return list(latest_by_key.values())
+    return list(latest_by_key.values()) + unidentified
 
 
-def check_run_key(check: dict[str, Any]) -> tuple[str, str]:
+def check_run_key(check: dict[str, Any]) -> tuple[str, str] | None:
     app = check.get("app") or {}
-    app_key = app.get("id") or app.get("slug") or app.get("name") or "unknown-app"
+    app_key = app.get("id") or app.get("slug") or app.get("name")
+    if not app_key:
+        return None
     name = check.get("name") or "unknown"
     return str(app_key), str(name)
 
@@ -661,10 +712,21 @@ def is_codex_review_body(body: str) -> bool:
     return False
 
 
+def is_codex_clean_review_body(body: str) -> bool:
+    normalized = body.casefold().replace("’", "'")
+    return (
+        "didn't find any major issues" in normalized
+        or "did not find any major issues" in normalized
+    )
+
+
 def is_codex_feedback_comment(
     comment: dict[str, Any],
     codex_review_ids: set[int],
 ) -> bool:
+    body = (comment.get("body") or "").strip()
+    if is_codex_clean_review_body(body):
+        return False
     review_id = comment.get("pull_request_review_id")
     if review_id in codex_review_ids:
         return True
@@ -672,7 +734,6 @@ def is_codex_feedback_comment(
     if is_codex_bot_user(user):
         return True
     if is_codex_bridge_bot_user(user):
-        body = (comment.get("body") or "").strip()
         return is_codex_reply_body(body) or is_codex_review_body(body)
     return False
 
@@ -1332,8 +1393,8 @@ async def watch_pr() -> None:
     raise_if_pr_terminal(pr)
     if is_merge_conflicting(pr):
         print(
-            "PR is behind, conflicting, or dirty. Merge/rebase against main and push before "
-            "running land_watch again.",
+            f"PR is behind, conflicting, or dirty. Merge/rebase against "
+            f"{pr.base_ref_name} and push before running land_watch again.",
         )
         raise WatchExit(5)
     head_sha = pr.head_sha
@@ -1365,8 +1426,8 @@ async def watch_pr() -> None:
             raise_if_pr_terminal(current)
             if is_merge_conflicting(current):
                 print(
-                    "PR is behind, conflicting, or dirty. Merge/rebase against main and push "
-                    "before running land_watch again.",
+                    f"PR is behind, conflicting, or dirty. Merge/rebase against "
+                    f"{current.base_ref_name} and push before running land_watch again.",
                 )
                 raise WatchExit(5)
             if current.head_sha != head_sha:

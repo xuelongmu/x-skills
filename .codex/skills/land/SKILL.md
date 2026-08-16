@@ -1,9 +1,10 @@
 ---
 name: land
 description:
-  Land a PR by resolving conflicts, keeping CI green, handling feedback, and
-  using the repository's customary merge method; use when asked to land, merge,
-  or shepherd a PR to completion.
+  Publish local changes into a pull request when needed, then land the PR by
+  resolving conflicts, keeping CI green, handling feedback, and using the
+  repository's customary merge method; use when asked to land, merge, or
+  shepherd work or a PR to completion.
 ---
 
 # Land
@@ -11,6 +12,7 @@ description:
 ## Goals
 
 - Ensure the PR is conflict-free with main.
+- Open a ready-for-review PR when the intended work does not already have one.
 - Keep CI green and fix failures when they occur.
 - Use the repository's customary merge method: merge commit, rebase, or squash.
 - Do not yield to the user until the PR is merged; keep the watcher loop running
@@ -20,54 +22,126 @@ description:
 
 ## Preconditions
 
-- `gh` CLI is authenticated.
-- You are on the PR branch with a clean working tree.
+- Require a local Git repository with an accessible GitHub remote.
+- Require an authenticated connected GitHub app or `gh` CLI session for the
+  selected host.
+- When `gh` is unavailable but the connected GitHub app is authenticated, use
+  the app for PR creation and perform equivalent CI, feedback, head, and merge
+  polling; never skip a land gate because the bundled watcher cannot run.
 - This skill may be installed project-locally in `.codex/skills/land` or globally in `$CODEX_HOME/skills/land` / `~/.codex/skills/land`.
 - Run watcher commands from the PR repository working directory. The watcher script path comes from this installed skill directory, but `gh` resolves repository context from the process cwd.
 
 ## Steps
 
-1. Locate the PR for the current branch.
-2. Confirm the full gauntlet is green locally before any push.
-3. If the working tree has uncommitted changes, commit with the `commit` skill
-   and push with the `push` skill before proceeding.
-4. Check mergeability and conflicts against main.
-5. If conflicts exist, use the `pull` skill to fetch/merge `origin/main` and
+1. Establish the intended scope, GitHub remote, target repository, and base
+   branch. Inspect the complete status, diff, untracked files, and branch range;
+   never include unrelated changes silently.
+2. Locate an open PR for the current branch in the target repository.
+3. If no open PR exists, prepare and publish one using the **Open a PR when
+   needed** workflow below. Create it ready for review unless the user
+   explicitly requested a draft.
+4. Before every push, stage and review only the intended changes, then confirm
+   the full gauntlet is green against that exact state. If the PR already
+   existed, commit the validated staged changes and push them to the selected PR
+   branch.
+5. Check mergeability and conflicts against the target base branch.
+6. If conflicts exist, use the `pull` skill to fetch/merge the target base and
    resolve conflicts, then use the `push` skill to publish the updated branch.
-6. Ensure Codex review comments (if present) are acknowledged and any required
+7. Ensure Codex review comments (if present) are acknowledged and any required
    fixes are handled before merging.
-7. Watch checks until complete, then continue watching PR feedback for the
+8. Watch checks until complete, then continue watching PR feedback for the
    configured grace window (15 minutes by default) before merging.
-8. If checks fail, pull logs, fix the issue, commit with the `commit` skill,
+9. If checks fail, pull logs, fix the issue, commit with the `commit` skill,
    push with the `push` skill, and re-run checks.
-9. After all merge gates pass, use the repository's customary method: prefer
+10. After all merge gates pass, use the repository's customary method: prefer
    explicit guidance, otherwise infer from recent merge history. Confirm the
    method is enabled; if ambiguous, ask instead of guessing. Do not manually
    delete the remote branch.
-10. **Context guard:** Before implementing review feedback, confirm it does not
+11. **Context guard:** Before implementing review feedback, confirm it does not
     conflict with the user’s stated intent or task context. If it conflicts,
     respond inline with a justification and ask the user before changing code.
-11. **Pushback template:** When disagreeing, reply inline with: acknowledge +
+12. **Pushback template:** When disagreeing, reply inline with: acknowledge +
     rationale + offer alternative.
-12. **Ambiguity gate:** When ambiguity blocks progress, use the clarification
+13. **Ambiguity gate:** When ambiguity blocks progress, use the clarification
     flow (assign PR to current GH user, mention them, wait for response). Do not
     implement until ambiguity is resolved.
     - If you are confident you know better than the reviewer, you may proceed
       without asking the user, but reply inline with your rationale.
-13. **Per-comment mode:** For each review comment, choose one of: accept,
+14. **Per-comment mode:** For each review comment, choose one of: accept,
     clarify, or push back. Reply inline (or in the issue thread for Codex
     reviews) stating the mode before changing code.
-14. **Reply before change:** Always respond with intended action before pushing
+15. **Reply before change:** Always respond with intended action before pushing
     code changes (inline for review comments, issue thread for Codex reviews).
+
+## Open a PR when needed
+
+When the current work has no open PR:
+
+1. Select and verify the push remote, GitHub hostname, head repository, target
+   repository, and base branch. Preserve an explicitly requested base; otherwise
+   use the repository default. Keep head and base repositories distinct for
+   fork workflows.
+2. If detached or on the target base branch, create a focused branch before
+   staging or committing. Otherwise keep the current branch unless the user
+   requested a new one.
+3. Refresh the target base ref. Inspect `git log <base-ref>..HEAD --oneline` and
+   `git diff <base-ref>...HEAD` together with the worktree diff and every
+   intended untracked file. Stop if scope is ambiguous or there is nothing to
+   publish.
+4. Stage only intended files and review the complete staged diff. Do not commit
+   yet.
+5. Run the relevant local validation against that exact staged worktree. Fix
+   attributable failures within scope, stage the fixes, review the staged diff
+   again, and rerun affected checks. When unrelated unstaged changes coexist,
+   materialize the index in an isolated temporary worktree and validate there;
+   do not test the mixed working tree or stash the user's changes. Then create a
+   terse commit when staged changes exist. Reuse unpublished branch commits;
+   never create an empty commit.
+6. Push the selected branch with upstream tracking. Never force-push unless the
+   user explicitly authorized it or the established workflow clearly requires
+   it and the target is verified.
+7. Write a title for the full branch diff and a Markdown body covering what and
+   why, user impact, validation, and any limitations.
+8. Recheck for an open PR after the push to avoid duplicates. If none exists,
+   create it with the prepared title and body. Prefer the connected GitHub app;
+   use `gh` only as fallback. Explicitly target the selected base/head
+   repositories and branches, and set draft to false unless the user requested
+   a draft. Persist the returned PR URL, number, hostname, and repository; pass
+   that exact identity through the watcher, review-handling, and merge flows. If
+   the user requested a draft, stop after publishing it and explain that landing
+   is paused until they authorize marking it ready. Otherwise continue the land
+   workflow without yielding.
+
+For a same-repository CLI fallback:
+
+```sh
+gh pr create --repo "<host>/<base-owner>/<base-repository>" \
+  --base "<base-branch>" \
+  --head "$(git branch --show-current)" \
+  --title "<title>" \
+  --body-file "<body-file>"
+```
+
+For a user-owned fork, use `<head-owner>:<head-branch>`. For an
+organization-owned fork, use the connected GitHub app or
+`GH_HOST="<host>" gh api` with explicit base/head repositories and branches;
+do not rely on the unsupported CLI `--head <organization>:<branch>` path or an
+unqualified API call that defaults to `github.com`.
 
 ## Commands
 
 ```
 # Ensure branch and PR context
 branch=$(git branch --show-current)
-pr_number=$(gh pr view --json number -q .number)
-pr_host=$(gh pr view --json url --jq '.url | split("/")[2]')
-pr_repo=$(gh pr view --json url --jq '.url | split("/") | .[3:5] | join("/")')
+# If no open PR resolves here, run "Open a PR when needed" above, then retry.
+pr_url="${LAND_WATCH_PR:-}"
+if [ -z "$pr_url" ]; then
+  pr_url=$(gh pr view --json url -q .url)
+fi
+export LAND_WATCH_PR="$pr_url"
+pr_number=$(gh pr view "$pr_url" --json number -q .number)
+pr_host=$(gh pr view "$pr_url" --json url --jq '.url | split("/")[2]')
+pr_repo=$(gh pr view "$pr_url" --json url --jq '.url | split("/") | .[3:5] | join("/")')
 pr_selector="$pr_repo"
 pr_title=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json title -q .title)
 pr_body=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json body -q .body)
@@ -85,7 +159,7 @@ fi
 # checks are detected), it keeps polling feedback for the configured grace
 # window (15 minutes by default). A Codex review is not required to arrive; no
 # actionable feedback during that wait is enough to proceed.
-if ! python3 "$LAND_SKILL_DIR/land_watch.py"; then
+if ! LAND_WATCH_PR="$pr_url" python3 "$LAND_SKILL_DIR/land_watch.py"; then
   # Exit code 2 means review feedback must be handled.
   # Exit code 3 means checks failed.
   # Exit code 4 means the PR head changed and local state must be refreshed.
@@ -119,12 +193,14 @@ The watcher polls GitHub every 30 seconds by default to avoid exhausting API
 limits. For a slower cadence, set `LAND_WATCH_POLL_SECONDS` to an integer from
 30 to 300 before launching it. The feedback grace window defaults to 900
 seconds (15 minutes); set `LAND_WATCH_FEEDBACK_GRACE_SECONDS` to an integer from
-30 to 86400 to override it. Before returning success, the watcher performs
+30 to 86400 to override it. Set `LAND_WATCH_PR` to the exact PR URL returned by
+creation so the watcher cannot resolve another PR for the same branch or
+checkout. Before returning success, the watcher performs
 authoritative final CI, PR-head, merge-state, and feedback refreshes until
 consecutive feedback and PR snapshots are unchanged. For example:
 
 ```
-LAND_WATCH_POLL_SECONDS=60 LAND_WATCH_FEEDBACK_GRACE_SECONDS=600 python3 "$LAND_SKILL_DIR/land_watch.py"
+LAND_WATCH_PR="$pr_url" LAND_WATCH_POLL_SECONDS=60 LAND_WATCH_FEEDBACK_GRACE_SECONDS=600 python3 "$LAND_SKILL_DIR/land_watch.py"
 ```
 
 Exit codes:
@@ -144,17 +220,20 @@ feedback after the grace period is acceptable.
 
 - If checks fail, pull details with
   `GH_HOST="$pr_host" gh pr checks "$pr_number" -R "$pr_selector"` and
-  `GH_HOST="$pr_host" gh run view <run-id> -R "$pr_selector" --log`, then fix locally, commit
+  derive the repository that owns the failed run from its rollup details URL,
+  then use `GH_HOST="$pr_host" gh run view <run-id> -R "<check-repository>" --log`.
+  Fix locally, commit
   with the `commit` skill, push with the `push` skill, and re-run the watch.
 - Treat every reported CI failure as blocking. If a failure looks flaky (for
   example, a timeout on one platform), rerun or re-watch until the check is
   green before proceeding.
 - If CI pushes an auto-fix commit (authored by GitHub Actions), it does not
   trigger a fresh CI run. Detect the updated PR head, pull locally, merge
-  `origin/main` if needed, add a real author commit, and force-push to retrigger
-  CI, then restart the checks loop.
+  the selected target base ref if needed, add a real author commit, and push to
+  the verified PR remote to retrigger CI, then restart the checks loop.
 - If all jobs fail with corrupted pnpm lockfile errors on the merge commit, the
-  remediation is to fetch latest `origin/main`, merge, force-push, and rerun CI.
+  remediation is to fetch and merge the selected target base ref, push to the
+  verified PR remote, and rerun CI.
 - If mergeability is `UNKNOWN`, wait and re-check.
 - If the watcher exits `6`, refresh the PR state. Treat `MERGED` as successful external completion; treat `CLOSED` without merge as terminal and report that no merge occurred.
 - Do not merge while review comments (human or Codex review) are outstanding.
@@ -180,9 +259,10 @@ feedback after the grace period is acceptable.
 - Derive API coordinates from the selected PR before fetching or replying; do
   not use checkout-derived placeholders or the CLI's default hostname:
   ```sh
-  PR_HOST=$(gh pr view --json url --jq '.url | split("/")[2]')
-  PR_REPO=$(gh pr view --json url --jq '.url | split("/") | .[3:5] | join("/")')
-  PR_NUMBER=$(gh pr view --json number --jq .number)
+  PR_URL="${LAND_WATCH_PR:-$(gh pr view --json url --jq .url)}"
+  PR_HOST=$(gh pr view "$PR_URL" --json url --jq '.url | split("/")[2]')
+  PR_REPO=$(gh pr view "$PR_URL" --json url --jq '.url | split("/") | .[3:5] | join("/")')
+  PR_NUMBER=$(gh pr view "$PR_URL" --json number --jq .number)
   ```
 - Fetch review comments via `gh api` and reply with a prefixed comment.
 - Use review comment endpoints (not issue comments) to find inline feedback:
