@@ -118,7 +118,11 @@ intentional exceptions, CLI constraints, and duplication counts.
 
 Each skill file documents its own behavior; these are the cross-cutting choices:
 
-- `babysit` uses `git merge` (not rebase) to avoid force pushes, and replies on review threads after addressing feedback.
+- `babysit` follows explicit repository guidance when syncing a conflicting or
+  behind PR branch, otherwise uses the repository's enabled rebase/merge
+  settings when they identify one method, and prefers rebase when no preference
+  is declared. Rebases are published with `--force-with-lease`, never plain
+  `--force`. It replies on review threads after addressing feedback.
 - `babysit` binds feedback API calls to the hostname and repository selected by
   `gh pr view`, not whichever remote the checkout resolves or the CLI's default
   host. API subprocesses use `GH_HOST` so custom GitHub Enterprise ports are

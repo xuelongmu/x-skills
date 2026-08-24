@@ -67,8 +67,28 @@ description: Keep a pull request healthy without merging it. Use when asked to b
    - Report `Stopping babysit — 3 cycles with no new feedback on PR #<n>.`
      when the idle stop applies.
 3. If the working tree has uncommitted changes, commit the intended scope and push before monitoring.
-4. Check whether the PR is behind or conflicting with its base branch.
-5. If behind or conflicting, merge the base branch, resolve conflicts, validate, commit, and push.
+4. Check whether the PR is behind or conflicting with its base branch. Before
+   changing history, select the repository's preferred base-sync method:
+   - Follow explicit repository guidance in `AGENTS.md`, `CONTRIBUTING*`, the
+     README, or developer documentation when it requires either rebase or
+     merge.
+   - Otherwise query repository settings with
+     `GH_HOST="$PR_HOST" gh api "repos/$PR_REPO" --jq '{allow_rebase_merge,allow_merge_commit}'`.
+     If exactly one of rebase or merge commits is enabled, use that method as
+     the repository preference.
+   - If the repository does not declare a preference, **prefer rebase**.
+   Record the selected method before starting conflict resolution and use the
+   same method consistently during the current run.
+5. If behind or conflicting, fetch the base branch and apply the selected
+   method:
+   - **Rebase (default):** run `git rebase origin/<base-branch>`, resolve each
+     conflict, `git add` the resolutions, and continue the rebase. Validate the
+     rewritten branch, then publish it with `git push --force-with-lease`.
+     Never use plain `--force`. If repository guidance forbids rewriting the PR
+     branch, use merge when permitted; otherwise stop and report the policy
+     blocker.
+   - **Merge:** run `git merge origin/<base-branch>`, resolve conflicts,
+     complete the merge commit, validate, and push normally.
 6. Run the shared watcher from the sibling `land` skill:
    ```sh
    python "$LAND_SKILL_DIR/scripts/land_watch.py"
@@ -81,7 +101,10 @@ description: Keep a pull request healthy without merging it. Use when asked to b
 7. If the watcher exits `2`, fetch top-level comments, inline review comments, review summaries, unresolved threads when available, latest checks, and bot feedback. Classify each item, address actionable feedback, commit, push, leave `[agent]` response comments for addressed or intentionally deferred feedback, and rerun the watcher.
 8. If the watcher exits `3`, inspect failing checks with `GH_HOST="$PR_HOST" gh pr checks "$PR_NUMBER" -R "$PR_REPO"` and `GH_HOST="$PR_HOST" gh run view <run-id> -R "$PR_REPO" --log`, fix the failure when concrete, commit, push, leave an `[agent]` response if the failure was reported in PR feedback, and rerun the watcher.
 9. If the watcher exits `4`, refresh local state from the remote branch and rerun the watcher.
-10. If the watcher exits `5`, merge the base branch, resolve conflicts, validate, push, leave an `[agent]` response if a thread/comment reported the conflict, and rerun the watcher.
+10. If the watcher exits `5`, refresh the base-sync preference using step 4,
+    rebase or merge the base branch as specified in step 5, resolve conflicts,
+    validate, push, leave an `[agent]` response if a thread/comment reported
+    the conflict, and rerun the watcher.
 11. If the watcher exits `6`, refresh the PR state. For `MERGED` or `CLOSED`,
     stop the matching recurring monitor, delete `.git/babysit-state.json`, and
     report the terminal stop without rerunning the watcher.
