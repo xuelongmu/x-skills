@@ -1,0 +1,4 @@
+interface:
+  display_name: "Google Developer Style"
+  short_description: "Write clear, consistent developer documentation"
+  default_prompt: "Use $google-developer-style to revise this developer documentation for clarity, consistency, accessibility, and task focus."
