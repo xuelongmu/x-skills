@@ -29,11 +29,6 @@ global audience without changing its technical meaning.
   instruction that depends on it. Give each paragraph one main idea.
 - Use one term, spelling, and capitalization for one concept. Define unfamiliar
   abbreviations and replace ambiguous pronouns with the specific noun.
-- Write for translation and inclusion: avoid idioms, slang, culture-specific
-  references, forced humor, and ableist, violent, or unnecessarily gendered
-  language. Use diverse fictional examples and never expose personal data.
-- Do not call work easy, simple, obvious, quick, or trivial. Avoid routine
-  **please**, **let's**, excessive claims, and unsupported future promises.
 - Distinguish obligation precisely: use an imperative or **must** for a required
   action, **can** for an option, **might** for a possibility, and an explicit
   recommendation for preferred but optional guidance. Avoid ambiguous **should**.

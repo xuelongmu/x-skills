@@ -30,7 +30,7 @@ Replace `C:\path\to\x-skills` / `/path/to/x-skills` with your clone's location.
 **Windows** (PowerShell):
 ```powershell
 New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.claude\skills"
-foreach ($s in 'publish','publish-slack','babysit','prompt-agent-orchestrator','drive-agent-orchestrator','browser-evidence','steward-research','google-developer-style') {
+foreach ($s in 'publish','publish-slack','babysit','prompt-agent-orchestrator','drive-agent-orchestrator','browser-evidence','steward-research') {
   New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\skills\$s" -Target "C:\path\to\x-skills\.claude\skills\$s"
 }
 ```
@@ -38,7 +38,7 @@ foreach ($s in 'publish','publish-slack','babysit','prompt-agent-orchestrator','
 **macOS / Linux**:
 ```bash
 mkdir -p ~/.claude/skills
-for s in publish publish-slack babysit prompt-agent-orchestrator drive-agent-orchestrator browser-evidence steward-research google-developer-style; do
+for s in publish publish-slack babysit prompt-agent-orchestrator drive-agent-orchestrator browser-evidence steward-research; do
   ln -s "/path/to/x-skills/.claude/skills/$s" "$HOME/.claude/skills/$s"
 done
 ```
@@ -49,7 +49,7 @@ done
 ```powershell
 $codexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE ".codex" }
 New-Item -ItemType Directory -Force -Path (Join-Path $codexHome "skills")
-foreach ($s in 'publish','babysit','land','prompt-agent-orchestrator','drive-agent-orchestrator','browser-evidence','steward-research','google-developer-style') {
+foreach ($s in 'publish','babysit','land','prompt-agent-orchestrator','drive-agent-orchestrator','browser-evidence','steward-research') {
   New-Item -ItemType Junction -Path (Join-Path $codexHome "skills\$s") -Target "C:\path\to\x-skills\.codex\skills\$s"
 }
 ```
@@ -57,12 +57,39 @@ foreach ($s in 'publish','babysit','land','prompt-agent-orchestrator','drive-age
 **macOS / Linux**:
 ```bash
 mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
-for s in publish babysit land prompt-agent-orchestrator drive-agent-orchestrator browser-evidence steward-research google-developer-style; do
+for s in publish babysit land prompt-agent-orchestrator drive-agent-orchestrator browser-evidence steward-research; do
   ln -s "/path/to/x-skills/.codex/skills/$s" "${CODEX_HOME:-$HOME/.codex}/skills/$s"
 done
 ```
 
-Restart Codex after linking.
+### Shared canonical skills
+
+`google-developer-style` is stored once under `.agents/skills/` and shared by
+both hosts. Link each host to that canonical source.
+
+**Windows** (PowerShell):
+```powershell
+$sharedSkill = "C:\path\to\x-skills\.agents\skills\google-developer-style"
+$codexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE ".codex" }
+New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\skills\google-developer-style" -Target $sharedSkill
+New-Item -ItemType Junction -Path (Join-Path $codexHome "skills\google-developer-style") -Target $sharedSkill
+```
+
+**macOS / Linux**:
+```bash
+ln -s "/path/to/x-skills/.agents/skills/google-developer-style" "$HOME/.claude/skills/google-developer-style"
+ln -s "/path/to/x-skills/.agents/skills/google-developer-style" "${CODEX_HOME:-$HOME/.codex}/skills/google-developer-style"
+```
+
+Alternatively, let the Skills CLI maintain its own canonical copy and agent
+links:
+
+```bash
+npx skills add xuelongmu/x-skills --skill google-developer-style -g -a codex -a claude-code -y
+npx skills update -g google-developer-style
+```
+
+Restart each agent after linking.
 
 For a **project-local** install (skills committed to one repo so they travel with it), **copy** instead of linking — links back to your personal clone won't exist for teammates or CI checkouts. From the target repo root:
 
@@ -86,7 +113,7 @@ The watcher resolves from the installed `land` skill directory — project-local
 
 **No local checkout?** Ask Codex to install copies instead:
 
-> Install the `publish`, `babysit`, `land`, `prompt-agent-orchestrator`, `drive-agent-orchestrator`, `browser-evidence`, `steward-research`, and `google-developer-style`
+> Install the `publish`, `babysit`, `land`, `prompt-agent-orchestrator`, `drive-agent-orchestrator`, `browser-evidence`, and `steward-research`
 > skills from `https://github.com/xuelongmu/x-skills`. Use the corresponding
 > paths under `.codex/skills/`.
 
@@ -102,4 +129,4 @@ Each skill file documents its own behavior; these are the cross-cutting choices:
 - The shared Codex PR watcher polls GitHub every 30 seconds by default; set `LAND_WATCH_POLL_SECONDS` from 30 to 300 seconds when a repository needs a lower API request rate. The feedback grace window defaults to 900 seconds (15 minutes) and can be overridden for both hosts with `LAND_WATCH_FEEDBACK_GRACE_SECONDS` from 30 to 86400 seconds. Both hosts require final feedback and PR snapshots to converge unchanged, with CI revalidated between them, after that window.
 - Continuous `babysit` stops immediately when its PR is merged or closed and removes its automation state. Otherwise it stops after three consecutive unchanged feedback cycles (about 30 minutes at the documented 10-minute schedule), except while a Codex sign-off notification is still pending.
 - `publish-slack` sends as a draft so the user reviews before posting; Vercel bot comments live on the **issues** endpoint (`/issues/{n}/comments`), not `/pulls/{n}/comments`.
-- `google-developer-style` distills the guide's highest-impact decisions into one self-contained entrypoint. Project-specific style takes precedence, and the live Google guide remains authoritative for exact or current rulings.
+- `google-developer-style` lives once under `.agents/skills/`; install-time links expose the same source to Codex and Claude Code. It distills the guide's highest-impact decisions, while project-specific style and the live Google guide remain authoritative.
