@@ -13,7 +13,7 @@ Portable workflow skills for Claude Code and Codex.
 | drive-agent-orchestrator | Operate Agent Orchestrator: preflight, spawn/supervise workers and orchestrators, monitor sessions | `/drive-agent-orchestrator` | `drive-agent-orchestrator` | canonical |
 | browser-evidence | Drive a running app, verify a flow, and capture browser-visible evidence | `/browser-evidence` | `browser-evidence` | canonical |
 | steward-research | Organize research repositories for reproducibility and safe handoff | `/steward-research` | `steward-research` | canonical |
-| code-simplifier | Review or simplify an in-scope ZeroGen Platform diff without changing accepted behavior | `/code-simplifier` | `code-simplifier` | canonical |
+| code-simplifier | Review or simplify an in-scope diff without changing accepted behavior | `/code-simplifier` | `code-simplifier` | canonical |
 | google-developer-style | Draft, revise, or review clear, accessible developer documentation using distilled Google-style guidance | `/google-developer-style [documentation or path]` | `google-developer-style` | canonical |
 
 - `babysit` never merges, enables auto-merge, or deletes branches. `land` can

@@ -289,7 +289,7 @@ class SkillLayoutTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("host exposes Codex task tools", simplifier)
         self.assertIn("Task listing and task-history readers", layout)
-        for value in ("pertinent", "as an export"):
+        for value in ("pertinent tasks", "an export"):
             self.assertIn(value, simplifier)
             self.assertIn(value, layout)
 
