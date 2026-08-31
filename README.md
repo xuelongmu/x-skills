@@ -46,11 +46,30 @@ installation.
 
 ### Refresh
 
-Re-run the install command above, or use the update shortcut:
+A complete refresh has two steps. The update command refreshes installed skills
+and detects skills deleted upstream. It reports newly available skills but does
+not install them.
 
-```bash
-npx skills update --global babysit browser-evidence drive-agent-orchestrator google-developer-style land prompt-agent-orchestrator publish steward-research --yes
-```
+1. Update the installed global skills:
+
+   ```bash
+   npx skills update --global
+   ```
+
+   When prompted, confirm removal of skills deleted upstream. Do not add
+   `--yes` when you want this cleanup: non-interactive updates report deleted
+   skills but leave them installed.
+
+2. Re-run the repository installation to discover and install newly added
+   skills:
+
+   ```bash
+   npx skills add https://github.com/xuelongmu/x-skills/tree/main/.agents/skills --skill '*' --global --agent codex claude-code --yes
+   ```
+
+For a project-local refresh, use `--project` instead of `--global` in the first
+command and omit `--global` from the second command. Restart each agent after
+the refresh.
 
 ### Remove or migrate a legacy installation
 

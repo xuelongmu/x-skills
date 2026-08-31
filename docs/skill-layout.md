@@ -80,6 +80,12 @@ Canonical installation has these invariants:
    uses it. Removing the skill from all agents removes the canonical directory
    and its lock entry.
 
+The CLI updates changed installed skills, interactively offers to remove skills
+deleted upstream, and reports newly available skills without installing them.
+Use the README's two-step refresh to reconcile all three cases. A
+non-interactive update with `--yes` leaves deleted upstream skills installed,
+so use an explicit `npx skills remove` command when cleanup must be automated.
+
 Claude's per-PR **Auto-fix CI & address comments** control is a native event and
 remediation channel for `land`, not a distinct source. When enabled, it avoids a
 redundant recurring babysit loop, while the bundled watcher and synchronous
