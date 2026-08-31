@@ -5,19 +5,28 @@ mode, revocation, or another state whose transition can affect in-flight work.
 Also use it when repeated review fixes are spreading one concern across several
 system layers.
 
-## Define the contract first
+## Recover the contract first
 
-Before adding a guard, state when the new state takes effect:
+Determine the established transition semantics from explicit requirements,
+tests, documentation, and current behavior. Preserve those semantics during a
+review or behavior-preserving simplification. If the evidence is inconsistent
+or incomplete, report **DECISION REQUIRED** instead of choosing a default.
+
+When the user explicitly asks to design or change the transition contract,
+evaluate when the new state should take effect:
 
 - request admission;
 - transaction commit;
 - every durable or external side-effect boundary; or
 - retroactively for already-admitted work.
 
-Prefer a clear admission boundary unless explicit requirements demand continuous
-revocation. Work admitted under valid authority normally completes or settles
-under that authority; later requests use the new state. Do not silently
-reinterpret an in-flight operation because global state changed midway.
+An admission boundary is often the simplest option for a new contract, but it
+is not the default for an existing system. Immediate or continuous revocation
+may be an intentional security property, including for emergency termination
+or kill-switch behavior. Do not remove mid-flight authorization checks or allow
+admitted work to continue unless the established contract already permits it or
+the user explicitly authorizes that behavior change. Conversely, do not add
+retroactive revocation when the established contract lets admitted work settle.
 
 Write down the threat model:
 

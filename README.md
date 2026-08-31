@@ -13,7 +13,7 @@ Portable workflow skills for Claude Code and Codex.
 | drive-agent-orchestrator | Operate Agent Orchestrator: preflight, spawn/supervise workers and orchestrators, monitor sessions | `/drive-agent-orchestrator` | `drive-agent-orchestrator` | canonical |
 | browser-evidence | Drive a running app, verify a flow, and capture browser-visible evidence | `/browser-evidence` | `browser-evidence` | canonical |
 | steward-research | Organize research repositories for reproducibility and safe handoff | `/steward-research` | `steward-research` | canonical |
-| code-simplifier | Review or simplify an in-scope diff without changing accepted behavior | `/code-simplifier` | `code-simplifier` | canonical |
+| code-meta-reviewer | Review a diff for overengineering and review-driven complexity without changing accepted behavior | `/code-meta-reviewer` | `code-meta-reviewer` | canonical |
 | google-developer-style | Draft, revise, or review clear, accessible developer documentation using distilled Google-style guidance | `/google-developer-style [documentation or path]` | `google-developer-style` | canonical |
 
 - `babysit` never merges, enables auto-merge, or deletes branches. `land` can
@@ -77,7 +77,7 @@ the refresh.
 Remove only this repository's known skill names:
 
 ```bash
-npx skills remove publish publish-slack babysit land prompt-agent-orchestrator drive-agent-orchestrator browser-evidence steward-research code-simplifier google-developer-style --global --agent codex claude-code --yes
+npx skills remove publish publish-slack babysit land prompt-agent-orchestrator drive-agent-orchestrator browser-evidence steward-research code-meta-reviewer google-developer-style --global --agent codex claude-code --yes
 ```
 
 This command is the cross-platform migration cleanup before reinstalling. It
@@ -128,7 +128,7 @@ Each skill file documents its own behavior; these are the cross-cutting choices:
 - `land` can share a PR through any authenticated Slack capability. It creates
   a draft by default and reads Vercel bot comments from the **issues** endpoint
   (`/issues/{n}/comments`), not `/pulls/{n}/comments`.
-- `code-simplifier` reads relevant Codex task history when the active host
+- `code-meta-reviewer` reads relevant Codex task history when the active host
   exposes task tools. Other hosts use history from the conversation or an
   export, without a separate skill implementation.
 - All cross-host capabilities live once under `.agents/skills/`; CLI
