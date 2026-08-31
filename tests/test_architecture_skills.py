@@ -151,7 +151,7 @@ class ArchitectureSkillBehaviorTests(unittest.TestCase):
         for skill in ("design-architecture", "review-architecture"):
             with self.subTest(skill=skill):
                 entrypoint = read(skill)
-                lens = read(skill, "references/project-invariants.md")
+                lens = compact(read(skill, "references/project-invariants.md"))
                 self.assertIn("project-invariants.md", entrypoint)
                 self.assertIn("named products and providers", entrypoint)
                 self.assertIn("tenant isolation", lens)
