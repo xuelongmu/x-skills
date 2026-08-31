@@ -90,6 +90,33 @@ def scalar_field(fields: dict[str, tuple[str, list[str]]], key: str) -> str:
     return yaml_scalar(value)
 
 
+def metadata_strings(field: tuple[str, list[str]]) -> dict[str, str]:
+    value, nested = field
+    if value != "" or not nested:
+        raise AssertionError("metadata must be a non-empty mapping")
+
+    parsed: dict[str, str] = {}
+    non_string_scalar = re.compile(
+        r"(?:~|null|true|false|[-+]?(?:\d[\d_]*)(?:\.\d[\d_]*)?)",
+        re.IGNORECASE,
+    )
+    for line in nested:
+        match = re.fullmatch(r"\s+([\w.-]+):\s*(.+)", line)
+        if not match:
+            raise AssertionError(f"metadata values must be scalar strings: {line}")
+        key, raw_value = match.groups()
+        raw_value = raw_value.strip()
+        if (
+            raw_value.startswith(("[", "{", "- ", "&", "*"))
+            or non_string_scalar.fullmatch(raw_value)
+        ):
+            raise AssertionError(f"metadata value must be a YAML string: {line}")
+        if key in parsed:
+            raise AssertionError(f"duplicate metadata key: {key}")
+        parsed[key] = yaml_scalar(raw_value)
+    return parsed
+
+
 def frontmatter(skill: Path) -> dict[str, tuple[str, list[str]]]:
     text = (skill / "SKILL.md").read_text(encoding="utf-8")
     match = re.match(r"^---\r?\n(.*?)\r?\n---(?:\r?\n|$)", text, re.DOTALL)
@@ -107,6 +134,22 @@ class SkillLayoutTests(unittest.TestCase):
         self.assertEqual(
             scalar_field({"description": ("", ["  See https://example.com"])}, "description"),
             "See https://example.com",
+        )
+
+    def test_metadata_rejects_non_string_child_values(self) -> None:
+        invalid_values = (
+            "  version: [1, 2]",
+            "  config: {mode: strict}",
+            "  enabled: true",
+            "  version: 2",
+        )
+        for line in invalid_values:
+            with self.subTest(line=line):
+                with self.assertRaisesRegex(AssertionError, "YAML string"):
+                    metadata_strings(("", [line]))
+        self.assertEqual(
+            metadata_strings(("", ["  author: openai", '  version: "2"'])),
+            {"author": "openai", "version": "2"},
         )
 
     def test_inventory_matches_the_audited_layout(self) -> None:
@@ -143,10 +186,7 @@ class SkillLayoutTests(unittest.TestCase):
                 if "compatibility" in data:
                     self.assertLessEqual(len(scalar_field(data, "compatibility")), 500)
                 if "metadata" in data:
-                    value, nested = data["metadata"]
-                    self.assertEqual(value, "")
-                    self.assertTrue(nested)
-                    self.assertTrue(all(re.fullmatch(r"\s+[\w.-]+:\s+.+", line) for line in nested))
+                    self.assertTrue(metadata_strings(data["metadata"]))
                 if "allowed-tools" in data:
                     scalar_field(data, "allowed-tools")
 
