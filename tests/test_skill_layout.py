@@ -233,6 +233,10 @@ class SkillLayoutTests(unittest.TestCase):
         self.assertIn("mcp__claude_ai_Slack__slack_send_message_draft", land)
         self.assertIn("reviewDecision", land)
         self.assertIn("require `APPROVED`", land)
+        self.assertIn("LAND_WATCH_VALIDATED_HEAD", land)
+        self.assertIn('--match-head-commit "$validated_head"', land)
+        self.assertIn("explicitly authorizes", land)
+        self.assertNotIn("or the established workflow", land)
         self.assertFalse(
             (ROOT / ".claude" / "skills" / "publish-slack" / "SKILL.md").exists()
         )

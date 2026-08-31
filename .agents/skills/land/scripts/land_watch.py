@@ -1389,7 +1389,7 @@ async def wait_for_checks(
         await sleep(POLL_SECONDS)
 
 
-async def watch_pr() -> None:
+async def watch_pr() -> str:
     pr = await get_pr_info()
     raise_if_pr_terminal(pr)
     if is_merge_conflicting(pr):
@@ -1450,11 +1450,13 @@ async def watch_pr() -> None:
         exc = task.exception()
         if exc:
             raise exc
+    return head_sha
 
 
 if __name__ == "__main__":
     try:
-        asyncio.run(watch_pr())
+        validated_head = asyncio.run(watch_pr())
+        print(f"LAND_WATCH_VALIDATED_HEAD={validated_head}", flush=True)
     except WatchExit as exc:
         raise SystemExit(exc.code) from None
     except SystemExit as exc:
