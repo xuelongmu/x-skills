@@ -81,11 +81,15 @@ Canonical installation has these invariants:
    uses it. Removing the skill from all agents removes the canonical directory
    and its lock entry.
 
-The CLI updates changed installed skills, interactively offers to remove skills
-deleted upstream, and reports newly available skills without installing them.
-Use the README's two-step refresh to reconcile all three cases. A
-non-interactive update with `--yes` leaves deleted upstream skills installed,
-so use an explicit `npx skills remove` command when cleanup must be automated.
+Re-running `npx skills add` with the canonical source and `--skill '*'` refreshes
+this repository's installed skills and discovers additions without touching
+other sources, but it does not remove skills deleted upstream. The CLI's
+`update` command has no source filter: it updates the complete selected scope,
+interactively offers to remove deleted skills, and reports newly available
+skills without installing them. Use the README's two-step global refresh only
+when that broader reconciliation is intended. A non-interactive update with
+`--yes` leaves deleted upstream skills installed, so use an explicit
+`npx skills remove` command when cleanup must be automated.
 
 Claude's per-PR **Auto-fix CI & address comments** control is a native event and
 remediation channel for `land`, not a distinct source. When enabled, it avoids a

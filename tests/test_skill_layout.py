@@ -315,6 +315,8 @@ class SkillLayoutTests(unittest.TestCase):
         self.assertIn("npx skills update", readme)
         self.assertIn("npx skills remove", readme)
         self.assertIn("npx skills update --global", readme)
+        self.assertIn("repository-scoped refresh", readme)
+        self.assertIn("every globally installed skill", readme)
         self.assertIn("reports newly available skills", readme)
         self.assertIn("non-interactive updates", readme)
         self.assertNotRegex(readme, r"npx skills update[^\n]*--yes")
