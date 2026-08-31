@@ -95,7 +95,7 @@ find host-only invocation surfaces that the shared instructions must preserve:
 |---|---|---|
 | Claude Code | Slash-command invocations such as `/land` and `/babysit` | Documentation shows Claude's invocation syntax while the installed `SKILL.md` remains shared. |
 | Claude Code | `ToolSearch`, `AskUserQuestion`, and `mcp__claude-in-chrome__*` browser tools | `browser-evidence` conditionally loads deferred connector schemas, asks the user to select a connected browser, and follows the connector recovery flow. |
-| Claude Code | `/loop`, `CronList`, `CronDelete`, and `PushNotification` | `babysit` conditionally preserves recurring-loop cleanup and the once-per-head Codex sign-off notification. |
+| Claude Code | `/loop`, `CronList`, `CronDelete`, and `PushNotification` | `babysit` conditionally preserves recurring-loop cleanup, the once-per-head Codex sign-off notification, and Claude's `reviewDecision == APPROVED` readiness gate. |
 | Claude Code | **Auto-fix CI & address comments** | `land` treats it as optional dispatch and remediation; the shared watcher still owns final readiness. |
 
 These adapters do not change the underlying workflow or justify duplicated

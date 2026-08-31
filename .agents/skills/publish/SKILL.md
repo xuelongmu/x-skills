@@ -68,7 +68,7 @@ and branches explicitly; otherwise use `gh`.
 
 - Never stage unrelated user changes silently.
 - Never push when a mixed worktree's scope remains ambiguous.
-- Never force-push unless the user explicitly authorizes it or the established workflow clearly requires it and the target is verified.
+- Never force-push unless the user explicitly authorizes it and the target branch is verified. An established workflow alone is not authorization.
 - Never overwrite an existing PR. If the current branch already has one, report it and update its draft/readiness state only when the user requested that change.
 - Default to a ready-for-review PR, not a draft.
 

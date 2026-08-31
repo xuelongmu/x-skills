@@ -77,7 +77,14 @@ def scalar_field(fields: dict[str, tuple[str, list[str]]], key: str) -> str:
     if value in {">", ">-", ">+", "|", "|-", "|+"}:
         return " ".join(line.strip() for line in continuation if line.strip())
     if value == "" and continuation:
-        return " ".join(line.strip() for line in continuation if line.strip())
+        nested = [line.strip() for line in continuation if line.strip()]
+        if any(
+            line.startswith(("- ", "[", "{"))
+            or re.match(r"[^:]+:(?:\s+.*)?$", line)
+            for line in nested
+        ):
+            raise AssertionError(f"Expected scalar YAML field: {key}")
+        return " ".join(nested)
     if continuation:
         raise AssertionError(f"Expected scalar YAML field: {key}")
     return yaml_scalar(value)
@@ -92,6 +99,16 @@ def frontmatter(skill: Path) -> dict[str, tuple[str, list[str]]]:
 
 
 class SkillLayoutTests(unittest.TestCase):
+    def test_scalar_frontmatter_rejects_structured_yaml(self) -> None:
+        for continuation in (("  - Bash",), ("  nested: value",), ("  [Bash, Read]",)):
+            with self.subTest(continuation=continuation):
+                with self.assertRaisesRegex(AssertionError, "Expected scalar YAML"):
+                    scalar_field({"allowed-tools": ("", list(continuation))}, "allowed-tools")
+        self.assertEqual(
+            scalar_field({"description": ("", ["  See https://example.com"])}, "description"),
+            "See https://example.com",
+        )
+
     def test_inventory_matches_the_audited_layout(self) -> None:
         self.assertEqual(skill_dirs(ROOT / ".agents" / "skills"), CANONICAL)
         self.assertEqual(skill_dirs(ROOT / ".codex" / "skills"), set())
@@ -186,6 +203,17 @@ class SkillLayoutTests(unittest.TestCase):
         for value in ("/loop", "CronList", "CronDelete", "PushNotification"):
             self.assertIn(value, babysit)
             self.assertIn(value, layout)
+        self.assertIn("reviewDecision", babysit)
+        self.assertIn("APPROVED", babysit)
+
+    def test_shared_safety_rules_preserve_stricter_host_invariants(self) -> None:
+        publish = (ROOT / ".agents" / "skills" / "publish" / "SKILL.md").read_text(encoding="utf-8")
+        orchestrator = (ROOT / ".agents" / "skills" / "prompt-agent-orchestrator" / "SKILL.md").read_text(encoding="utf-8")
+        template = (ROOT / ".agents" / "skills" / "prompt-agent-orchestrator" / "references" / "prompt-template.md").read_text(encoding="utf-8")
+        self.assertIn("explicitly authorizes", publish)
+        self.assertNotIn("or the established workflow", publish)
+        self.assertIn("explicit timeout", orchestrator)
+        self.assertIn("timeout, and escalation action", template)
 
     def test_documentation_uses_cli_only_for_install_lifecycle(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
