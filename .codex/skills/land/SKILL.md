@@ -196,7 +196,7 @@ if ! LAND_WATCH_PR="$pr_url" python3 "$LAND_SKILL_DIR/land_watch.py"; then
   # Exit code 2 means review feedback must be handled.
   # Exit code 3 means checks failed.
   # Exit code 4 means the PR head changed and local state must be refreshed.
-  # Exit code 5 means the PR is behind, conflicting, or dirty.
+  # Exit code 5 means the PR is behind, conflicting, dirty, or retargeted.
   # Exit code 6 means the PR was merged or closed while being watched.
   exit 1
 fi
@@ -251,7 +251,7 @@ Exit codes:
 - 2: Review comments detected before merge (address feedback)
 - 3: CI checks failed
 - 4: PR head updated (autofix commit detected)
-- 5: PR is behind, conflicting, or dirty
+- 5: PR is behind, conflicting, dirty, or retargeted to a different base
 - 6: PR is merged or closed; refresh state and stop watching
 
 The helper returns success only after the PR is conflict-free, checks are green,

@@ -167,7 +167,16 @@ GH_HOST="$HOST" gh api --method POST \
   -f body='<response>' -F in_reply_to=<comment_id>
 ```
 
-`in_reply_to` must be the numeric review comment id (e.g. `2710521800`), not the GraphQL node id. A 404 usually means the endpoint is missing the PR number or the token lacks scope — list comments first to verify. If a GraphQL reply mutation is forbidden, use REST. Reply to Codex review issue comments in the issue thread, not a review thread.
+`in_reply_to` must be the numeric review comment id (e.g. `2710521800`), not the GraphQL node id. A 404 usually means the endpoint is missing the PR number or the token lacks scope — list comments first to verify. If a GraphQL reply mutation is forbidden, use REST.
+
+Feedback that lives in a review **summary body** or a top-level issue comment has no review-comment id to reply to, so acknowledge it as a root issue comment instead — quoting or naming what you are responding to. Codex review issue comments take this same path:
+
+```bash
+GH_HOST="$HOST" gh api --method POST \
+  "repos/$REPO/issues/$N/comments" -f body='<response>'
+```
+
+That acknowledgement, posted after the feedback, is what clears it from the Step 7 gate; without it the same summary blocks every poll.
 
 Then implement the fix, commit, push, and post the outcome (what changed plus the commit sha) in the same place you acknowledged the feedback.
 

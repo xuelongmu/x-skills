@@ -68,6 +68,8 @@ def parse_feedback_grace_seconds(raw_value: str | None) -> int:
 POLL_SECONDS = parse_poll_seconds(os.environ.get(POLL_SECONDS_ENV))
 PR_SELECTOR = os.environ.get(PR_SELECTOR_ENV) or None
 CHECKS_APPEAR_TIMEOUT_SECONDS = 120
+# Base branch recorded at startup; a retarget must not merge into another branch.
+EXPECTED_BASE_REF: str | None = None
 FEEDBACK_GRACE_SECONDS = parse_feedback_grace_seconds(
     os.environ.get(FEEDBACK_GRACE_SECONDS_ENV),
 )
@@ -1074,7 +1076,19 @@ async def validate_final_pr_state(expected_head_sha: str) -> tuple[str, str | No
     if current_pr.head_sha != expected_head_sha:
         print("PR head updated during final readiness validation.")
         raise WatchExit(4)
+    raise_if_base_changed(current_pr)
     return current_pr.head_sha, current_pr.mergeable, current_pr.merge_state
+
+
+def raise_if_base_changed(pr: PrInfo) -> None:
+    """A retarget leaves the head untouched, so nothing else here would catch it."""
+    if EXPECTED_BASE_REF is None or pr.base_ref_name == EXPECTED_BASE_REF:
+        return
+    print(
+        f"PR was retargeted from {EXPECTED_BASE_REF} to {pr.base_ref_name}; "
+        f"revalidate against the new base before merging.",
+    )
+    raise WatchExit(5)
 
 
 async def fetch_review_context(
@@ -1414,6 +1428,10 @@ async def wait_for_checks(
 async def watch_pr() -> None:
     pr = await get_pr_info()
     raise_if_pr_terminal(pr)
+    global EXPECTED_BASE_REF
+    EXPECTED_BASE_REF = pr.base_ref_name
+    if pr.auto_merge:
+        await disable_auto_merge(pr)
     if is_merge_conflicting(pr):
         print(
             f"PR is behind, conflicting, or dirty. Merge/rebase against "
@@ -1458,6 +1476,7 @@ async def watch_pr() -> None:
             if current.head_sha != head_sha:
                 print("PR head updated; pull/amend/force-push to retrigger CI")
                 raise WatchExit(4)
+            raise_if_base_changed(current)
             await sleep(POLL_SECONDS)
 
     monitor_task = asyncio.create_task(head_monitor())

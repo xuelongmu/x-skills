@@ -6,6 +6,7 @@ import json
 import sys
 import unittest
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 
@@ -503,7 +504,8 @@ class PullRequestIdentityTests(unittest.TestCase):
             "pr",
             "view",
             "--json",
-            "number,id,url,headRefOid,baseRefName,mergeable,mergeStateStatus,state",
+            "number,id,url,headRefOid,baseRefName,mergeable,mergeStateStatus,"
+            "state,autoMergeRequest",
         )
 
     def test_get_pr_info_uses_explicit_pr_selector(self) -> None:
@@ -530,7 +532,90 @@ class PullRequestIdentityTests(unittest.TestCase):
             "view",
             payload["url"],
             "--json",
-            "number,id,url,headRefOid,baseRefName,mergeable,mergeStateStatus,state",
+            "number,id,url,headRefOid,baseRefName,mergeable,mergeStateStatus,"
+            "state,autoMergeRequest",
+        )
+
+    @staticmethod
+    def pr_payload(**overrides: Any) -> dict[str, Any]:
+        payload = {
+            "number": 42,
+            "id": "PR_node_id",
+            "url": "https://github.example/owner/repo/pull/42",
+            "headRefOid": "abc123",
+            "baseRefName": "main",
+            "mergeable": "MERGEABLE",
+            "mergeStateStatus": "CLEAN",
+            "state": "OPEN",
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_get_pr_info_reports_armed_auto_merge(self) -> None:
+        payload = self.pr_payload(autoMergeRequest={"enabledAt": "2024-01-01T00:00:00Z"})
+        run_gh = AsyncMock(return_value=json.dumps(payload))
+
+        with patch.object(land_watch, "run_gh", run_gh):
+            pr = asyncio.run(land_watch.get_pr_info())
+
+        self.assertTrue(pr.auto_merge)
+
+    def test_get_pr_info_reports_absent_auto_merge(self) -> None:
+        for value in ({"autoMergeRequest": None}, {}):
+            with self.subTest(payload=value):
+                run_gh = AsyncMock(return_value=json.dumps(self.pr_payload(**value)))
+
+                with patch.object(land_watch, "run_gh", run_gh):
+                    pr = asyncio.run(land_watch.get_pr_info())
+
+                self.assertFalse(pr.auto_merge)
+
+    def test_raise_if_base_changed_flags_retarget(self) -> None:
+        pr = FinalReadinessTests.pr_info(base_ref_name="release/next")
+
+        with patch.object(land_watch, "EXPECTED_BASE_REF", "main"):
+            with self.assertRaises(land_watch.WatchExit) as caught:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    land_watch.raise_if_base_changed(pr)
+
+        self.assertEqual(caught.exception.code, 5)
+
+    def test_raise_if_base_changed_allows_unchanged_base(self) -> None:
+        pr = FinalReadinessTests.pr_info(base_ref_name="main")
+
+        for expected in ("main", None):
+            with self.subTest(expected=expected):
+                with patch.object(land_watch, "EXPECTED_BASE_REF", expected):
+                    land_watch.raise_if_base_changed(pr)
+
+    def test_disable_auto_merge_targets_selected_pr(self) -> None:
+        run_gh = AsyncMock(return_value="")
+        pr = land_watch.PrInfo(
+            number=42,
+            node_id="PR_node_id",
+            hostname="github.example:8443",
+            owner="owner",
+            repo="repo",
+            url="https://github.example:8443/owner/repo/pull/42",
+            head_sha="abc123",
+            base_ref_name="main",
+            mergeable="MERGEABLE",
+            merge_state="CLEAN",
+            state="OPEN",
+            auto_merge=True,
+        )
+
+        with patch.object(land_watch, "run_gh", run_gh):
+            asyncio.run(land_watch.disable_auto_merge(pr))
+
+        run_gh.assert_awaited_once_with(
+            "pr",
+            "merge",
+            "42",
+            "-R",
+            "owner/repo",
+            "--disable-auto",
+            api_host="github.example:8443",
         )
 
 
