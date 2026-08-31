@@ -107,6 +107,7 @@ class PrInfo:
     mergeable: str | None
     merge_state: str | None
     state: str
+    auto_merge: bool = False
 
 
 class RateLimitError(RuntimeError):
@@ -175,7 +176,8 @@ async def get_pr_info() -> PrInfo:
     args.extend(
         [
             "--json",
-            "number,id,url,headRefOid,baseRefName,mergeable,mergeStateStatus,state",
+            "number,id,url,headRefOid,baseRefName,mergeable,mergeStateStatus,"
+            "state,autoMergeRequest",
         ],
     )
     data = await run_gh(*args)
@@ -193,6 +195,25 @@ async def get_pr_info() -> PrInfo:
         mergeable=parsed.get("mergeable"),
         merge_state=parsed.get("mergeStateStatus"),
         state=parsed["state"],
+        auto_merge=parsed.get("autoMergeRequest") is not None,
+    )
+
+
+async def disable_auto_merge(pr: PrInfo) -> None:
+    """Clear an auto-merge request so GitHub cannot merge before the gates pass."""
+    print(
+        "Auto-merge is armed on this PR; disabling it so the feedback grace "
+        "window is not skipped.",
+        flush=True,
+    )
+    await run_gh(
+        "pr",
+        "merge",
+        str(pr.number),
+        "-R",
+        f"{pr.owner}/{pr.repo}",
+        "--disable-auto",
+        api_host=pr.hostname,
     )
 
 
@@ -1043,6 +1064,8 @@ async def validate_final_readiness(
 async def validate_final_pr_state(expected_head_sha: str) -> tuple[str, str | None, str | None]:
     current_pr = await get_pr_info()
     raise_if_pr_terminal(current_pr)
+    if current_pr.auto_merge:
+        await disable_auto_merge(current_pr)
     if is_merge_conflicting(current_pr):
         print(
             "PR is behind, conflicting, or dirty during final readiness validation.",
@@ -1424,6 +1447,8 @@ async def watch_pr() -> None:
         while True:
             current = await get_pr_info()
             raise_if_pr_terminal(current)
+            if current.auto_merge:
+                await disable_auto_merge(current)
             if is_merge_conflicting(current):
                 print(
                     f"PR is behind, conflicting, or dirty. Merge/rebase against "

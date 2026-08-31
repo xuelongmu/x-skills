@@ -282,11 +282,10 @@ feedback after the grace period is acceptable.
 - Do not merge while review comments (human or Codex review) are outstanding.
 - Do not merge if `baseRefName` no longer matches the recorded `$pr_base`; the
   PR was retargeted, so restart validation against the new base.
-- The watcher does not observe auto-merge. Re-check `autoMergeRequest` after
-  each watcher exit and immediately before merging: if someone armed it
-  mid-flight, GitHub merges as soon as checks pass, ahead of the grace window.
-  Run `GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector"
-  --disable-auto` and rerun the watcher.
+- The watcher polls `autoMergeRequest` every cycle and during final readiness
+  validation, and clears any request it finds with `gh pr merge --disable-auto`
+  before GitHub can merge ahead of the grace window. Still re-check immediately
+  before merging, since the watcher stops polling once it returns.
 - Do not merge while a `CHANGES_REQUESTED` review is active, even after every
   thread is addressed; without branch protection GitHub still allows it. Wait
   for the reviewer to dismiss or supersede the review.
