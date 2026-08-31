@@ -1,4 +1,0 @@
-interface:
-  display_name: "Code Simplifier"
-  short_description: "Review and simplify code changes safely"
-  default_prompt: "Use $code-simplifier to review and refine the current diff while preserving its behavior."

@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CANONICAL = {
     "babysit",
     "browser-evidence",
-    "code-simplifier",
+    "code-meta-reviewer",
     "drive-agent-orchestrator",
     "google-developer-style",
     "land",
@@ -284,13 +284,13 @@ class SkillLayoutTests(unittest.TestCase):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         self.assertIn("codex-ok:<head-sha>", readme)
 
-        simplifier = (
-            ROOT / ".agents" / "skills" / "code-simplifier" / "SKILL.md"
+        meta_reviewer = (
+            ROOT / ".agents" / "skills" / "code-meta-reviewer" / "SKILL.md"
         ).read_text(encoding="utf-8")
-        self.assertIn("host exposes Codex task tools", simplifier)
+        self.assertIn("host exposes Codex task tools", meta_reviewer)
         self.assertIn("Task listing and task-history readers", layout)
         for value in ("pertinent tasks", "an export"):
-            self.assertIn(value, simplifier)
+            self.assertIn(value, meta_reviewer)
             self.assertIn(value, layout)
 
     def test_shared_safety_rules_preserve_stricter_host_invariants(self) -> None:

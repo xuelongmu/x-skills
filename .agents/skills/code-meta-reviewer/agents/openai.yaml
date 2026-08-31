@@ -1,0 +1,4 @@
+interface:
+  display_name: "Code Meta Reviewer"
+  short_description: "Review code and review-driven complexity"
+  default_prompt: "Use $code-meta-reviewer to review the current diff for overengineering and report findings without editing."
