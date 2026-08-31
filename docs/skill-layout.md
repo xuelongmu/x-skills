@@ -107,7 +107,7 @@ find host-only invocation surfaces that the shared instructions must preserve:
 | Claude Code | `ToolSearch` and `mcp__claude_ai_Slack__*` connector tools | `land` conditionally loads deferred Slack schemas before channel lookup, drafting, or an explicitly authorized send. |
 | Claude Code | **Auto-fix CI & address comments** | `land` treats it as optional dispatch and remediation; the shared watcher still owns final readiness. |
 | Claude Code | `reviewDecision` approval gate | `land` refreshes the selected PR immediately before merging and requires `APPROVED`; watcher success alone cannot bypass human approval. |
-| Codex desktop | Task listing and task-history readers | `code-simplifier` reads only pertinent `zerogen-platform` tasks when those tools are available; other hosts use history supplied in the conversation or as an export. |
+| Codex desktop | Task listing and task-history readers | `code-simplifier` reads only pertinent tasks associated with the target repository or workstream when those tools are available; other hosts use history supplied in the conversation or as an export. |
 
 These adapters do not change the underlying workflow or justify duplicated
 skill sources. If a future host-specific interface changes the actual tools,
