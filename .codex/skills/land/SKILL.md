@@ -192,7 +192,9 @@ head_sha=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json h
 # checks are detected), it keeps polling feedback for the configured grace
 # window (15 minutes by default). A Codex review is not required to arrive; no
 # actionable feedback during that wait is enough to proceed.
-if ! LAND_WATCH_PR="$pr_url" LAND_WATCH_DISABLE_AUTO_MERGE=1 \
+# Pass the base recorded above so a retarget between that reading and the
+# watcher's own first fetch is rejected rather than adopted.
+if ! LAND_WATCH_PR="$pr_url" LAND_WATCH_BASE="$pr_base" LAND_WATCH_DISABLE_AUTO_MERGE=1 \
   python3 "$LAND_SKILL_DIR/land_watch.py"; then
   # Exit code 2 means review feedback must be handled.
   # Exit code 3 means checks failed.
@@ -239,7 +241,10 @@ limits. For a slower cadence, set `LAND_WATCH_POLL_SECONDS` to an integer from
 seconds (15 minutes); set `LAND_WATCH_FEEDBACK_GRACE_SECONDS` to an integer from
 30 to 86400 to override it. Set `LAND_WATCH_PR` to the exact PR URL returned by
 creation so the watcher cannot resolve another PR for the same branch or
-checkout. Before returning success, the watcher performs
+checkout. Set `LAND_WATCH_BASE` to the base branch you already validated
+against so a retarget in between exits `5` instead of being adopted, and
+`LAND_WATCH_DISABLE_AUTO_MERGE=1` so an armed auto-merge is cleared rather than
+merely reported. Before returning success, the watcher performs
 authoritative final CI, PR-head, merge-state, and feedback refreshes until
 consecutive feedback and PR snapshots are unchanged. For example:
 

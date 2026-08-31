@@ -22,6 +22,9 @@ FEEDBACK_GRACE_SECONDS_ENV = "LAND_WATCH_FEEDBACK_GRACE_SECONDS"
 # Only `land` merges, so only `land` may clear an auto-merge request. `babysit`
 # shares this watcher and must never mutate merge state, so this is opt-in.
 DISABLE_AUTO_MERGE_ENV = "LAND_WATCH_DISABLE_AUTO_MERGE"
+# Base branch the caller already validated against, so a retarget between that
+# reading and this run is rejected instead of silently adopted.
+BASE_REF_ENV = "LAND_WATCH_BASE"
 
 
 def parse_disable_auto_merge(raw_value: str | None) -> bool:
@@ -77,8 +80,9 @@ def parse_feedback_grace_seconds(raw_value: str | None) -> int:
 POLL_SECONDS = parse_poll_seconds(os.environ.get(POLL_SECONDS_ENV))
 PR_SELECTOR = os.environ.get(PR_SELECTOR_ENV) or None
 CHECKS_APPEAR_TIMEOUT_SECONDS = 120
-# Base branch recorded at startup; a retarget must not merge into another branch.
-EXPECTED_BASE_REF: str | None = None
+# Base branch recorded by the caller or at startup; a retarget must not merge
+# into another branch.
+EXPECTED_BASE_REF: str | None = os.environ.get(BASE_REF_ENV) or None
 DISABLE_AUTO_MERGE = parse_disable_auto_merge(os.environ.get(DISABLE_AUTO_MERGE_ENV))
 FEEDBACK_GRACE_SECONDS = parse_feedback_grace_seconds(
     os.environ.get(FEEDBACK_GRACE_SECONDS_ENV),
@@ -1451,7 +1455,12 @@ async def watch_pr() -> None:
     pr = await get_pr_info()
     raise_if_pr_terminal(pr)
     global EXPECTED_BASE_REF
-    EXPECTED_BASE_REF = pr.base_ref_name
+    if EXPECTED_BASE_REF is None:
+        EXPECTED_BASE_REF = pr.base_ref_name
+    else:
+        # A caller-supplied base was recorded before this run; a retarget in
+        # between must not be adopted as the new expectation.
+        raise_if_base_changed(pr)
     if pr.auto_merge:
         await handle_armed_auto_merge(pr)
     if is_merge_conflicting(pr):

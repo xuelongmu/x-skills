@@ -615,6 +615,19 @@ class PullRequestIdentityTests(unittest.TestCase):
 
         self.assertEqual(caught.exception.code, 5)
 
+    def test_watch_pr_rejects_retarget_before_startup(self) -> None:
+        pr = FinalReadinessTests.pr_info(base_ref_name="release/next")
+
+        with (
+            patch.object(land_watch, "EXPECTED_BASE_REF", "main"),
+            patch.object(land_watch, "get_pr_info", AsyncMock(return_value=pr)),
+        ):
+            with self.assertRaises(land_watch.WatchExit) as caught:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    asyncio.run(land_watch.watch_pr())
+
+        self.assertEqual(caught.exception.code, 5)
+
     def test_raise_if_base_changed_allows_unchanged_base(self) -> None:
         pr = FinalReadinessTests.pr_info(base_ref_name="main")
 
