@@ -15,7 +15,7 @@ Before mutating state, verify `<tracker access>`, `<GitHub access>`, `<worker ha
 
 - `VERIFY`: `<command and any manual verification>`
 - `IN_FLIGHT`: `<states that consume the concurrency cap>`
-- `REVIEW_CLEAN`: `<current-head blocking authors/severities, response and resolution rules, follow-up trigger and completion evidence>`
+- `REVIEW_CLEAN`: `<current-head blocking authors/severities, response and resolution rules, follow-up trigger, completion evidence, timeout, and escalation action>`
 - `HUMAN_GATE`: `<exact label/comment semantics and whether it blocks build, merge, or both; default merge-only unless the gated question could change what the gated issue itself or its dependents build>`
 - `DONE`: `<tracker, PR, and cleanup facts>`
 
@@ -37,7 +37,7 @@ Run at most `<N>` `IN_FLIGHT` workers. Apply these mutexes: `<locks and cardinal
 
 ## CI and review
 
-Route current-head CI failures and actionable review feedback to the owning worker. `<external review trigger and owner>`. A worker that cannot recover reports the exact failure and stops only its blocked lane.
+Route current-head CI failures and actionable review feedback to the owning worker. `<external review trigger, owner, observable completion event, timeout, and escalation action>`. A worker that cannot recover reports the exact failure and stops only its blocked lane.
 
 ## Merge and cleanup
 
@@ -47,7 +47,7 @@ After merge, `<remote branch policy>`, let AO safely clean the worktree, verify 
 
 ## Hard stops
 
-Escalate `<conditions>` with the exact decision/action required. A hard stop blocks `<scope>`; continue unrelated safe work. Never trigger `<spend operations>` or handle `<secrets/destructive operations>`.
+Escalate `<conditions>` with the exact decision/action required. Every wait names its owner, observable completion event, timeout, and escalation action. A hard stop blocks `<scope>`; continue unrelated safe work. Never trigger `<spend operations>` or handle `<secrets/destructive operations>`.
 
 ## Reporting and completion
 

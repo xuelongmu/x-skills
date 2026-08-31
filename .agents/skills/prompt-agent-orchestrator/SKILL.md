@@ -43,7 +43,7 @@ For every requested operation that AO cannot perform natively, require one expli
 
 - Tracker: name the authenticated connector or CLI and require live reads before mutations.
 - Stacked branch: name the exact worker-side fetch/base procedure and require it before edits.
-- Review rerun: name who or what triggers the external reviewer, whether it can incur spend, the evidence that the pass completed, and the timeout/escalation path.
+- Review rerun: name who or what triggers the external reviewer, whether it can incur spend, the evidence that the pass completed, and the timeout plus escalation path.
 - Merge: name the authorized UI, API, or CLI path and require an exact-current-head recheck immediately before merging.
 - Cleanup: distinguish remote-branch deletion from AO's safe worktree cleanup; never force-delete a dirty worktree.
 
@@ -68,7 +68,7 @@ Require all of the following before returning `GO`:
 - Merge authority is complete and mutually exclusive. A prompt that overrides a humans-only merge rule names the allowlist, exclusions, exact gate, and merge mechanism.
 - Human gates say whether they pause building, merging, or both, and default to pausing merging only.
 - Spend, secrets, shared-data, workflow-file, and destructive-operation stops are concrete.
-- Every wait has an owner, observable completion event, and escalation path. Safe unblocked work — and dependent work that can stack — continues while a human gate is pending.
+- Every wait has an owner, observable completion event, explicit timeout, and escalation path. Safe unblocked work — and dependent work that can stack — continues while a human gate is pending.
 - Reporting uses meaningful milestones, not every low-level state mutation.
 - The completion condition cannot end the run while safe runnable work remains.
 

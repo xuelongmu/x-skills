@@ -112,6 +112,10 @@ available:
   therefore re-arms the notification. If the host lacks any of these
   interfaces, continue the normal watcher and readiness report without
   treating that absence as an error.
+- Before reporting `Ready: yes` on Claude Code, synchronously refresh
+  `reviewDecision` and require `APPROVED`. Treat `REVIEW_REQUIRED`, an empty
+  decision, or `CHANGES_REQUESTED` as blocking even when the shared watcher
+  succeeds. Other hosts follow the repository's required-approval policy.
 
 ## Review Handling
 
