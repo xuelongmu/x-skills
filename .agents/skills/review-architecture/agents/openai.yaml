@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Architecture"
+  short_description: "Review consequential design proposals"
+  default_prompt: "Use $review-architecture to review this proposal against the real repository and report an evidence-backed verdict."

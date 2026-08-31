@@ -17,6 +17,8 @@ Portable workflow skills for Claude Code and Codex.
 | review-change | Review a change against intent, resulting design, verification, and diff-selected risks | `/review-change` | `review-change` | canonical |
 | review-complexity | Audit overengineering and review-driven complexity without changing accepted behavior | `/review-complexity` | `review-complexity` | canonical |
 | google-developer-style | Draft, revise, or review clear, accessible developer documentation using distilled Google-style guidance | `/google-developer-style [documentation or path]` | `google-developer-style` | canonical |
+| design-architecture | Explore consequential system choices and recommend a repo-grounded architecture before implementation | `/design-architecture [decision]` | `design-architecture` | canonical |
+| review-architecture | Review a design proposal or ADR draft and return an evidence-backed architecture verdict | `/review-architecture [artifact]` | `review-architecture` | canonical |
 
 - `babysit` never merges, enables auto-merge, or deletes branches. `land` can
   publish a missing PR and is the only skill that merges.
