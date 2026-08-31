@@ -19,7 +19,6 @@ CANONICAL = {
     "publish",
     "steward-research",
 }
-CLAUDE_ONLY = {"publish-slack"}
 STANDARD_FRONTMATTER_FIELDS = {
     "allowed-tools",
     "compatibility",
@@ -63,7 +62,7 @@ class SkillLayoutTests(unittest.TestCase):
     def test_inventory_matches_the_audited_layout(self) -> None:
         self.assertEqual(skill_dirs(ROOT / ".agents" / "skills"), CANONICAL)
         self.assertEqual(skill_dirs(ROOT / ".codex" / "skills"), set())
-        self.assertEqual(skill_dirs(ROOT / ".claude" / "skills"), CLAUDE_ONLY)
+        self.assertEqual(skill_dirs(ROOT / ".claude" / "skills"), set())
 
     def test_canonical_skills_have_no_host_source_copies(self) -> None:
         for name in CANONICAL:
@@ -128,6 +127,18 @@ class SkillLayoutTests(unittest.TestCase):
             self.assertIn("scripts/land_watch.py", text)
             self.assertNotIn(".codex/skills/land", text)
 
+    def test_land_absorbs_slack_sharing_and_native_autofix(self) -> None:
+        land = (ROOT / ".agents" / "skills" / "land" / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("Share the PR in Slack", land)
+        self.assertRegex(land, r"Auto-fix CI &\s+address comments")
+        self.assertIn("Auto-merge when ready", land)
+        self.assertIn("authorizes the Slack phase, not merging", land)
+        self.assertFalse(
+            (ROOT / ".claude" / "skills" / "publish-slack" / "SKILL.md").exists()
+        )
+
     def test_documentation_uses_cli_only_for_install_lifecycle(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         layout = (ROOT / "docs" / "skill-layout.md").read_text(encoding="utf-8")
@@ -141,8 +152,9 @@ class SkillLayoutTests(unittest.TestCase):
         self.assertIn("npx skills update", readme)
         self.assertIn("npx skills remove", readme)
         self.assertIn("--agent codex claude-code", readme)
-        self.assertIn("--agent claude-code --copy", readme)
+        self.assertNotIn("--copy", readme)
         self.assertNotIn("tree/main/.codex/skills", readme)
+        self.assertNotIn("tree/main/.claude/skills", readme)
 
 
 if __name__ == "__main__":

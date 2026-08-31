@@ -7,9 +7,8 @@ Portable workflow skills for Claude Code and Codex.
 | Skill | What it does | Claude Code | Codex | Source |
 |---|---|---|---|---|
 | publish | Commit intended changes, validate, push, and open a PR ready for review (draft only on request) | `/publish` | `publish` | canonical |
-| publish-slack | Post the current PR to Slack as a draft message with its Vercel preview link | `/publish-slack [channel]` (default `#zerogen`) | — | Claude only |
 | babysit | Keep the PR ready without merging: fix CI, address review comments, and sync the base branch | `/babysit` | `babysit` | canonical |
-| land | Open a PR for intended local work when needed, then keep it healthy and merge once checks and feedback gates pass | `/land` | `land` | canonical |
+| land | Open or share a PR, keep it healthy, and merge once checks and feedback gates pass | `/land` | `land` | canonical |
 | prompt-agent-orchestrator | Draft and validate multi-issue Agent Orchestrator project prompts | `/prompt-agent-orchestrator <brief>` | `prompt-agent-orchestrator` | canonical |
 | drive-agent-orchestrator | Operate Agent Orchestrator: preflight, spawn/supervise workers and orchestrators, monitor sessions | `/drive-agent-orchestrator` | `drive-agent-orchestrator` | canonical |
 | browser-evidence | Drive a running app, verify a flow, and capture browser-visible evidence | `/browser-evidence` | `browser-evidence` | canonical |
@@ -20,38 +19,34 @@ Portable workflow skills for Claude Code and Codex.
   publish a missing PR and is the only skill that merges.
 - `babysit` reuses `land/scripts/land_watch.py`. For continuous monitoring, it
   uses the recurring monitor or loop mechanism available in the current host.
+- `land` includes the former `publish-slack` workflow. Ask it to share the PR in
+  Slack to create a draft with the Vercel preview; ask explicitly to send when
+  a draft is not desired.
 
 ## Setup
 
 Use the [`npx skills`](https://github.com/vercel-labs/skills) CLI for all
-installation, refresh, and removal operations. The repository has two populated
-source subtrees:
+installation, refresh, and removal operations. The repository has one populated
+source subtree:
 
 - `.agents/skills` contains host-neutral sources. The CLI stores one canonical
   copy in `.agents/skills` (project) or `~/.agents/skills` (global). Codex reads
   it directly; Claude Code receives a symlink or, on Windows, a junction.
-- `.claude/skills` contains the Claude-only `publish-slack` integration.
 
 ### Install
 
-Run these commands in order for a global installation:
+Run this command for a global installation:
 
 ```bash
 npx skills add https://github.com/xuelongmu/x-skills/tree/main/.agents/skills --skill '*' --global --agent codex claude-code --yes
-npx skills add https://github.com/xuelongmu/x-skills/tree/main/.claude/skills --skill '*' --global --agent claude-code --copy --yes
 ```
 
-The Claude-only command uses CLI copy mode so `publish-slack` does not enter the
-universal store and become visible to Codex. Omit `--global` for a project-local
-installation. Restart each agent after installation.
-
-Do not install from the repository root with `--all`; explicit subtree and
-agent targeting preserves the Claude-only boundary.
+Omit `--global` for a project-local installation. Restart each agent after
+installation.
 
 ### Refresh
 
-Re-run the two install commands in the same order. This preserves copy mode for
-the Claude-only source. For canonical skills, this shortcut is also safe:
+Re-run the install command above, or use the update shortcut:
 
 ```bash
 npx skills update --global babysit browser-evidence drive-agent-orchestrator google-developer-style land prompt-agent-orchestrator publish steward-research --yes
@@ -72,7 +67,8 @@ intact. When an entry is a real copied directory, that installed copy is
 deleted. If an old source checkout itself was placed directly inside an agent
 skills directory instead of being linked or copied there, move that checkout
 outside the managed directory before running cleanup so it is not mistaken for
-an installed copy. Then run the two install commands above.
+an installed copy. Then run the install command above. The cleanup list includes
+the retired `publish-slack` name so legacy Claude installations are removed.
 
 Omit `--global` to remove a project-local installation. Omit `--agent` only
 when intentionally cleaning the named skills from every agent supported by the
@@ -102,7 +98,13 @@ Each skill file documents its own behavior; these are the cross-cutting choices:
 - Continuous `babysit` stops immediately when its PR is merged or closed and
   removes its monitor state. Otherwise, it stops after three consecutive
   unchanged feedback cycles.
-- `publish-slack` sends as a draft so the user reviews before posting; Vercel bot comments live on the **issues** endpoint (`/issues/{n}/comments`), not `/pulls/{n}/comments`.
+- `land` uses a host's native per-PR autofix control when available. On Claude
+  surfaces, **Auto-fix CI & address comments** can provide wake-ups and fixes,
+  but the shared watcher and final synchronous refresh remain the merge gates;
+  **Auto-merge when ready** stays disabled.
+- `land` can share a PR through any authenticated Slack capability. It creates
+  a draft by default and reads Vercel bot comments from the **issues** endpoint
+  (`/issues/{n}/comments`), not `/pulls/{n}/comments`.
 - All cross-host capabilities live once under `.agents/skills/`; CLI
   install-time links expose the same complete skill directory—including
   scripts, references, and OpenAI metadata—to Codex and Claude Code. The Google

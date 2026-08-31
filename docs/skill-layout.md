@@ -7,11 +7,9 @@ Skills specification for every `SKILL.md`.
 
 - `.agents/skills/<skill>` is the canonical source for behavior available in
   both Codex and Claude Code. Codex discovers this directory directly.
-- `.claude/skills/<skill>` is reserved for a capability that this repository
-  supports only in Claude Code. Currently, only `publish-slack` is host-only.
-- `.codex/skills` is currently empty. Add a source there only when a future
-  capability is genuinely Codex-only and cannot be expressed as portable
-  instructions with capability-based tool selection.
+- `.codex/skills` and `.claude/skills` are currently empty. Add a source there
+  only when a future capability is genuinely host-only and cannot be expressed
+  as portable instructions with capability-based tool selection.
 - Checked-in links are not part of the source layout. The installer creates a
   symlink, or a Windows junction, for a host that does not discover the
   canonical location directly.
@@ -50,25 +48,24 @@ skills-ref validate <skill-directory>
 |---|---|---|
 | `publish` | canonical | Both implementations performed the same Git, validation, push, and ready-PR workflow; the shared source chooses an authenticated GitHub connector when suitable and otherwise uses `gh`. |
 | `babysit` | canonical | Both implementations kept a PR healthy without merging. The shared source uses the host's recurring monitor and the bundled `land` watcher. |
-| `land` | canonical | The merge workflow, `gh` operations, and Python watcher are host-neutral; the complete skill directory installs for both hosts. |
+| `land` | canonical | The merge workflow, `gh` operations, Python watcher, optional Slack sharing, and native-autofix coordination are expressed through host capabilities; the complete skill directory installs for both hosts. |
 | `prompt-agent-orchestrator` | canonical | The readiness contract is shared. The prompt template remains a progressively loaded reference. |
 | `drive-agent-orchestrator` | canonical | The instructions are host-neutral. The Claude-only autocomplete hint was removed to keep standard frontmatter. |
 | `browser-evidence` | canonical | Browser selection is capability-based instead of naming a host-specific browser connector. |
 | `steward-research` | canonical | The previous host copies were byte-identical. |
 | `google-developer-style` | canonical | Introduced as a shared source in PR #23. |
-| `publish-slack` | Claude only | The shipped workflow depends on Claude's Slack MCP tools. Codex support is intentionally unavailable until the repository has a tested portable Slack capability. |
+| `publish-slack` | folded into `land` | PR sharing and Vercel preview lookup are host-neutral. `land` uses any authenticated Slack capability, drafts by default, and sends only on explicit request. |
 
 Before this consolidation, the repository tracked 15 `SKILL.md` sources: one
-canonical source and seven sources for each host. It now tracks nine: eight
-canonical sources and one Claude-only source. Six duplicated cross-host pairs
-were removed without removing a capability, and `land` became available to
-Claude Code.
+canonical source plus seven sources for each host. It now tracks eight
+canonical sources. Six duplicated cross-host pairs were removed, the former
+Claude-only `publish-slack` workflow was folded into `land`, and `land` became
+available to Claude Code. This removes seven skill sources without removing a
+workflow.
 
 ## Installation constraints
 
-Install from the exact source subtrees with explicit agent targeting. Do not
-install from the repository root with `--all`, because that can expose a
-host-only source to an unsupported host.
+Install from the canonical source subtree with explicit agent targeting.
 
 Canonical installation has these invariants:
 
@@ -83,10 +80,11 @@ Canonical installation has these invariants:
    uses it. Removing the skill from all agents removes the canonical directory
    and its lock entry.
 
-The Claude-only subtree uses CLI copy mode to avoid placing `publish-slack` in
-the universal store. Refresh a complete installation by rerunning both `skills
-add` commands from the README because generic update does not preserve that
-copy-mode decision.
+Claude's per-PR **Auto-fix CI & address comments** control is a native event and
+remediation channel for `land`, not a distinct source. When enabled, it avoids a
+redundant recurring babysit loop, while the bundled watcher and synchronous
+final refresh remain authoritative. `land` does not enable Claude's separate
+**Auto-merge when ready** control.
 
 Run `python -m unittest discover -s tests -v` for the source and format audit.
 Run `pwsh -File tests/test_skills_cli_windows.ps1 -RepositoryRoot <source>` on
@@ -101,8 +99,9 @@ encode `/` as `%2F` when the branch name contains a slash.
 2. Run the scoped `npx skills remove` command from the README. The CLI deletes
    a link or junction without deleting its target, but deletes a real installed
    copy.
-3. Run the two agent-targeted `npx skills add` commands in README order.
+3. Run the agent-targeted `npx skills add` command from the README.
 4. Restart Codex and Claude Code so they rescan skills.
 5. Verify names and descriptions in each host, then exercise `land` from both
    hosts to confirm that the bundled watcher resolves from the installed skill
-   directory.
+   directory. On a Claude surface, verify that native autofix events re-enter
+   the same workflow without bypassing final checks.

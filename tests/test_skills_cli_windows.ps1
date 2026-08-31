@@ -24,12 +24,8 @@ $canonicalSkills = @(
     "publish",
     "steward-research"
 )
-$claudeOnlySkills = @(
-    "publish-slack"
-)
 $allSkills = @(
     "publish",
-    "publish-slack",
     "babysit",
     "land",
     "prompt-agent-orchestrator",
@@ -83,7 +79,6 @@ function Get-SkillSource {
 }
 
 $canonicalSource = Get-SkillSource ".agents\skills"
-$claudeSource = Get-SkillSource ".claude\skills"
 
 try {
     New-Item -ItemType Directory -Force -Path $projectRoot | Out-Null
@@ -99,7 +94,6 @@ try {
     Push-Location $projectRoot
     try {
         Invoke-SkillsCli @("add", $canonicalSource, "--skill", "*", "--agent", "codex", "claude-code", "--yes")
-        Invoke-SkillsCli @("add", $claudeSource, "--skill", "*", "--agent", "claude-code", "--copy", "--yes")
 
         foreach ($skill in $canonicalSkills) {
             $canonical = Join-Path $projectRoot ".agents\skills\$skill"
@@ -129,18 +123,6 @@ try {
         $landWatcher = Join-Path $projectRoot ".agents\skills\land\scripts\land_watch.py"
         Assert-PathExists $landWatcher
         Assert-PathExists (Join-Path $projectRoot ".claude\skills\land\scripts\land_watch.py")
-
-        foreach ($skill in $claudeOnlySkills) {
-            $claude = Join-Path $projectRoot ".claude\skills\$skill"
-            Assert-PathExists $claude
-            if ((Get-Item -LiteralPath $claude -Force).LinkType) {
-                throw "Claude-only skill must be an independent CLI copy: $claude"
-            }
-        }
-
-        if (Test-Path -LiteralPath (Join-Path $projectRoot ".agents\skills\publish-slack")) {
-            throw "Claude-only publish-slack skill was installed for Codex."
-        }
 
         if (-not (Test-Path -LiteralPath $RepositoryRoot)) {
             Invoke-SkillsCli (@("update", "--project") + $canonicalSkills + @("--yes"))
