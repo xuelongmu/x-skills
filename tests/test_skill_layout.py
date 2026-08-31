@@ -1,10 +1,9 @@
 from __future__ import annotations
 
+import ast
 import re
 import unittest
 from pathlib import Path
-
-import yaml
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -47,15 +46,49 @@ def all_skill_paths() -> list[Path]:
     return paths
 
 
-def frontmatter(skill: Path) -> dict[str, object]:
+def yaml_scalar(value: str) -> str:
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+        return ast.literal_eval(value)
+    return value
+
+
+def top_level_yaml(text: str) -> dict[str, tuple[str, list[str]]]:
+    fields: dict[str, tuple[str, list[str]]] = {}
+    current: str | None = None
+    for line in text.splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        if not line[0].isspace():
+            match = re.fullmatch(r"([a-z][a-z0-9-]*):(?:\s*(.*))?", line)
+            if not match:
+                raise AssertionError(f"Invalid top-level YAML line: {line}")
+            current = match.group(1)
+            fields[current] = (match.group(2) or "", [])
+        elif current is not None:
+            fields[current][1].append(line)
+        else:
+            raise AssertionError(f"Indented YAML without a parent: {line}")
+    return fields
+
+
+def scalar_field(fields: dict[str, tuple[str, list[str]]], key: str) -> str:
+    value, continuation = fields[key]
+    if value in {">", ">-", ">+", "|", "|-", "|+"}:
+        return " ".join(line.strip() for line in continuation if line.strip())
+    if value == "" and continuation:
+        return " ".join(line.strip() for line in continuation if line.strip())
+    if continuation:
+        raise AssertionError(f"Expected scalar YAML field: {key}")
+    return yaml_scalar(value)
+
+
+def frontmatter(skill: Path) -> dict[str, tuple[str, list[str]]]:
     text = (skill / "SKILL.md").read_text(encoding="utf-8")
     match = re.match(r"^---\r?\n(.*?)\r?\n---(?:\r?\n|$)", text, re.DOTALL)
     if not match:
         raise AssertionError(f"Missing YAML frontmatter: {skill}")
-    parsed = yaml.safe_load(match.group(1))
-    if not isinstance(parsed, dict):
-        raise AssertionError(f"Frontmatter must be a mapping: {skill}")
-    return parsed
+    return top_level_yaml(match.group(1))
 
 
 class SkillLayoutTests(unittest.TestCase):
@@ -80,28 +113,25 @@ class SkillLayoutTests(unittest.TestCase):
             with self.subTest(skill=skill.relative_to(ROOT)):
                 data = frontmatter(skill)
                 self.assertLessEqual(set(data), STANDARD_FRONTMATTER_FIELDS)
-                self.assertEqual(data.get("name"), skill.name)
+                self.assertIn("name", data)
+                self.assertEqual(scalar_field(data, "name"), skill.name)
                 self.assertRegex(skill.name, name_pattern)
                 self.assertLessEqual(len(skill.name), 64)
 
-                description = data.get("description")
-                self.assertIsInstance(description, str)
+                self.assertIn("description", data)
+                description = scalar_field(data, "description")
                 self.assertGreater(len(description.strip()), 0)
                 self.assertLessEqual(len(description), 1024)
 
                 if "compatibility" in data:
-                    self.assertIsInstance(data["compatibility"], str)
-                    self.assertLessEqual(len(data["compatibility"]), 500)
+                    self.assertLessEqual(len(scalar_field(data, "compatibility")), 500)
                 if "metadata" in data:
-                    self.assertIsInstance(data["metadata"], dict)
-                    self.assertTrue(
-                        all(
-                            isinstance(key, str) and isinstance(value, str)
-                            for key, value in data["metadata"].items()
-                        )
-                    )
+                    value, nested = data["metadata"]
+                    self.assertEqual(value, "")
+                    self.assertTrue(nested)
+                    self.assertTrue(all(re.fullmatch(r"\s+[\w.-]+:\s+.+", line) for line in nested))
                 if "allowed-tools" in data:
-                    self.assertIsInstance(data["allowed-tools"], str)
+                    scalar_field(data, "allowed-tools")
 
     def test_openai_metadata_is_consistent(self) -> None:
         for skill in all_skill_paths():
@@ -109,10 +139,15 @@ class SkillLayoutTests(unittest.TestCase):
             if not metadata.is_file():
                 continue
             with self.subTest(skill=skill.relative_to(ROOT)):
-                data = yaml.safe_load(metadata.read_text(encoding="utf-8"))
-                interface = data["interface"]
-                self.assertTrue(25 <= len(interface["short_description"]) <= 64)
-                self.assertIn(f"${skill.name}", interface["default_prompt"])
+                text = metadata.read_text(encoding="utf-8")
+                short_match = re.search(r"^\s+short_description:\s*(.+)$", text, re.MULTILINE)
+                prompt_match = re.search(r"^\s+default_prompt:\s*(.+)$", text, re.MULTILINE)
+                self.assertIsNotNone(short_match)
+                self.assertIsNotNone(prompt_match)
+                short_description = yaml_scalar(short_match.group(1))
+                default_prompt = yaml_scalar(prompt_match.group(1))
+                self.assertTrue(25 <= len(short_description) <= 64)
+                self.assertIn(f"${skill.name}", default_prompt)
 
     def test_land_bundles_watcher_under_scripts(self) -> None:
         watcher = ROOT / ".agents" / "skills" / "land" / "scripts" / "land_watch.py"
@@ -135,9 +170,22 @@ class SkillLayoutTests(unittest.TestCase):
         self.assertRegex(land, r"Auto-fix CI &\s+address comments")
         self.assertIn("Auto-merge when ready", land)
         self.assertIn("authorizes the Slack phase, not merging", land)
+        self.assertIn("headRefName", land)
+        self.assertIn("share-only request", land)
         self.assertFalse(
             (ROOT / ".claude" / "skills" / "publish-slack" / "SKILL.md").exists()
         )
+
+    def test_host_only_interfaces_are_preserved_conditionally(self) -> None:
+        browser = (ROOT / ".agents" / "skills" / "browser-evidence" / "SKILL.md").read_text(encoding="utf-8")
+        babysit = (ROOT / ".agents" / "skills" / "babysit" / "SKILL.md").read_text(encoding="utf-8")
+        layout = (ROOT / "docs" / "skill-layout.md").read_text(encoding="utf-8")
+        for value in ("ToolSearch", "AskUserQuestion", "mcp__claude-in-chrome__"):
+            self.assertIn(value, browser)
+            self.assertIn(value, layout)
+        for value in ("/loop", "CronList", "CronDelete", "PushNotification"):
+            self.assertIn(value, babysit)
+            self.assertIn(value, layout)
 
     def test_documentation_uses_cli_only_for_install_lifecycle(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")

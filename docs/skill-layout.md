@@ -39,7 +39,7 @@ Run the repository tests plus the official reference validator:
 
 ```bash
 python -m unittest discover -s tests -v
-skills-ref validate <skill-directory>
+uvx --from skills-ref agentskills validate <skill-directory>
 ```
 
 ## Consolidation audit
@@ -85,6 +85,23 @@ remediation channel for `land`, not a distinct source. When enabled, it avoids a
 redundant recurring babysit loop, while the bundled watcher and synchronous
 final refresh remain authoritative. `land` does not enable Claude's separate
 **Auto-merge when ready** control.
+
+## Host-only interfaces retained in canonical skills
+
+The audit found no meaningfully different skill implementations, but it did
+find host-only invocation surfaces that the shared instructions must preserve:
+
+| Host | Interface | Canonical handling |
+|---|---|---|
+| Claude Code | Slash-command invocations such as `/land` and `/babysit` | Documentation shows Claude's invocation syntax while the installed `SKILL.md` remains shared. |
+| Claude Code | `ToolSearch`, `AskUserQuestion`, and `mcp__claude-in-chrome__*` browser tools | `browser-evidence` conditionally loads deferred connector schemas, asks the user to select a connected browser, and follows the connector recovery flow. |
+| Claude Code | `/loop`, `CronList`, `CronDelete`, and `PushNotification` | `babysit` conditionally preserves recurring-loop cleanup and the once-per-head Codex sign-off notification. |
+| Claude Code | **Auto-fix CI & address comments** | `land` treats it as optional dispatch and remediation; the shared watcher still owns final readiness. |
+
+These adapters do not change the underlying workflow or justify duplicated
+skill sources. If a future host-specific interface changes the actual tools,
+authorization boundary, or lifecycle semantics rather than merely dispatching
+the same workflow, add a host-specific source and record the exception here.
 
 Run `python -m unittest discover -s tests -v` for the source and format audit.
 Run `pwsh -File tests/test_skills_cli_windows.ps1 -RepositoryRoot <source>` on

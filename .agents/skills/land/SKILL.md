@@ -151,7 +151,8 @@ This phase replaces the former `publish-slack` skill. Run it when the user asks
 to share, post, or publish the PR to Slack. Use the requested channel, defaulting
 to `#zerogen` when none is supplied.
 
-1. Read the selected PR's title, URL, and body.
+1. Read the selected PR's title, URL, body, and `headRefName`. Derive the branch
+   slug from that selected PR head rather than from the current checkout.
 2. Poll top-level issue comments every 10 seconds for up to 90 seconds for a
    Vercel bot comment. Extract the branch preview URL matching
    `*-git-{branch-slug}-*.vercel.app`; use `deploying...` if it does not arrive.
@@ -166,8 +167,9 @@ to `#zerogen` when none is supplied.
    ```
 4. Create a Slack draft when the host supports drafts. Send immediately only
    when the user explicitly requested sending rather than drafting. If the host
-   has no Slack write capability, report that limitation and continue landing
-   unless the user made Slack delivery a required condition.
+   has no Slack write capability, report that limitation. Stop when this was a
+   share-only request; continue landing only when the original request also
+   independently authorized landing.
 
 Never hard-code a host's Slack tool names in this canonical skill.
 

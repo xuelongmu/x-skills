@@ -54,11 +54,18 @@ description: Keep a pull request healthy without merging it. Use when asked to b
    - Persist state in `.git/babysit-state.json` with shape `{"last_signature":"...","idle_count":0}`.
    - Compute `last_signature` from the PR feedback surface, including
      `updatedAt`, `reviewDecision`, latest comment and review IDs, and
-     `statusCheckRollup` conclusions.
+     `statusCheckRollup` conclusions. When the host exposes the Claude sign-off
+     notification adapter below, also include the Codex `+1` reaction count so
+     a new sign-off resets the idle counter.
    - If the signature is unchanged vs the last run, increment `idle_count`; otherwise reset it to 0.
-   - When `idle_count >= 3`, stop the recurring monitor, delete
-     `.git/babysit-state.json`, and report:
-     `Stopping babysit — 3 cycles with no new feedback on PR #<n>.`
+   - When `idle_count >= 3`, normally stop the recurring monitor and delete
+     `.git/babysit-state.json`. On a host exposing the Claude sign-off adapter,
+     keep monitoring instead when the Codex bot has activity on the PR and the
+     current head has not yet received its `codex-ok:<sha>` sentinel: either
+     sign-off or green CI may still arrive and trigger the promised
+     notification. Terminal `MERGED` or `CLOSED` state always stops monitoring.
+   - Report `Stopping babysit — 3 cycles with no new feedback on PR #<n>.`
+     when the idle stop applies.
 3. If the working tree has uncommitted changes, commit the intended scope and push before monitoring.
 4. Check whether the PR is behind or conflicting with its base branch.
 5. If behind or conflicting, merge the base branch, resolve conflicts, validate, commit, and push.
@@ -82,6 +89,29 @@ description: Keep a pull request healthy without merging it. Use when asked to b
     ```sh
     GH_HOST="$PR_HOST" gh pr merge "$PR_NUMBER" -R "$PR_REPO" --squash
     ```
+
+## Claude sign-off notification adapter
+
+Claude Code surfaces may expose `/loop`, `CronList`, `CronDelete`, and
+`PushNotification`. These are host-only interfaces around the canonical
+babysitting workflow, not a separate skill implementation. When they are
+available:
+
+- Use `/loop` or the equivalent recurring facility for continuous monitoring,
+  and use `CronList` plus `CronDelete` to remove the matching loop on terminal
+  or idle stop.
+- When checks are green, poll `repos/$PR_REPO/issues/$PR_NUMBER/reactions` for
+  a `+1` reaction from `chatgpt-codex-connector[bot]`. GitHub does not emit the
+  needed wake-up reliably for reactions, so repeat this during the grace wait.
+- Read `headRefOid` and labels. If the reaction is present, CI has no failed,
+  pending, or cancelled checks, and `codex-ok:<head-sha>` is absent, call
+  `PushNotification` with title `PR #<n> approved by Codex` and body
+  `CI green + Codex 👍 — ready to merge: <url>`, then replace any stale
+  `codex-ok:*` label with `codex-ok:<head-sha>`.
+- Send at most one notification per head. A new commit changes the head SHA and
+  therefore re-arms the notification. If the host lacks any of these
+  interfaces, continue the normal watcher and readiness report without
+  treating that absence as an error.
 
 ## Review Handling
 

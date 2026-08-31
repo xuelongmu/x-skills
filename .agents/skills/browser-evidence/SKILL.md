@@ -32,6 +32,23 @@ Load and follow the browser-control capability exposed by the current host
 before controlling a browser. Prefer a connected, signed-in browser when the
 flow depends on existing authentication or application state.
 
+When running in Claude Code with the Claude-in-Chrome connector, preserve its
+required discovery flow. If connector schemas are deferred, use `ToolSearch`
+once to load every `mcp__claude-in-chrome__*` tool needed for the task before
+calling any of them; a deferred tool cannot be called directly. Start with
+`mcp__claude-in-chrome__list_connected_browsers`. For one to three returned
+browsers, use `AskUserQuestion` to present each display name and device ID plus
+the option `Open a confirmation screen in every connected Chrome extension and
+let me select the right one there.` Then use `select_browser` for a selected
+device or `switch_browser` for the confirmation-screen option. For four or more
+browsers, use `switch_browser` instead of exceeding the question's option
+limit. If none are connected, help the user verify that the extension and
+Claude session use the same account, call `switch_browser` once to distinguish
+an unselected extension from no registered extension, and give them a chance to
+connect before falling back. Once connected, use
+`tabs_context_mcp{createIfEmpty:true}` and `tabs_create_mcp` for a dedicated
+tab; prefer `browser_batch` for predictable action sequences.
+
 - If more than one browser, profile, or device is available and the choice is
   not explicit, list them and ask the user to choose. Never infer which personal
   profile to use.
