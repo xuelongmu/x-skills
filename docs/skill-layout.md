@@ -93,6 +93,7 @@ find host-only invocation surfaces that the shared instructions must preserve:
 
 | Host | Interface | Canonical handling |
 |---|---|---|
+| Codex | `browser:control-in-app-browser` | `browser-evidence` conditionally loads the signed-in browser-control skill before offering an unauthenticated fallback. |
 | Claude Code | Slash-command invocations such as `/land` and `/babysit` | Documentation shows Claude's invocation syntax while the installed `SKILL.md` remains shared. |
 | Claude Code | `ToolSearch`, `AskUserQuestion`, and `mcp__claude-in-chrome__*` browser tools | `browser-evidence` conditionally loads deferred connector schemas, asks the user to select a connected browser, and follows the connector recovery flow. |
 | Claude Code | `/loop`, `CronList`, `CronDelete`, and `PushNotification` | `babysit` conditionally preserves recurring-loop cleanup, the once-per-head Codex sign-off notification, and Claude's `reviewDecision == APPROVED` readiness gate. |
