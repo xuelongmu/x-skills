@@ -14,23 +14,17 @@ if (-not (Get-Command npx -ErrorAction SilentlyContinue)) {
     throw "npx is required."
 }
 
-$sharedSkills = @(
+$canonicalSkills = @(
+    "babysit",
+    "browser-evidence",
     "drive-agent-orchestrator",
     "google-developer-style",
-    "steward-research"
-)
-$codexSkills = @(
-    "babysit",
-    "browser-evidence",
     "land",
     "prompt-agent-orchestrator",
-    "publish"
-)
-$claudeSkills = @(
-    "babysit",
-    "browser-evidence",
-    "prompt-agent-orchestrator",
     "publish",
+    "steward-research"
+)
+$claudeOnlySkills = @(
     "publish-slack"
 )
 $allSkills = @(
@@ -89,7 +83,6 @@ function Get-SkillSource {
 }
 
 $canonicalSource = Get-SkillSource ".agents\skills"
-$codexSource = Get-SkillSource ".codex\skills"
 $claudeSource = Get-SkillSource ".claude\skills"
 
 try {
@@ -106,10 +99,9 @@ try {
     Push-Location $projectRoot
     try {
         Invoke-SkillsCli @("add", $canonicalSource, "--skill", "*", "--agent", "codex", "claude-code", "--yes")
-        Invoke-SkillsCli @("add", $codexSource, "--skill", "*", "--agent", "codex", "--yes")
         Invoke-SkillsCli @("add", $claudeSource, "--skill", "*", "--agent", "claude-code", "--copy", "--yes")
 
-        foreach ($skill in $sharedSkills) {
+        foreach ($skill in $canonicalSkills) {
             $canonical = Join-Path $projectRoot ".agents\skills\$skill"
             $claude = Join-Path $projectRoot ".claude\skills\$skill"
             Assert-PathExists $canonical
@@ -134,54 +126,41 @@ try {
             }
         }
 
-        foreach ($skill in $codexSkills) {
-            $codex = Join-Path $projectRoot ".agents\skills\$skill"
-            Assert-PathExists $codex
-            if ((Get-Item -LiteralPath $codex -Force).LinkType) {
-                throw "Codex install must be a real universal directory: $codex"
-            }
-        }
+        $landWatcher = Join-Path $projectRoot ".agents\skills\land\scripts\land_watch.py"
+        Assert-PathExists $landWatcher
+        Assert-PathExists (Join-Path $projectRoot ".claude\skills\land\scripts\land_watch.py")
 
-        foreach ($skill in $claudeSkills) {
+        foreach ($skill in $claudeOnlySkills) {
             $claude = Join-Path $projectRoot ".claude\skills\$skill"
             Assert-PathExists $claude
             if ((Get-Item -LiteralPath $claude -Force).LinkType) {
-                throw "Claude variant must be an independent CLI copy: $claude"
+                throw "Claude-only skill must be an independent CLI copy: $claude"
             }
         }
 
-        foreach ($skill in @("babysit", "browser-evidence", "prompt-agent-orchestrator", "publish")) {
-            $codexHash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $projectRoot ".agents\skills\$skill\SKILL.md")).Hash
-            $claudeHash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $projectRoot ".claude\skills\$skill\SKILL.md")).Hash
-            if ($codexHash -eq $claudeHash) {
-                throw "Host-specific variants collapsed to identical content: $skill"
-            }
-        }
-
-        if (Test-Path -LiteralPath (Join-Path $projectRoot ".claude\skills\land")) {
-            throw "Codex-only land skill was installed for Claude."
-        }
         if (Test-Path -LiteralPath (Join-Path $projectRoot ".agents\skills\publish-slack")) {
             throw "Claude-only publish-slack skill was installed for Codex."
         }
 
         if (-not (Test-Path -LiteralPath $RepositoryRoot)) {
-            Invoke-SkillsCli (@("update", "--project") + $sharedSkills + @("--yes"))
-            foreach ($skill in $sharedSkills) {
+            Invoke-SkillsCli (@("update", "--project") + $canonicalSkills + @("--yes"))
+            foreach ($skill in $canonicalSkills) {
                 $claudeItem = Get-Item -LiteralPath (Join-Path $projectRoot ".claude\skills\$skill") -Force
                 if ($claudeItem.LinkType -ne "Junction") {
                     throw "Update did not preserve the Claude junction: $skill"
                 }
             }
+            Assert-PathExists $landWatcher
         }
 
-        Invoke-SkillsCli ($(@("remove") + $sharedSkills + @("--agent", "claude-code", "--yes")))
-        foreach ($skill in $sharedSkills) {
+        Invoke-SkillsCli ($(@("remove") + $canonicalSkills + @("--agent", "claude-code", "--yes")))
+        foreach ($skill in $canonicalSkills) {
             Assert-PathExists (Join-Path $projectRoot ".agents\skills\$skill")
             if (Test-Path -LiteralPath (Join-Path $projectRoot ".claude\skills\$skill")) {
                 throw "Claude junction still exists after targeted removal: $skill"
             }
         }
+        Assert-PathExists $landWatcher
 
         Invoke-SkillsCli @("add", $canonicalSource, "--skill", "*", "--agent", "codex", "claude-code", "--yes")
         Invoke-SkillsCli ($(@("remove") + $allSkills + @("--agent", "codex", "claude-code", "--yes")))

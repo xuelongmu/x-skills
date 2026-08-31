@@ -1,6 +1,6 @@
 ---
 name: prompt-agent-orchestrator
-description: Draft, critique, and validate project-specific prompts for Agent Orchestrator coordinator sessions. Use when Codex needs to turn a multi-issue plan, dependency graph, stacked-PR rollout, worker policy, review loop, merge policy, or human-gated delivery plan into a concise AO orchestrator prompt, or decide whether an existing orchestrator prompt is operationally ready.
+description: Draft, critique, and validate project-specific prompts for Agent Orchestrator coordinator sessions. Use when turning a multi-issue plan, dependency graph, stacked-PR rollout, worker policy, review loop, merge policy, or human-gated delivery plan into a concise AO orchestrator prompt, or deciding whether an existing orchestrator prompt is operationally ready.
 ---
 
 # Author AO Orchestrator

@@ -10,7 +10,12 @@ from unittest.mock import AsyncMock, patch
 
 
 WATCHER_PATH = (
-    Path(__file__).parents[1] / ".codex" / "skills" / "land" / "land_watch.py"
+    Path(__file__).parents[1]
+    / ".agents"
+    / "skills"
+    / "land"
+    / "scripts"
+    / "land_watch.py"
 )
 SPEC = importlib.util.spec_from_file_location("land_watch", WATCHER_PATH)
 assert SPEC is not None and SPEC.loader is not None
@@ -535,8 +540,12 @@ class PullRequestIdentityTests(unittest.TestCase):
 
 
 class LandSkillDocumentationTests(unittest.TestCase):
+    def test_agent_and_legacy_ack_prefixes_are_recognized(self) -> None:
+        self.assertTrue(land_watch.is_codex_reply_body("[agent] Addressed in abc123"))
+        self.assertTrue(land_watch.is_codex_reply_body("[codex] Addressed in abc123"))
+
     def test_organization_fork_api_fallback_routes_selected_host(self) -> None:
-        skill_path = WATCHER_PATH.with_name("SKILL.md")
+        skill_path = WATCHER_PATH.parents[1] / "SKILL.md"
         skill = skill_path.read_text(encoding="utf-8")
 
         self.assertIn('GH_HOST="<host>" gh api', skill)

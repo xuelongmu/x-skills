@@ -1,23 +1,20 @@
 # Skill source layout
 
-This repository uses one canonical source for host-neutral skills and keeps
-real host variants separate.
+This repository stores each cross-host capability once and follows the Agent
+Skills specification for every `SKILL.md`.
 
 ## Storage contract
 
-- `.agents/skills/<skill>` is the canonical source for instructions that work
-  unchanged in Codex and Claude Code. Codex discovers this directory directly.
-- `.codex/skills/<skill>` contains Codex-specific instructions or Codex-only
-  skills.
-- `.claude/skills/<skill>` contains Claude-specific instructions or Claude-only
-  skills.
-- A canonical directory can contain metadata for both hosts. For example,
-  `agents/openai.yaml` is ignored by Claude, and Claude's `argument-hint`
-  frontmatter is ignored by Codex. Metadata alone does not require duplicate
-  instruction sources.
-- Checked-in links are not part of the source layout. Installers create links
-  from hosts that do not read `.agents/skills` natively. On Windows, the
-  `skills` CLI uses directory junctions; on macOS and Linux, it uses symlinks.
+- `.agents/skills/<skill>` is the canonical source for behavior available in
+  both Codex and Claude Code. Codex discovers this directory directly.
+- `.claude/skills/<skill>` is reserved for a capability that this repository
+  supports only in Claude Code. Currently, only `publish-slack` is host-only.
+- `.codex/skills` is currently empty. Add a source there only when a future
+  capability is genuinely Codex-only and cannot be expressed as portable
+  instructions with capability-based tool selection.
+- Checked-in links are not part of the source layout. The installer creates a
+  symlink, or a Windows junction, for a host that does not discover the
+  canonical location directly.
 
 This matches `vercel-labs/skills` 1.5.23 at revision
 [`435076e`](https://github.com/vercel-labs/skills/tree/435076e78988e1e6ec40d00b0b1d76bdbbc5419a):
@@ -25,66 +22,77 @@ This matches `vercel-labs/skills` 1.5.23 at revision
 uses `.agents/skills` and `~/.agents/skills` as the canonical project and
 global locations and creates Windows junctions with absolute targets;
 [`agents.ts`](https://github.com/vercel-labs/skills/blob/435076e78988e1e6ec40d00b0b1d76bdbbc5419a/src/agents.ts)
-classifies Codex as universal and Claude Code as `.claude/skills`; and
-[`skills.ts`](https://github.com/vercel-labs/skills/blob/435076e78988e1e6ec40d00b0b1d76bdbbc5419a/src/skills.ts)
-deduplicates discovered sources by frontmatter name.
+classifies Codex as universal and Claude Code as `.claude/skills`.
 
-## Duplication audit
+## Agent Skills compliance
+
+Every source uses standard top-level frontmatter: `name`, `description`, and
+only the optional fields defined by the Agent Skills specification. Host-only
+fields such as Claude Code's `argument-hint` are not present in canonical
+sources. OpenAI UI metadata remains in the optional `agents/openai.yaml` file.
+
+Bundled code lives under `scripts/`. Instructions resolve scripts and other
+resources relative to the active `SKILL.md`, never from a hard-coded host
+installation path. The `land` watcher is therefore available at
+`land/scripts/land_watch.py` through both the canonical Codex directory and the
+Claude link to that directory.
+
+Run the repository tests plus the official reference validator:
+
+```bash
+python -m unittest discover -s tests -v
+skills-ref validate <skill-directory>
+```
+
+## Consolidation audit
 
 | Skill | Decision | Reason |
 |---|---|---|
-| `drive-agent-orchestrator` | canonical | Instructions were identical. The Claude-only `argument-hint` and Codex `agents/openai.yaml` can coexist in one source. |
-| `steward-research` | canonical | The two `SKILL.md` files were byte-identical; only Codex supplied optional UI metadata. |
+| `publish` | canonical | Both implementations performed the same Git, validation, push, and ready-PR workflow; the shared source chooses an authenticated GitHub connector when suitable and otherwise uses `gh`. |
+| `babysit` | canonical | Both implementations kept a PR healthy without merging. The shared source uses the host's recurring monitor and the bundled `land` watcher. |
+| `land` | canonical | The merge workflow, `gh` operations, and Python watcher are host-neutral; the complete skill directory installs for both hosts. |
+| `prompt-agent-orchestrator` | canonical | The readiness contract is shared. The prompt template remains a progressively loaded reference. |
+| `drive-agent-orchestrator` | canonical | The instructions are host-neutral. The Claude-only autocomplete hint was removed to keep standard frontmatter. |
+| `browser-evidence` | canonical | Browser selection is capability-based instead of naming a host-specific browser connector. |
+| `steward-research` | canonical | The previous host copies were byte-identical. |
 | `google-developer-style` | canonical | Introduced as a shared source in PR #23. |
-| `publish` | keep variants | Claude specifies its allowed tools and shell-first procedure; Codex prefers its connected GitHub app when available and has different write-safety rules. |
-| `babysit` | keep variants | Claude owns `/loop`, cron deletion, state files, and push notification behavior. Codex reuses `land/land_watch.py` and Codex automations. |
-| `browser-evidence` | keep variants | Claude uses Claude-in-Chrome connection selection. Codex uses its browser connectors and bundled browser-control environment. |
-| `prompt-agent-orchestrator` | keep variants | Claude uses `$ARGUMENTS`, a host-specific output template, and different capability checks; Codex uses a separate reference template and Codex-oriented workflow. |
-| `land` | Codex only | Codex watcher and landing workflow; no equivalent source is shipped for Claude Code. |
-| `publish-slack` | Claude only | Claude-specific Slack draft workflow; no Codex source is shipped. |
+| `publish-slack` | Claude only | The shipped workflow depends on Claude's Slack MCP tools. Codex support is intentionally unavailable until the repository has a tested portable Slack capability. |
 
-The migration removes two duplicated host pairs: four host directories become
-two canonical directories. The tracked instruction count drops by two
-`SKILL.md` files while preserving all host metadata and every intentional
-variant. Together with PR #23, three skills now use canonical storage.
+Before this consolidation, the repository tracked 15 `SKILL.md` sources: one
+canonical source and seven sources for each host. It now tracks nine: eight
+canonical sources and one Claude-only source. Six duplicated cross-host pairs
+were removed without removing a capability, and `land` became available to
+Claude Code.
 
 ## Installation constraints
 
-The Skills CLI discovers common skill containers in priority order and
-deduplicates by the frontmatter `name`. A repository-wide `--all` operation can
-therefore choose only one source when `.codex/skills` and `.claude/skills`
-contain same-name variants.
+Install from the exact source subtrees with explicit agent targeting. Do not
+install from the repository root with `--all`, because that can expose a
+host-only source to an unsupported host.
 
-The installed canonical store and lock file are also keyed by skill name. Two
-same-name host variants cannot be independently tracked in that store. Install
-from the exact `.agents/skills`, `.codex/skills`, and `.claude/skills` source
-subtrees with explicit CLI agent targeting. Use `--copy` for the Claude
-subtree so a Claude variant remains independent from the same-name Codex
-variant. Refresh a complete installation by re-running the three `skills add`
-commands in README order; the generic `skills update` command does not preserve
-two sources or copy modes for one name.
+Canonical installation has these invariants:
 
-For canonical skills, installation has these invariants:
-
-1. One real directory exists at `.agents/skills/<skill>` (project) or
-   `~/.agents/skills/<skill>` (global).
-2. Codex uses that directory directly and does not need a `.codex/skills` link.
-3. Claude Code receives `.claude/skills/<skill>` pointing to the canonical
-   directory.
-4. A canonical-only `skills update` preserves the canonical directory plus
-   Claude link topology.
+1. One real directory exists at `.agents/skills/<skill>` for project scope or
+   `~/.agents/skills/<skill>` for global scope.
+2. Codex uses that directory directly.
+3. Claude Code receives `.claude/skills/<skill>` pointing to the same complete
+   directory, including `scripts/`, `references/`, and `agents/`.
+4. Updating a canonical skill preserves the canonical directory and Claude
+   link topology.
 5. Removing only Claude's link keeps the canonical directory while Codex still
    uses it. Removing the skill from all agents removes the canonical directory
-   and its lock entry. This is the subset-removal contract implemented in
-   [`remove.ts`](https://github.com/vercel-labs/skills/blob/435076e78988e1e6ec40d00b0b1d76bdbbc5419a/src/remove.ts).
+   and its lock entry.
 
-Run `python -m unittest discover -s tests -v` for the repository layout audit.
+The Claude-only subtree uses CLI copy mode to avoid placing `publish-slack` in
+the universal store. Refresh a complete installation by rerunning both `skills
+add` commands from the README because generic update does not preserve that
+copy-mode decision.
+
+Run `python -m unittest discover -s tests -v` for the source and format audit.
 Run `pwsh -File tests/test_skills_cli_windows.ps1 -RepositoryRoot <source>` on
-Windows for an isolated CLI lifecycle check. A GitHub shorthand with a fragment
+Windows for an isolated lifecycle check. A GitHub shorthand with a fragment
 ref, such as `owner/repo#feature-branch`, exercises remote update checking. URL
-encode `/` as `%2F` when the branch name contains a slash. A local repository
-path exercises discovery, agent-targeted installation, junction and copy
-placement, and removal but is not remotely updatable.
+encode `/` as `%2F` when the branch name contains a slash.
 
 ## Migration checklist
 
@@ -93,7 +101,8 @@ placement, and removal but is not remotely updatable.
 2. Run the scoped `npx skills remove` command from the README. The CLI deletes
    a link or junction without deleting its target, but deletes a real installed
    copy.
-3. Run the three agent-targeted `npx skills add` commands in README order.
+3. Run the two agent-targeted `npx skills add` commands in README order.
 4. Restart Codex and Claude Code so they rescan skills.
-5. Verify names and descriptions in each host, then exercise one canonical
-   skill from both hosts.
+5. Verify names and descriptions in each host, then exercise `land` from both
+   hosts to confirm that the bundled watcher resolves from the installed skill
+   directory.
