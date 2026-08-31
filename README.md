@@ -47,9 +47,22 @@ installation.
 
 ### Refresh
 
-A complete refresh has two steps. The update command refreshes installed skills
-and detects skills deleted upstream. It reports newly available skills but does
-not install them.
+A repository-scoped refresh re-runs the source installation. It refreshes this
+repository's installed skills and discovers additions without changing skills
+installed from other repositories:
+
+```bash
+npx skills add https://github.com/xuelongmu/x-skills/tree/main/.agents/skills --skill '*' --global --agent codex claude-code --yes
+```
+
+This command does not remove skills deleted upstream. Use the explicit removal
+command below when this repository retires a skill.
+
+To reconcile deletions interactively across the complete global inventory, use
+two steps. The CLI has no source filter for `update`, so the first step updates
+every globally installed skill, including skills from other repositories. It
+reports newly available skills without installing them, which is why the second
+step re-runs the source installation.
 
 1. Update the installed global skills:
 
@@ -69,8 +82,8 @@ not install them.
    ```
 
 For a project-local refresh, use `--project` instead of `--global` in the first
-command and omit `--global` from the second command. Restart each agent after
-the refresh.
+command and omit `--global` from each `add` command. The update still applies to
+the complete project skill inventory. Restart each agent after the refresh.
 
 ### Remove or migrate a legacy installation
 
