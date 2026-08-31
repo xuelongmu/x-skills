@@ -36,76 +36,64 @@ source subtree:
 
 ### Install
 
-Run this command for a global installation:
+Run the installer from the project where you want to use the skills:
 
 ```bash
-npx skills add https://github.com/xuelongmu/x-skills/tree/main/.agents/skills --skill '*' --global --agent codex claude-code --yes
+npx skills@latest add xuelongmu/x-skills
 ```
 
-Omit `--global` for a project-local installation. Restart each agent after
-installation.
+The CLI discovers the repository's canonical skills and lets you choose the
+skills and supported agents. Project-local installation is the default. To make
+your selections available across projects, add `--global`:
+
+```bash
+npx skills@latest add xuelongmu/x-skills --global
+```
+
+Restart each selected agent after installation.
 
 ### Refresh
 
-A repository-scoped refresh re-runs the source installation. It refreshes this
-repository's installed skills and discovers additions without changing skills
-installed from other repositories:
+A repository-scoped refresh uses the same command as installation. Select the
+skills you want to refresh, including any newly added skills:
 
 ```bash
-npx skills add https://github.com/xuelongmu/x-skills/tree/main/.agents/skills --skill '*' --global --agent codex claude-code --yes
+npx skills@latest add xuelongmu/x-skills
 ```
 
-This command does not remove skills deleted upstream. Use the explicit removal
-command below when this repository retires a skill.
+Add `--global` when refreshing a global installation. This command does not
+remove skills deleted upstream.
 
-To reconcile deletions interactively across the complete global inventory, use
-two steps. The CLI has no source filter for `update`, so the first step updates
-every globally installed skill, including skills from other repositories. It
-reports newly available skills without installing them, which is why the second
-step re-runs the source installation.
+To reconcile deletions across your complete installed inventory, run:
 
-1. Update the installed global skills:
+```bash
+npx skills@latest update
+```
 
-   ```bash
-   npx skills update --global
-   ```
-
-   When prompted, confirm removal of skills deleted upstream. Do not add
-   `--yes` when you want this cleanup: non-interactive updates report deleted
-   skills but leave them installed.
-
-2. Re-run the repository installation to discover and install newly added
-   skills:
-
-   ```bash
-   npx skills add https://github.com/xuelongmu/x-skills/tree/main/.agents/skills --skill '*' --global --agent codex claude-code --yes
-   ```
-
-For a project-local refresh, use `--project` instead of `--global` in the first
-command and omit `--global` from each `add` command. The update still applies to
-the complete project skill inventory. Restart each agent after the refresh.
+Choose the project, global, or combined scope when prompted, and confirm removal
+of skills deleted upstream. The update command has no repository filter, so it
+can update skills installed from other sources in the selected scope. It reports
+new skills without installing them; rerun the repository-scoped `add` command to
+select additions. Restart each selected agent after the refresh.
 
 ### Remove or migrate a legacy installation
 
-Remove only this repository's known skill names:
+Use the interactive removal command:
 
 ```bash
-npx skills remove publish publish-slack babysit land prompt-agent-orchestrator drive-agent-orchestrator browser-evidence steward-research code-meta-reviewer google-developer-style --global --agent codex claude-code --yes
+npx skills@latest remove
 ```
 
-This command is the cross-platform migration cleanup before reinstalling. It
-removes entries only from CLI-managed agent locations. When an entry is a
+Project-local removal is the default. Add `--global` to remove a global
+installation. Select only entries installed from this repository. For a legacy
+installation, also select the retired `publish-slack` entry when present.
+
+The CLI removes entries only from managed agent locations. When an entry is a
 symlink or Windows junction, the link is deleted and its external target stays
 intact. When an entry is a real copied directory, that installed copy is
-deleted. If an old source checkout itself was placed directly inside an agent
-skills directory instead of being linked or copied there, move that checkout
-outside the managed directory before running cleanup so it is not mistaken for
-an installed copy. Then run the install command above. The cleanup list includes
-the retired `publish-slack` name so legacy Claude installations are removed.
-
-Omit `--global` to remove a project-local installation. Omit `--agent` only
-when intentionally cleaning the named skills from every agent supported by the
-CLI.
+deleted. If an old source checkout itself is inside an agent's managed skills
+directory, move that checkout elsewhere before removal so the CLI does not
+mistake it for an installed copy. Then run the short installation command.
 
 The `land` watcher is bundled at `scripts/land_watch.py`. Skills resolve bundled
 resources relative to the active `SKILL.md`; run watcher commands from the PR
