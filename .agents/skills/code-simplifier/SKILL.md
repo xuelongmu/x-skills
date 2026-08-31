@@ -8,6 +8,13 @@ description: Review or simplify recently changed code for clarity and maintainab
 Make the selected change easier to understand, verify, debug, and extend without
 changing its accepted behavior. Fewer lines are not inherently simpler.
 
+Establish the requested mode before editing. A request to review, audit,
+explain, or report is inspect-only: use non-mutating checks and return findings
+without changing files, commits, branches, or pull requests. Edit only when the
+user asks to simplify, refactor, fix, or otherwise change the code. If the
+request is ambiguous, remain inspect-only and identify the changes that would
+require authorization.
+
 ## Establish the actual scope
 
 1. Read the repository `AGENTS.md` and every directory-specific instruction
