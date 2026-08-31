@@ -189,6 +189,10 @@ class SkillLayoutTests(unittest.TestCase):
         self.assertIn("authorizes the Slack phase, not merging", land)
         self.assertIn("headRefName", land)
         self.assertIn("share-only request", land)
+        self.assertIn("mcp__claude_ai_Slack__slack_search_channels", land)
+        self.assertIn("mcp__claude_ai_Slack__slack_send_message_draft", land)
+        self.assertIn("reviewDecision", land)
+        self.assertIn("require `APPROVED`", land)
         self.assertFalse(
             (ROOT / ".claude" / "skills" / "publish-slack" / "SKILL.md").exists()
         )
