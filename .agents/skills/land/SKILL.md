@@ -71,8 +71,11 @@ follow the workflow below; include the Slack phase only when requested.
    and re-run checks.
 12. After all merge gates pass, use the repository's customary method: prefer
    explicit guidance, otherwise infer from recent merge history. Confirm the
-   method is enabled; if ambiguous, ask instead of guessing. Do not manually
-   delete the remote branch.
+   method is enabled; if ambiguous, ask instead of guessing. On Claude Code,
+   synchronously refresh `reviewDecision` immediately before merging and
+   require `APPROVED`; an empty decision, `REVIEW_REQUIRED`, or
+   `CHANGES_REQUESTED` remains blocking even when the watcher succeeds. Do not
+   manually delete the remote branch.
 13. **Context guard:** Before implementing review feedback, confirm it does not
     conflict with the user’s stated intent or task context. If it conflicts,
     respond inline with a justification and ask the user before changing code.
@@ -171,6 +174,15 @@ to `#zerogen` when none is supplied.
    share-only request; continue landing only when the original request also
    independently authorized landing.
 
+On Claude Code, the Slack connector schemas may be deferred. Use `ToolSearch`
+once to load the capabilities needed for the requested action before calling
+them directly: `mcp__claude_ai_Slack__slack_search_channels`,
+`mcp__claude_ai_Slack__slack_send_message_draft`, and, only for an explicitly
+authorized immediate send, `mcp__claude_ai_Slack__slack_send_message`. Search
+the requested channel across public and private channels before drafting. A
+failed deferred-schema lookup is not evidence that Slack is unavailable; only
+take the no-capability path after discovery or connection actually fails.
+
 Never hard-code a host's Slack tool names in this canonical skill.
 
 ## Native autofix coordination
@@ -229,6 +241,14 @@ if ! LAND_WATCH_PR="$pr_url" python3 "$LAND_SKILL_DIR/scripts/land_watch.py"; th
   # Exit code 4 means the PR head changed and local state must be refreshed.
   # Exit code 5 means the PR is behind, conflicting, or dirty.
   # Exit code 6 means the PR was merged or closed while being watched.
+  exit 1
+fi
+
+# On Claude Code, require human approval after the watcher and immediately
+# before the merge command. Stop when this is not APPROVED.
+review_decision=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json reviewDecision -q .reviewDecision)
+if [ "$review_decision" != "APPROVED" ]; then
+  echo "Claude Code requires an APPROVED reviewDecision before landing." >&2
   exit 1
 fi
 
