@@ -80,10 +80,11 @@ For canonical skills, installation has these invariants:
 
 Run `python -m unittest discover -s tests -v` for the repository layout audit.
 Run `pwsh -File tests/test_skills_cli_windows.ps1 -RepositoryRoot <source>` on
-Windows for an isolated CLI lifecycle check. A GitHub branch URL exercises
-remote update checking; a local repository path exercises discovery,
-agent-targeted installation, junction and copy placement, and removal but is
-not remotely updatable.
+Windows for an isolated CLI lifecycle check. A GitHub shorthand with a fragment
+ref, such as `owner/repo#feature-branch`, exercises remote update checking. URL
+encode `/` as `%2F` when the branch name contains a slash. A local repository
+path exercises discovery, agent-targeted installation, junction and copy
+placement, and removal but is not remotely updatable.
 
 ## Migration checklist
 
