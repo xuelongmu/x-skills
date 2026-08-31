@@ -21,23 +21,42 @@ Portable workflow skills for Claude Code and Codex.
 
 ## Setup
 
-Use the Skills CLI to discover and install skills. It maintains the canonical
-copy and any agent-specific links.
+Use the [`npx skills`](https://github.com/vercel-labs/skills) CLI for all
+installation, refresh, and removal operations. Run these commands in order for
+a global installation:
 
 ```bash
-npx skills add xuelongmu/x-skills -g
-npx skills add xuelongmu/x-skills --skill google-developer-style -g -a codex -a claude-code -y
-npx skills update -g
+npx skills add https://github.com/xuelongmu/x-skills/tree/main/.agents/skills --skill '*' --global --agent codex claude-code --yes
+npx skills add https://github.com/xuelongmu/x-skills/tree/main/.codex/skills --skill '*' --global --agent codex --yes
+npx skills add https://github.com/xuelongmu/x-skills/tree/main/.claude/skills --skill '*' --global --agent claude-code --copy --yes
 ```
 
-Omit `-g` for a project-local install. Use `npx skills remove -g <skill>` to
-uninstall a global skill, and restart the agent after an install or update.
+The Claude command uses CLI copy mode so same-name Claude variants remain
+independent from Codex variants in the canonical store. Do not install from the
+repository root with `--all`: the CLI deduplicates discovered skills by name and
+cannot select both variants. Omit `--global` for a project-local installation.
+Restart each agent after installation.
 
-On machines with an older manual installation, first inspect and remove only
-this repository's named entries from the agent skill directories. Remove a
-symlink or Windows junction itself—not the directory it targets. If an entry is
-a copied directory, verify its contents before deleting it recursively. Then
-reinstall it with `npx skills add` so future updates and removal are CLI-managed.
+To refresh a complete installation, re-run the three commands in the same
+order. The CLI lock is keyed by skill name, so a single update cannot retain two
+sources or copy modes for same-name host variants. If you installed only the
+shared skill, this shortcut is safe:
+
+```bash
+npx skills update --global google-developer-style --yes
+```
+
+On a machine with an older manual installation, remove only this repository's
+known skill names before running the install commands:
+
+```bash
+npx skills remove publish publish-slack babysit land prompt-agent-orchestrator drive-agent-orchestrator browser-evidence steward-research google-developer-style --global --agent codex claude-code --yes
+```
+
+The cleanup removes a symlink or Windows junction itself, not its external
+target. It deletes a real copied install directory, so move any source checkout
+stored directly inside an agent's skills directory before running it. Omit
+`--global` when migrating a project-local installation.
 
 The PR watcher resolves from the installed `land` skill directory—project-local
 first, then global—and must run from the PR repository's working directory so
