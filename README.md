@@ -97,7 +97,10 @@ Each skill file documents its own behavior; these are the cross-cutting choices:
   `LAND_WATCH_FEEDBACK_GRACE_SECONDS` from 30 to 86400 seconds.
 - Continuous `babysit` stops immediately when its PR is merged or closed and
   removes its monitor state. Otherwise, it stops after three consecutive
-  unchanged feedback cycles.
+  unchanged feedback cycles. On Claude surfaces with the sign-off notification
+  adapter, Codex activity plus a missing `codex-ok:<head-sha>` sentinel keeps
+  the monitor running until the pending sign-off/green-CI notification fires or
+  the PR reaches a terminal state.
 - `land` uses a host's native per-PR autofix control when available. On Claude
   surfaces, **Auto-fix CI & address comments** can provide wake-ups and fixes,
   but the shared watcher and final synchronous refresh remain the merge gates;
