@@ -74,10 +74,18 @@ function Assert-PathExists {
 function Get-SkillSource {
     param([string]$Subtree)
 
-    if ($RepositoryRoot -match "^https?://") {
-        return $RepositoryRoot.TrimEnd("/") + "/" + $Subtree.Replace("\", "/")
+    if (Test-Path -LiteralPath $RepositoryRoot) {
+        return Join-Path $RepositoryRoot $Subtree
     }
-    return Join-Path $RepositoryRoot $Subtree
+
+    $normalizedSubtree = $Subtree.Replace("\", "/")
+    $fragmentIndex = $RepositoryRoot.IndexOf("#")
+    if ($fragmentIndex -ge 0) {
+        $sourceBase = $RepositoryRoot.Substring(0, $fragmentIndex).TrimEnd("/")
+        $sourceFragment = $RepositoryRoot.Substring($fragmentIndex + 1)
+        return "$sourceBase/$normalizedSubtree#$sourceFragment"
+    }
+    return $RepositoryRoot.TrimEnd("/") + "/" + $normalizedSubtree
 }
 
 $canonicalSource = Get-SkillSource ".agents\skills"
@@ -157,7 +165,7 @@ try {
             throw "Claude-only publish-slack skill was installed for Codex."
         }
 
-        if ($RepositoryRoot -match "^https?://") {
+        if (-not (Test-Path -LiteralPath $RepositoryRoot)) {
             Invoke-SkillsCli (@("update", "--project") + $sharedSkills + @("--yes"))
             foreach ($skill in $sharedSkills) {
                 $claudeItem = Get-Item -LiteralPath (Join-Path $projectRoot ".claude\skills\$skill") -Force
