@@ -117,8 +117,8 @@ When the current work has no open PR:
    terse commit when staged changes exist. Reuse unpublished branch commits;
    never create an empty commit.
 6. Push the selected branch with upstream tracking. Never force-push unless the
-   user explicitly authorized it or the established workflow clearly requires
-   it and the target is verified.
+   user explicitly authorizes it and the target branch is verified. An
+   established workflow alone is not authorization.
 7. Write a title for the full branch diff and a Markdown body covering what and
    why, user impact, validation, and any limitations.
 8. Recheck for an open PR after the push to avoid duplicates. If none exists,
@@ -237,7 +237,13 @@ fi
 # checks are detected), it keeps polling feedback for the configured grace
 # window (15 minutes by default). A Codex review is not required to arrive; no
 # actionable feedback during that wait is enough to proceed.
-if ! LAND_WATCH_PR="$pr_url" python3 "$LAND_SKILL_DIR/scripts/land_watch.py"; then
+if watch_output=$(LAND_WATCH_PR="$pr_url" python3 "$LAND_SKILL_DIR/scripts/land_watch.py"); then
+  watch_status=0
+else
+  watch_status=$?
+fi
+printf '%s\n' "$watch_output"
+if [ "$watch_status" -ne 0 ]; then
   # Exit code 2 means review feedback must be handled.
   # Exit code 3 means checks failed.
   # Exit code 4 means the PR head changed and local state must be refreshed.
@@ -253,11 +259,16 @@ if [ "$review_decision" != "APPROVED" ]; then
   echo "Claude Code requires an APPROVED reviewDecision before landing." >&2
   exit 1
 fi
+validated_head=$(printf '%s\n' "$watch_output" | sed -n 's/^LAND_WATCH_VALIDATED_HEAD=//p' | tail -n 1)
+if [ -z "$validated_head" ]; then
+  echo "Watcher did not return its validated PR head; refusing to merge." >&2
+  exit 1
+fi
 
 # Run the customary enabled method:
-# merge:  GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --merge
-# rebase: GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --rebase
-# squash: GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --squash --subject "$pr_title" --body "$pr_body"
+# merge:  GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --merge --match-head-commit "$validated_head"
+# rebase: GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --rebase --match-head-commit "$validated_head"
+# squash: GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --squash --match-head-commit "$validated_head" --subject "$pr_title" --body "$pr_body"
 ```
 
 ## Async Watch Helper
@@ -299,7 +310,10 @@ Exit codes:
 The helper returns success only after the PR is conflict-free, checks are green,
 and the configured feedback grace period passes after green checks with no
 outstanding feedback. It does not require a Codex review to arrive; absence of
-feedback after the grace period is acceptable.
+feedback after the grace period is acceptable. On success it emits
+`LAND_WATCH_VALIDATED_HEAD=<sha>` for the exact head that passed final
+validation. Carry that emitted value into `gh pr merge --match-head-commit`;
+never replace it with a fresh head query that could bless an unvalidated commit.
 
 ## Failure Handling
 
@@ -326,9 +340,10 @@ feedback after the grace period is acceptable.
   requirement that a Codex review comment must arrive.
 - Do not enable auto-merge; this repo has no required checks so auto-merge can
   skip tests.
-- If the remote PR branch advanced due to your own prior force-push or merge,
-  avoid redundant merges; re-run the formatter locally if needed and
-  `git push --force-with-lease`.
+- If the remote PR branch advanced, fetch and integrate it without discarding
+  collaborator commits. Do not force-push unless the user explicitly
+  authorizes that history rewrite and the target branch is verified; when they
+  do, use `git push --force-with-lease` rather than an unguarded force push.
 
 ## Review Handling
 
