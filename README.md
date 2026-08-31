@@ -21,103 +21,27 @@ Portable workflow skills for Claude Code and Codex.
 
 ## Setup
 
-Clone this repo somewhere permanent, then **link** the skill directories into each tool's home directory — **junctions** on Windows (`New-Item -ItemType Junction`, no admin rights or Developer Mode needed), `ln -s` on macOS/Linux. A single `git pull` in the clone then updates every install on both platforms. The trade-off: the clone's current state is live (including a checked-out feature branch), and moving or deleting the clone breaks the installs — if you'd rather not keep a checkout, use the copy-based Codex installer at the end.
-
-Replace `C:\path\to\x-skills` / `/path/to/x-skills` with your clone's location.
-
-### Claude Code
-
-**Windows** (PowerShell):
-```powershell
-New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.claude\skills"
-foreach ($s in 'publish','publish-slack','babysit','prompt-agent-orchestrator','drive-agent-orchestrator','browser-evidence','steward-research') {
-  New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\skills\$s" -Target "C:\path\to\x-skills\.claude\skills\$s"
-}
-```
-
-**macOS / Linux**:
-```bash
-mkdir -p ~/.claude/skills
-for s in publish publish-slack babysit prompt-agent-orchestrator drive-agent-orchestrator browser-evidence steward-research; do
-  ln -s "/path/to/x-skills/.claude/skills/$s" "$HOME/.claude/skills/$s"
-done
-```
-
-### Codex
-
-**Windows** (PowerShell):
-```powershell
-$codexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE ".codex" }
-New-Item -ItemType Directory -Force -Path (Join-Path $codexHome "skills")
-foreach ($s in 'publish','babysit','land','prompt-agent-orchestrator','drive-agent-orchestrator','browser-evidence','steward-research') {
-  New-Item -ItemType Junction -Path (Join-Path $codexHome "skills\$s") -Target "C:\path\to\x-skills\.codex\skills\$s"
-}
-```
-
-**macOS / Linux**:
-```bash
-mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
-for s in publish babysit land prompt-agent-orchestrator drive-agent-orchestrator browser-evidence steward-research; do
-  ln -s "/path/to/x-skills/.codex/skills/$s" "${CODEX_HOME:-$HOME/.codex}/skills/$s"
-done
-```
-
-### Shared canonical skills
-
-`google-developer-style` is stored once under `.agents/skills/` and shared by
-both hosts. Link each host to that canonical source.
-
-**Windows** (PowerShell):
-```powershell
-$sharedSkill = "C:\path\to\x-skills\.agents\skills\google-developer-style"
-$codexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE ".codex" }
-New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\skills\google-developer-style" -Target $sharedSkill
-New-Item -ItemType Junction -Path (Join-Path $codexHome "skills\google-developer-style") -Target $sharedSkill
-```
-
-**macOS / Linux**:
-```bash
-ln -s "/path/to/x-skills/.agents/skills/google-developer-style" "$HOME/.claude/skills/google-developer-style"
-ln -s "/path/to/x-skills/.agents/skills/google-developer-style" "${CODEX_HOME:-$HOME/.codex}/skills/google-developer-style"
-```
-
-Alternatively, let the Skills CLI maintain its own canonical copy and agent
-links:
+Use the Skills CLI to discover and install skills. It maintains the canonical
+copy and any agent-specific links.
 
 ```bash
+npx skills add xuelongmu/x-skills -g
 npx skills add xuelongmu/x-skills --skill google-developer-style -g -a codex -a claude-code -y
-npx skills update -g google-developer-style
+npx skills update -g
 ```
 
-Restart each agent after linking.
+Omit `-g` for a project-local install. Use `npx skills remove -g <skill>` to
+uninstall a global skill, and restart the agent after an install or update.
 
-For a **project-local** install (skills committed to one repo so they travel with it), **copy** instead of linking — links back to your personal clone won't exist for teammates or CI checkouts. From the target repo root:
+On machines with an older manual installation, first inspect and remove only
+this repository's named entries from the agent skill directories. Remove a
+symlink or Windows junction itself—not the directory it targets. If an entry is
+a copied directory, verify its contents before deleting it recursively. Then
+reinstall it with `npx skills add` so future updates and removal are CLI-managed.
 
-**Windows** (PowerShell):
-```powershell
-New-Item -ItemType Directory -Force -Path ".codex\skills"
-foreach ($s in 'babysit','land') {
-  Copy-Item -Recurse -Force "C:\path\to\x-skills\.codex\skills\$s" ".codex\skills\$s"
-}
-```
-
-**macOS / Linux**:
-```bash
-mkdir -p .codex/skills
-for s in babysit land; do
-  cp -R "/path/to/x-skills/.codex/skills/$s" ".codex/skills/$s"
-done
-```
-
-The watcher resolves from the installed `land` skill directory — project-local first, then global — and must run from the PR repository's working directory so `gh` picks up the right repo.
-
-**No local checkout?** Ask Codex to install copies instead:
-
-> Install the `publish`, `babysit`, `land`, `prompt-agent-orchestrator`, `drive-agent-orchestrator`, `browser-evidence`, and `steward-research`
-> skills from `https://github.com/xuelongmu/x-skills`. Use the corresponding
-> paths under `.codex/skills/`.
-
-Copies don't track this repo — re-run the installer to pick up updates.
+The PR watcher resolves from the installed `land` skill directory—project-local
+first, then global—and must run from the PR repository's working directory so
+`gh` selects the intended repository.
 
 ## Design notes
 
