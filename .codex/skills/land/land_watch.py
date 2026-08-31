@@ -19,6 +19,15 @@ DEFAULT_FEEDBACK_GRACE_SECONDS = 900
 MIN_FEEDBACK_GRACE_SECONDS = 30
 MAX_FEEDBACK_GRACE_SECONDS = 86400
 FEEDBACK_GRACE_SECONDS_ENV = "LAND_WATCH_FEEDBACK_GRACE_SECONDS"
+# Only `land` merges, so only `land` may clear an auto-merge request. `babysit`
+# shares this watcher and must never mutate merge state, so this is opt-in.
+DISABLE_AUTO_MERGE_ENV = "LAND_WATCH_DISABLE_AUTO_MERGE"
+
+
+def parse_disable_auto_merge(raw_value: str | None) -> bool:
+    if raw_value is None:
+        return False
+    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def parse_poll_seconds(raw_value: str | None) -> int:
@@ -70,6 +79,7 @@ PR_SELECTOR = os.environ.get(PR_SELECTOR_ENV) or None
 CHECKS_APPEAR_TIMEOUT_SECONDS = 120
 # Base branch recorded at startup; a retarget must not merge into another branch.
 EXPECTED_BASE_REF: str | None = None
+DISABLE_AUTO_MERGE = parse_disable_auto_merge(os.environ.get(DISABLE_AUTO_MERGE_ENV))
 FEEDBACK_GRACE_SECONDS = parse_feedback_grace_seconds(
     os.environ.get(FEEDBACK_GRACE_SECONDS_ENV),
 )
@@ -216,6 +226,18 @@ async def disable_auto_merge(pr: PrInfo) -> None:
         f"{pr.owner}/{pr.repo}",
         "--disable-auto",
         api_host=pr.hostname,
+    )
+
+
+async def handle_armed_auto_merge(pr: PrInfo) -> None:
+    """Clear auto-merge only for `land`; `babysit` shares this watcher and never merges."""
+    if DISABLE_AUTO_MERGE:
+        await disable_auto_merge(pr)
+        return
+    print(
+        "Auto-merge is armed on this PR; leaving it alone. GitHub may merge as "
+        f"soon as checks pass. Set {DISABLE_AUTO_MERGE_ENV}=1 to disable it.",
+        flush=True,
     )
 
 
@@ -1067,7 +1089,7 @@ async def validate_final_pr_state(expected_head_sha: str) -> tuple[str, str | No
     current_pr = await get_pr_info()
     raise_if_pr_terminal(current_pr)
     if current_pr.auto_merge:
-        await disable_auto_merge(current_pr)
+        await handle_armed_auto_merge(current_pr)
     if is_merge_conflicting(current_pr):
         print(
             "PR is behind, conflicting, or dirty during final readiness validation.",
@@ -1431,7 +1453,7 @@ async def watch_pr() -> None:
     global EXPECTED_BASE_REF
     EXPECTED_BASE_REF = pr.base_ref_name
     if pr.auto_merge:
-        await disable_auto_merge(pr)
+        await handle_armed_auto_merge(pr)
     if is_merge_conflicting(pr):
         print(
             f"PR is behind, conflicting, or dirty. Merge/rebase against "
@@ -1466,7 +1488,7 @@ async def watch_pr() -> None:
             current = await get_pr_info()
             raise_if_pr_terminal(current)
             if current.auto_merge:
-                await disable_auto_merge(current)
+                await handle_armed_auto_merge(current)
             if is_merge_conflicting(current):
                 print(
                     f"PR is behind, conflicting, or dirty. Merge/rebase against "

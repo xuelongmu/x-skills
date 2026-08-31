@@ -192,7 +192,8 @@ head_sha=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json h
 # checks are detected), it keeps polling feedback for the configured grace
 # window (15 minutes by default). A Codex review is not required to arrive; no
 # actionable feedback during that wait is enough to proceed.
-if ! LAND_WATCH_PR="$pr_url" python3 "$LAND_SKILL_DIR/land_watch.py"; then
+if ! LAND_WATCH_PR="$pr_url" LAND_WATCH_DISABLE_AUTO_MERGE=1 \
+  python3 "$LAND_SKILL_DIR/land_watch.py"; then
   # Exit code 2 means review feedback must be handled.
   # Exit code 3 means checks failed.
   # Exit code 4 means the PR head changed and local state must be refreshed.
@@ -283,9 +284,11 @@ feedback after the grace period is acceptable.
 - Do not merge if `baseRefName` no longer matches the recorded `$pr_base`; the
   PR was retargeted, so restart validation against the new base.
 - The watcher polls `autoMergeRequest` every cycle and during final readiness
-  validation, and clears any request it finds with `gh pr merge --disable-auto`
-  before GitHub can merge ahead of the grace window. Still re-check immediately
-  before merging, since the watcher stops polling once it returns.
+  validation. Run it with `LAND_WATCH_DISABLE_AUTO_MERGE=1` (as the Commands
+  block does) so it clears any request with `gh pr merge --disable-auto` before
+  GitHub can merge ahead of the grace window; without that variable it only
+  reports the armed state, which is what `babysit` needs. Still re-check
+  immediately before merging, since the watcher stops polling once it returns.
 - Do not merge while a `CHANGES_REQUESTED` review is active, even after every
   thread is addressed; without branch protection GitHub still allows it. Wait
   for the reviewer to dismiss or supersede the review.

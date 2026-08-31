@@ -570,6 +570,41 @@ class PullRequestIdentityTests(unittest.TestCase):
 
                 self.assertFalse(pr.auto_merge)
 
+    def test_parse_disable_auto_merge_defaults_off(self) -> None:
+        for raw in (None, "", "0", "false", "no"):
+            with self.subTest(raw=raw):
+                self.assertFalse(land_watch.parse_disable_auto_merge(raw))
+
+    def test_parse_disable_auto_merge_accepts_truthy_values(self) -> None:
+        for raw in ("1", "true", "TRUE", " yes ", "on"):
+            with self.subTest(raw=raw):
+                self.assertTrue(land_watch.parse_disable_auto_merge(raw))
+
+    def test_armed_auto_merge_is_left_alone_by_default(self) -> None:
+        disable = AsyncMock()
+        pr = FinalReadinessTests.pr_info()
+
+        with (
+            patch.object(land_watch, "DISABLE_AUTO_MERGE", False),
+            patch.object(land_watch, "disable_auto_merge", disable),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            asyncio.run(land_watch.handle_armed_auto_merge(pr))
+
+        disable.assert_not_awaited()
+
+    def test_armed_auto_merge_is_disabled_when_opted_in(self) -> None:
+        disable = AsyncMock()
+        pr = FinalReadinessTests.pr_info()
+
+        with (
+            patch.object(land_watch, "DISABLE_AUTO_MERGE", True),
+            patch.object(land_watch, "disable_auto_merge", disable),
+        ):
+            asyncio.run(land_watch.handle_armed_auto_merge(pr))
+
+        disable.assert_awaited_once_with(pr)
+
     def test_raise_if_base_changed_flags_retarget(self) -> None:
         pr = FinalReadinessTests.pr_info(base_ref_name="release/next")
 
