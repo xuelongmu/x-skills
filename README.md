@@ -13,6 +13,7 @@ Portable workflow skills for Claude Code and Codex.
 | drive-agent-orchestrator | Operate Agent Orchestrator: preflight, spawn/supervise workers and orchestrators, monitor sessions | `/drive-agent-orchestrator` | `drive-agent-orchestrator` |
 | browser-evidence | Drive a running app, verify a flow, and capture browser-visible evidence | `/browser-evidence` | `browser-evidence` |
 | steward-research | Organize research repositories for reproducibility and safe handoff | `/steward-research` | `steward-research` |
+| google-developer-style | Draft, revise, or review clear, accessible developer documentation using distilled Google-style guidance | `/google-developer-style [documentation or path]` | `google-developer-style` |
 
 - `babysit` never merges, enables auto-merge, or deletes branches — it prints the merge command when ready. `land` can publish a missing PR and is the only skill that merges.
 - Codex `babysit` and `land` share `land/land_watch.py`, so on Codex always install `land` alongside `babysit`. Codex has no `/loop`; a single `babysit` run uses that watcher, and continuous monitoring uses a Codex cron automation.
@@ -20,76 +21,46 @@ Portable workflow skills for Claude Code and Codex.
 
 ## Setup
 
-Clone this repo somewhere permanent, then **link** the skill directories into each tool's home directory — **junctions** on Windows (`New-Item -ItemType Junction`, no admin rights or Developer Mode needed), `ln -s` on macOS/Linux. A single `git pull` in the clone then updates every install on both platforms. The trade-off: the clone's current state is live (including a checked-out feature branch), and moving or deleting the clone breaks the installs — if you'd rather not keep a checkout, use the copy-based Codex installer at the end.
+Use the [`npx skills`](https://github.com/vercel-labs/skills) CLI for all
+installation, refresh, and removal operations. Run these commands in order for
+a global installation:
 
-Replace `C:\path\to\x-skills` / `/path/to/x-skills` with your clone's location.
-
-### Claude Code
-
-**Windows** (PowerShell):
-```powershell
-New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.claude\skills"
-foreach ($s in 'publish','babysit','land','prompt-agent-orchestrator','drive-agent-orchestrator','browser-evidence','steward-research') {
-  New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\skills\$s" -Target "C:\path\to\x-skills\.claude\skills\$s"
-}
-```
-
-**macOS / Linux**:
 ```bash
-mkdir -p ~/.claude/skills
-for s in publish babysit land prompt-agent-orchestrator drive-agent-orchestrator browser-evidence steward-research; do
-  ln -s "/path/to/x-skills/.claude/skills/$s" "$HOME/.claude/skills/$s"
-done
+npx skills add https://github.com/xuelongmu/x-skills/tree/main/.agents/skills --skill '*' --global --agent codex claude-code --yes
+npx skills add https://github.com/xuelongmu/x-skills/tree/main/.codex/skills --skill '*' --global --agent codex --yes
+npx skills add https://github.com/xuelongmu/x-skills/tree/main/.claude/skills --skill '*' --global --agent claude-code --copy --yes
 ```
 
-### Codex
+The Claude command uses CLI copy mode so same-name Claude variants remain
+independent from Codex variants in the canonical store. Do not install from the
+repository root with `--all`: the CLI deduplicates discovered skills by name and
+cannot select both variants. Omit `--global` for a project-local installation.
+Restart each agent after installation.
 
-**Windows** (PowerShell):
-```powershell
-$codexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE ".codex" }
-New-Item -ItemType Directory -Force -Path (Join-Path $codexHome "skills")
-foreach ($s in 'publish','babysit','land','prompt-agent-orchestrator','drive-agent-orchestrator','browser-evidence','steward-research') {
-  New-Item -ItemType Junction -Path (Join-Path $codexHome "skills\$s") -Target "C:\path\to\x-skills\.codex\skills\$s"
-}
-```
+To refresh a complete installation, re-run the three commands in the same
+order. The CLI lock is keyed by skill name, so a single update cannot retain two
+sources or copy modes for same-name host variants. If you installed only the
+shared skill, this shortcut is safe:
 
-**macOS / Linux**:
 ```bash
-mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
-for s in publish babysit land prompt-agent-orchestrator drive-agent-orchestrator browser-evidence steward-research; do
-  ln -s "/path/to/x-skills/.codex/skills/$s" "${CODEX_HOME:-$HOME/.codex}/skills/$s"
-done
+npx skills update --global google-developer-style --yes
 ```
 
-Restart Codex after linking.
+On a machine with an older manual installation, remove only this repository's
+known skill names before running the install commands:
 
-For a **project-local** install (skills committed to one repo so they travel with it), **copy** instead of linking — links back to your personal clone won't exist for teammates or CI checkouts. From the target repo root:
-
-**Windows** (PowerShell):
-```powershell
-New-Item -ItemType Directory -Force -Path ".codex\skills"
-foreach ($s in 'babysit','land') {
-  Copy-Item -Recurse -Force "C:\path\to\x-skills\.codex\skills\$s" ".codex\skills\$s"
-}
-```
-
-**macOS / Linux**:
 ```bash
-mkdir -p .codex/skills
-for s in babysit land; do
-  cp -R "/path/to/x-skills/.codex/skills/$s" ".codex/skills/$s"
-done
+npx skills remove publish publish-slack babysit land prompt-agent-orchestrator drive-agent-orchestrator browser-evidence steward-research google-developer-style --global --agent codex claude-code --yes
 ```
 
-The watcher resolves from the installed `land` skill directory — project-local first, then global — and must run from the PR repository's working directory so `gh` picks up the right repo.
+The cleanup removes a symlink or Windows junction itself, not its external
+target. It deletes a real copied install directory, so move any source checkout
+stored directly inside an agent's skills directory before running it. Omit
+`--global` when migrating a project-local installation.
 
-**No local checkout?** Ask Codex to install copies instead:
-
-> Install the `publish`, `babysit`, `land`, `prompt-agent-orchestrator`, `drive-agent-orchestrator`, `browser-evidence`, and `steward-research`
-> skills from `https://github.com/xuelongmu/x-skills`. Use the corresponding
-> paths under `.codex/skills/`.
-
-Copies don't track this repo — re-run the installer to pick up updates.
+The PR watcher resolves from the installed `land` skill directory—project-local
+first, then global—and must run from the PR repository's working directory so
+`gh` selects the intended repository.
 
 ## Design notes
 
@@ -101,3 +72,4 @@ Each skill file documents its own behavior; these are the cross-cutting choices:
 - The shared Codex PR watcher polls GitHub every 30 seconds by default; set `LAND_WATCH_POLL_SECONDS` from 30 to 300 seconds when a repository needs a lower API request rate. The feedback grace window defaults to 900 seconds (15 minutes) and can be overridden for both hosts with `LAND_WATCH_FEEDBACK_GRACE_SECONDS` from 30 to 86400 seconds. Both hosts require final feedback and PR snapshots to converge unchanged, with CI revalidated between them, after that window.
 - Continuous `babysit` stops immediately when its PR is merged or closed and removes its automation state. Otherwise it stops after three consecutive unchanged feedback cycles (about 30 minutes at the documented 10-minute schedule), except while a Codex sign-off notification is still pending.
 - `land` merges with the repository's customary method (inferred from merge history when the user does not say), never enables auto-merge, and leaves branch deletion to the repository's auto-delete setting.
+- `google-developer-style` lives once under `.agents/skills/`; install-time links expose the same source to Codex and Claude Code. It distills the guide's highest-impact decisions, while project-specific style and the live Google guide remain authoritative.
