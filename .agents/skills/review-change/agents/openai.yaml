@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Change"
+  short_description: "Review changes with evidence and risk routing"
+  default_prompt: "Use $review-change to review the current change against its intent, verification, and diff-selected risks without editing it."

@@ -54,6 +54,8 @@ uvx --from skills-ref agentskills validate <skill-directory>
 | `browser-evidence` | canonical | Browser selection is capability-based instead of naming a host-specific browser connector. |
 | `steward-research` | canonical | The previous host copies were byte-identical. |
 | `code-meta-reviewer` | canonical | The meta-review and simplification workflow is shared; Codex task-history lookup is selected only when the active host exposes that capability. |
+| `capture-learning` | canonical | Evidence gates and destination routing are host-neutral. The skill discovers repository authorities and loads its routing reference only after a candidate qualifies. |
+| `review-change` | canonical | Intent recovery, review-only safety, verification audit, and diff-routed risk lenses do not depend on host-specific tools; optional local or external reviewers are capability- and authorization-gated. |
 | `google-developer-style` | canonical | Introduced as a shared source in PR #23. |
 | `publish-slack` | folded into `land` | PR sharing and Vercel preview lookup are host-neutral. `land` uses any authenticated Slack capability, drafts by default, and sends only on explicit request. |
 
@@ -61,8 +63,10 @@ Before this consolidation, the repository tracked 15 `SKILL.md` sources: one
 canonical source plus seven sources for each host. The migration removed six
 duplicated cross-host pairs, folded the former Claude-only `publish-slack`
 workflow into `land`, and made `land` available to Claude Code. The repository
-now tracks nine canonical sources, including the subsequently added
-`code-meta-reviewer`, without reintroducing host copies.
+now tracks eleven canonical sources, including the subsequently added
+`code-meta-reviewer`, `capture-learning`, and `review-change`, without
+reintroducing host copies. The consolidation still removes seven duplicated
+sources without removing a workflow.
 
 ## Installation constraints
 
@@ -130,7 +134,8 @@ encode `/` as `%2F` when the branch name contains a slash.
    select this repository's entries. The CLI handles managed copies and links
    without deleting link targets.
 3. Reinstall with the command in the README, then restart Codex and Claude Code.
-4. Verify names and descriptions in each host, then exercise `land` from both
-   hosts to confirm that the bundled watcher resolves from the installed skill
-   directory. On a Claude surface, verify that native autofix events re-enter
-   the same workflow without bypassing final checks.
+4. Verify names and descriptions in each host. Confirm that
+   `capture-learning` and `review-change` can load their bundled references, then
+   exercise `land` from both hosts to confirm that the watcher resolves from the
+   installed skill directory. On a Claude surface, verify that native autofix
+   events re-enter the same workflow without bypassing final checks.

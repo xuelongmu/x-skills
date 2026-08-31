@@ -1,0 +1,4 @@
+interface:
+  display_name: "Capture Learning"
+  short_description: "Capture verified engineering knowledge durably"
+  default_prompt: "Use $capture-learning to route this verified learning to the repository authority that should prevent recurrence."
