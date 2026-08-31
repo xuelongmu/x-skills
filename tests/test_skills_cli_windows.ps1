@@ -18,11 +18,13 @@ $canonicalSkills = @(
     "babysit",
     "browser-evidence",
     "code-meta-reviewer",
+    "capture-learning",
     "drive-agent-orchestrator",
     "google-developer-style",
     "land",
     "prompt-agent-orchestrator",
     "publish",
+    "review-change",
     "steward-research"
 )
 $allSkills = @(
@@ -34,6 +36,8 @@ $allSkills = @(
     "browser-evidence",
     "code-meta-reviewer",
     "steward-research",
+    "capture-learning",
+    "review-change",
     "google-developer-style"
 )
 $tempBase = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
@@ -125,6 +129,8 @@ try {
         $landWatcher = Join-Path $projectRoot ".agents\skills\land\scripts\land_watch.py"
         Assert-PathExists $landWatcher
         Assert-PathExists (Join-Path $projectRoot ".claude\skills\land\scripts\land_watch.py")
+        Assert-PathExists (Join-Path $projectRoot ".claude\skills\capture-learning\references\destination-routing.md")
+        Assert-PathExists (Join-Path $projectRoot ".claude\skills\review-change\references\risk-lenses.md")
 
         if (-not (Test-Path -LiteralPath $RepositoryRoot)) {
             Invoke-SkillsCli (@("update", "--project") + $canonicalSkills + @("--yes"))

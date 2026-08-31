@@ -12,11 +12,13 @@ CANONICAL = {
     "babysit",
     "browser-evidence",
     "code-meta-reviewer",
+    "capture-learning",
     "drive-agent-orchestrator",
     "google-developer-style",
     "land",
     "prompt-agent-orchestrator",
     "publish",
+    "review-change",
     "steward-research",
 }
 STANDARD_FRONTMATTER_FIELDS = {
@@ -301,6 +303,67 @@ class SkillLayoutTests(unittest.TestCase):
         self.assertNotIn("or the established workflow", publish)
         self.assertIn("explicit timeout", orchestrator)
         self.assertIn("timeout, and escalation action", template)
+
+    def test_capture_learning_routes_only_verified_durable_knowledge(self) -> None:
+        skill = (
+            ROOT / ".agents" / "skills" / "capture-learning" / "SKILL.md"
+        ).read_text(encoding="utf-8")
+        routing = (
+            ROOT
+            / ".agents"
+            / "skills"
+            / "capture-learning"
+            / "references"
+            / "destination-routing.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("Unresolved causal chains are not durable learnings", skill)
+        self.assertIn("A one-off fact with cheap rediscovery", skill)
+        self.assertIn("`No durable change`", skill)
+        self.assertIn("A decision that changes architecture routes to an ADR", routing)
+        self.assertIn("Do not create a generic", skill)
+        for field in (
+            "Learning:",
+            "Evidence:",
+            "Destination:",
+            "Changes:",
+            "Staleness check:",
+            "Residual uncertainty:",
+        ):
+            self.assertIn(field, skill)
+
+    def test_review_change_routes_risk_and_preserves_review_only_mode(self) -> None:
+        skill = (
+            ROOT / ".agents" / "skills" / "review-change" / "SKILL.md"
+        ).read_text(encoding="utf-8")
+        lenses = (
+            ROOT
+            / ".agents"
+            / "skills"
+            / "review-change"
+            / "references"
+            / "risk-lenses.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("A review-only invocation", skill)
+        self.assertIn("return\n`Inconclusive`", skill)
+        self.assertIn("omits the tenant guard on a reachable path", lenses)
+        self.assertIn("Missing browser or manual evidence", skill)
+        self.assertIn("is a verification gap, not automatically a code", skill)
+        self.assertIn("A trivial documentation-only diff", lenses)
+        self.assertIn("does not activate generic tenancy, security", lenses)
+        self.assertIn("External or cross-model review requires opt-in", skill)
+        for lens in (
+            "Schema and migrations",
+            "Billing and pricing",
+            "Providers, queues, and retries",
+            "Cross-service contracts",
+            "UI, accessibility, and evidence",
+            "Infrastructure, secrets, and portability",
+            "Imported, vendored, generated, and dependency code",
+            "Documentation, skills, and authority staleness",
+        ):
+            self.assertIn(lens, lenses)
 
     def test_documentation_uses_cli_only_for_install_lifecycle(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
