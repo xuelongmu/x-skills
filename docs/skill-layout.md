@@ -53,15 +53,16 @@ uvx --from skills-ref agentskills validate <skill-directory>
 | `drive-agent-orchestrator` | canonical | The instructions are host-neutral. The Claude-only autocomplete hint was removed to keep standard frontmatter. |
 | `browser-evidence` | canonical | Browser selection is capability-based instead of naming a host-specific browser connector. |
 | `steward-research` | canonical | The previous host copies were byte-identical. |
+| `code-simplifier` | canonical | The review and simplification workflow is shared; Codex task-history lookup is selected only when the active host exposes that capability. |
 | `google-developer-style` | canonical | Introduced as a shared source in PR #23. |
 | `publish-slack` | folded into `land` | PR sharing and Vercel preview lookup are host-neutral. `land` uses any authenticated Slack capability, drafts by default, and sends only on explicit request. |
 
 Before this consolidation, the repository tracked 15 `SKILL.md` sources: one
-canonical source plus seven sources for each host. It now tracks eight
-canonical sources. Six duplicated cross-host pairs were removed, the former
-Claude-only `publish-slack` workflow was folded into `land`, and `land` became
-available to Claude Code. This removes seven skill sources without removing a
-workflow.
+canonical source plus seven sources for each host. The migration removed six
+duplicated cross-host pairs, folded the former Claude-only `publish-slack`
+workflow into `land`, and made `land` available to Claude Code. The repository
+now tracks nine canonical sources, including the subsequently added
+`code-simplifier`, without reintroducing host copies.
 
 ## Installation constraints
 
@@ -106,6 +107,7 @@ find host-only invocation surfaces that the shared instructions must preserve:
 | Claude Code | `ToolSearch` and `mcp__claude_ai_Slack__*` connector tools | `land` conditionally loads deferred Slack schemas before channel lookup, drafting, or an explicitly authorized send. |
 | Claude Code | **Auto-fix CI & address comments** | `land` treats it as optional dispatch and remediation; the shared watcher still owns final readiness. |
 | Claude Code | `reviewDecision` approval gate | `land` refreshes the selected PR immediately before merging and requires `APPROVED`; watcher success alone cannot bypass human approval. |
+| Codex desktop | Task listing and task-history readers | `code-simplifier` reads only pertinent `zerogen-platform` tasks when those tools are available; other hosts use history supplied in the conversation or as an export. |
 
 These adapters do not change the underlying workflow or justify duplicated
 skill sources. If a future host-specific interface changes the actual tools,

@@ -17,6 +17,7 @@ if (-not (Get-Command npx -ErrorAction SilentlyContinue)) {
 $canonicalSkills = @(
     "babysit",
     "browser-evidence",
+    "code-simplifier",
     "drive-agent-orchestrator",
     "google-developer-style",
     "land",
@@ -31,6 +32,7 @@ $allSkills = @(
     "prompt-agent-orchestrator",
     "drive-agent-orchestrator",
     "browser-evidence",
+    "code-simplifier",
     "steward-research",
     "google-developer-style"
 )

@@ -1,0 +1,4 @@
+interface:
+  display_name: "ZeroGen Code Simplifier"
+  short_description: "Review and simplify ZeroGen changes safely"
+  default_prompt: "Use $code-simplifier to review and refine the current ZeroGen Platform diff while preserving its behavior."
