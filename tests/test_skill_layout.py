@@ -79,6 +79,8 @@ def top_level_yaml(text: str) -> dict[str, tuple[str, list[str]]]:
             if not match:
                 raise AssertionError(f"Invalid top-level YAML line: {line}")
             current = match.group(1)
+            if current in fields:
+                raise AssertionError(f"duplicate top-level key: {current}")
             fields[current] = (match.group(2) or "", [])
         elif current is not None:
             fields[current][1].append(line)
@@ -132,6 +134,10 @@ def frontmatter(skill: Path) -> dict[str, tuple[str, list[str]]]:
 
 
 class SkillLayoutTests(unittest.TestCase):
+    def test_top_level_frontmatter_rejects_duplicate_keys(self) -> None:
+        with self.assertRaisesRegex(AssertionError, "duplicate top-level key: name"):
+            top_level_yaml("name: wrong\nname: publish")
+
     def test_scalar_frontmatter_rejects_structured_yaml(self) -> None:
         for continuation in (("  - Bash",), ("  nested: value",), ("  [Bash, Read]",)):
             with self.subTest(continuation=continuation):
