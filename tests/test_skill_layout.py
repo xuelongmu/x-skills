@@ -26,6 +26,12 @@ STANDARD_FRONTMATTER_FIELDS = {
     "metadata",
     "name",
 }
+NON_STRING_YAML_SCALAR = re.compile(
+    r"(?:~|null|true|false|"
+    r"[-+]?(?:\.inf|\.nan|0x[0-9a-f_]+|0o[0-7_]+|"
+    r"(?:\d[\d_]*)(?:\.\d[\d_]*)?(?:e[-+]?\d[\d_]*)?))",
+    re.IGNORECASE,
+)
 
 
 def skill_dirs(container: Path) -> set[str]:
@@ -46,10 +52,19 @@ def all_skill_paths() -> list[Path]:
     return paths
 
 
-def yaml_scalar(value: str) -> str:
+def yaml_string_scalar(value: str, label: str) -> str:
     value = value.strip()
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
-        return ast.literal_eval(value)
+    if len(value) >= 2 and value[0] == value[-1] == "'":
+        return value[1:-1].replace("''", "'")
+    if len(value) >= 2 and value[0] == value[-1] == '"':
+        parsed = ast.literal_eval(value)
+        if not isinstance(parsed, str):
+            raise AssertionError(f"{label} must be a YAML string")
+        return parsed
+    if value.startswith(("[", "{", "&", "*", "!", "- ")) or (
+        value and NON_STRING_YAML_SCALAR.fullmatch(value)
+    ):
+        raise AssertionError(f"{label} must be a YAML string")
     return value
 
 
@@ -87,7 +102,7 @@ def scalar_field(fields: dict[str, tuple[str, list[str]]], key: str) -> str:
         return " ".join(nested)
     if continuation:
         raise AssertionError(f"Expected scalar YAML field: {key}")
-    return yaml_scalar(value)
+    return yaml_string_scalar(value, f"Expected scalar YAML field: {key}")
 
 
 def metadata_strings(field: tuple[str, list[str]]) -> dict[str, str]:
@@ -96,24 +111,15 @@ def metadata_strings(field: tuple[str, list[str]]) -> dict[str, str]:
         raise AssertionError("metadata must be a non-empty mapping")
 
     parsed: dict[str, str] = {}
-    non_string_scalar = re.compile(
-        r"(?:~|null|true|false|[-+]?(?:\d[\d_]*)(?:\.\d[\d_]*)?)",
-        re.IGNORECASE,
-    )
     for line in nested:
         match = re.fullmatch(r"\s+([\w.-]+):\s*(.+)", line)
         if not match:
             raise AssertionError(f"metadata values must be scalar strings: {line}")
         key, raw_value = match.groups()
         raw_value = raw_value.strip()
-        if (
-            raw_value.startswith(("[", "{", "- ", "&", "*"))
-            or non_string_scalar.fullmatch(raw_value)
-        ):
-            raise AssertionError(f"metadata value must be a YAML string: {line}")
         if key in parsed:
             raise AssertionError(f"duplicate metadata key: {key}")
-        parsed[key] = yaml_scalar(raw_value)
+        parsed[key] = yaml_string_scalar(raw_value, "metadata value")
     return parsed
 
 
@@ -134,6 +140,14 @@ class SkillLayoutTests(unittest.TestCase):
         self.assertEqual(
             scalar_field({"description": ("", ["  See https://example.com"])}, "description"),
             "See https://example.com",
+        )
+        for value in ("[one, two]", "{tool: true}", "false", "2", "1.5"):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(AssertionError, "YAML string"):
+                    scalar_field({"description": (value, [])}, "description")
+        self.assertEqual(
+            scalar_field({"description": ('"false"', [])}, "description"),
+            "false",
         )
 
     def test_metadata_rejects_non_string_child_values(self) -> None:
@@ -201,8 +215,12 @@ class SkillLayoutTests(unittest.TestCase):
                 prompt_match = re.search(r"^\s+default_prompt:\s*(.+)$", text, re.MULTILINE)
                 self.assertIsNotNone(short_match)
                 self.assertIsNotNone(prompt_match)
-                short_description = yaml_scalar(short_match.group(1))
-                default_prompt = yaml_scalar(prompt_match.group(1))
+                short_description = yaml_string_scalar(
+                    short_match.group(1), "interface.short_description"
+                )
+                default_prompt = yaml_string_scalar(
+                    prompt_match.group(1), "interface.default_prompt"
+                )
                 self.assertTrue(25 <= len(short_description) <= 64)
                 self.assertIn(f"${skill.name}", default_prompt)
 
@@ -233,6 +251,7 @@ class SkillLayoutTests(unittest.TestCase):
         self.assertIn("mcp__claude_ai_Slack__slack_send_message_draft", land)
         self.assertIn("reviewDecision", land)
         self.assertIn("require `APPROVED`", land)
+        self.assertIn('if [ "${CLAUDECODE:-}" = "1" ]; then', land)
         self.assertIn("LAND_WATCH_VALIDATED_HEAD", land)
         self.assertIn('--match-head-commit "$validated_head"', land)
         self.assertIn("explicitly authorizes", land)
