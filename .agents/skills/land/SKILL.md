@@ -252,12 +252,14 @@ if [ "$watch_status" -ne 0 ]; then
   exit 1
 fi
 
-# On Claude Code, require human approval after the watcher and immediately
-# before the merge command. Stop when this is not APPROVED.
-review_decision=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json reviewDecision -q .reviewDecision)
-if [ "$review_decision" != "APPROVED" ]; then
-  echo "Claude Code requires an APPROVED reviewDecision before landing." >&2
-  exit 1
+# Claude Code sets CLAUDECODE=1. Only that host requires human approval here;
+# Codex and other hosts retain the selected repository's review policy.
+if [ "${CLAUDECODE:-}" = "1" ]; then
+  review_decision=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json reviewDecision -q .reviewDecision)
+  if [ "$review_decision" != "APPROVED" ]; then
+    echo "Claude Code requires an APPROVED reviewDecision before landing." >&2
+    exit 1
+  fi
 fi
 validated_head=$(printf '%s\n' "$watch_output" | sed -n 's/^LAND_WATCH_VALIDATED_HEAD=//p' | tail -n 1)
 if [ -z "$validated_head" ]; then
