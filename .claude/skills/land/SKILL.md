@@ -58,7 +58,7 @@ PR_URL=$(gh pr view ${PR_SELECTOR:+"$PR_SELECTOR"} --json url --jq .url)
 HOST=$(gh pr view "$PR_URL" --json url --jq '.url | split("/")[2]')
 REPO=$(gh pr view "$PR_URL" --json url --jq '.url | split("/") | .[3:5] | join("/")')
 N=$(gh pr view "$PR_URL" --json number --jq .number)
-GH_HOST="$HOST" gh pr view "$N" -R "$REPO" --json number,title,body,state,url,isDraft,headRefName,headRefOid,baseRefName,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,updatedAt
+GH_HOST="$HOST" gh pr view "$N" -R "$REPO" --json number,title,body,state,url,isDraft,autoMergeRequest,headRefName,headRefOid,baseRefName,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,updatedAt
 ```
 
 Keep `$PR_URL` for the whole run and re-select from it, never from the branch, so a checkout that moves cannot swap the PR underneath you.
@@ -66,6 +66,8 @@ Keep `$PR_URL` for the whole run and re-select from it, never from the branch, s
 - If no open PR exists, run **Step 2: Open a PR when needed**, then re-derive these coordinates from the PR you created.
 - If `isDraft` is true, the merge will be rejected no matter how many gates pass. Do not enter the watch loop first: if the user asked to land this PR, mark it ready now with `GH_HOST="$HOST" gh pr ready "$N" -R "$REPO"`; if they explicitly wanted it kept as a draft, stop and say landing is paused until they authorize marking it ready.
 - If the state is `MERGED`/`CLOSED`, terminal handling depends on how the PR was found. For a PR the user named explicitly, stop: report the merge as external completion, or the close as terminal with no merge. For a stale hit from branch discovery (`gh pr view` still resolves closed PRs), go to **Step 2** and publish the branch's newer work instead.
+- If `autoMergeRequest` is non-null, auto-merge is already armed and GitHub can merge the PR the moment checks pass — before the grace window or any convergence check. Disable it before watching: `GH_HOST="$HOST" gh pr merge "$N" -R "$REPO" --disable-auto`.
+- Record `baseRefName` as `$BASE` and carry it through the run. If a maintainer retargets the PR, the checks on the unchanged head need not rerun and `--match-head-commit` will not catch it, so a base change must restart validation.
 - Pass `GH_HOST="$HOST"` on every `gh` call; do not fall back implicitly to `github.com`.
 
 Check out the PR by number before touching Git state — landing PR #N while the checkout sits elsewhere would commit and push into unrelated work: `GH_HOST="$HOST" gh pr checkout "$N" -R "$REPO"`, or `git worktree add` when the current worktree holds changes worth keeping. Do not skip this because the branch name already matches; a fork's head branch can share the name while pointing at unrelated commits.
@@ -122,7 +124,7 @@ GH_HOST="$HOST" gh pr view "$N" -R "$REPO" --json mergeable,mergeStateStatus
 Poll the PR every 30 seconds. If GitHub API limits are constrained, slow to at most 300 seconds so CI is still sampled several times. Each cycle, refresh:
 
 ```bash
-GH_HOST="$HOST" gh pr view "$N" -R "$REPO" --json state,isDraft,headRefOid,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,updatedAt
+GH_HOST="$HOST" gh pr view "$N" -R "$REPO" --json state,isDraft,autoMergeRequest,baseRefName,headRefOid,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,updatedAt
 GH_HOST="$HOST" gh pr checks "$N" -R "$REPO"
 GH_HOST="$HOST" gh api --paginate "repos/$REPO/issues/$N/comments"
 GH_HOST="$HOST" gh api --paginate "repos/$REPO/pulls/$N/comments"
@@ -137,6 +139,7 @@ React to whatever changed:
 - **Checks failed** → pull details with `GH_HOST="$HOST" gh pr checks "$N" -R "$REPO"`, derive the repository owning the failed run from its rollup details URL, and read logs with `GH_HOST="$HOST" gh run view <run-id> -R "<check-repository>" --log-failed`. Fix locally, commit, push, restart this step.
 - **PR head changed** (a new `headRefOid` you did not push, e.g. a CI auto-fix commit) → integrate the new head without discarding local work: `git fetch <remote>` then `git merge --ff-only <remote>/<head-branch>`. Never `git reset --hard` and never stash — the worktree may legitimately hold tracked edits the user placed out of scope in Step 1. If the fast-forward is refused, or the worktree is dirty enough to block it, inspect the new head in an isolated temporary worktree (`git worktree add`) and reconcile deliberately. Auto-fix commits authored by GitHub Actions do **not** retrigger CI: merge the base ref if needed, add a real author commit, and push to retrigger. Then restart this step.
 - **Behind, conflicting, or dirty merge state** → go back to **Step 3**.
+- **`baseRefName` no longer matches `$BASE`** → the PR was retargeted. Stop and re-establish Step 1 against the new base: the head is unchanged, so its checks may never rerun and the pinned sha would merge into a branch nobody validated against.
 - **State is `MERGED` or `CLOSED`** → stop watching. Report external merge as success; report a close without merge as terminal.
 
 Treat every reported CI failure as blocking. If a failure looks flaky (for example, a single-platform timeout), rerun or re-watch until the check is green — never merge past it. If all jobs fail with a corrupted lockfile on the merge commit, the remediation is to fetch and merge the base ref, push, and rerun CI.
@@ -181,7 +184,7 @@ Then implement the fix, commit, push, and post the outcome (what changed plus th
   Tests: <commands run>
   ```
 
-  Having requested one, wait for that review to arrive before merging. This is the only case where a Codex review is required — see Step 6 for the default.
+  Having requested one, wait for that review to arrive before merging — verify it explicitly in Step 7 by confirming a Codex review newer than your request exists. This is the only case where a Codex review is required; see Step 6 for the default.
 
 ## Step 6: Wait for late feedback
 
@@ -195,7 +198,7 @@ No Codex review is required to arrive. Absence of new actionable feedback for th
 
 ## Step 7: Merge
 
-Merge only when all of these hold: not a draft, conflict-free and not behind, all checks green, `reviewDecision` is not `CHANGES_REQUESTED`, every review thread addressed with no outstanding actionable feedback, and the grace window completed unchanged. Resolving the threads under a change-request review does not clear it — without branch protection GitHub will still let the merge through, so wait for the reviewer to dismiss or supersede it.
+Merge only when all of these hold: not a draft, `baseRefName` still `$BASE`, conflict-free and not behind, all checks green, `reviewDecision` is not `CHANGES_REQUESTED`, no re-review you requested still outstanding (confirm with a `reviews` poll — the grace window alone does not wait for it), every review thread addressed with no outstanding actionable feedback, and the grace window completed unchanged. Resolving the threads under a change-request review does not clear it — without branch protection GitHub will still let the merge through, so wait for the reviewer to dismiss or supersede it.
 
 Use the repository's customary method. Prefer explicit user guidance; otherwise infer it from recent merge history (`git log <base-branch> -20 --merges` versus a linear history). Confirm the method is enabled on the repository; if it is ambiguous, ask instead of guessing.
 

@@ -160,6 +160,19 @@ pr_body=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json bo
 # `git worktree add` instead when the current worktree must be preserved.
 GH_HOST="$pr_host" gh pr checkout "$pr_number" -R "$pr_selector"
 
+# Disable any pre-existing auto-merge before watching: GitHub would otherwise
+# merge the PR the moment checks pass, skipping the grace window entirely, and
+# the first thing the watcher sees would be the terminal MERGED state.
+auto_merge=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json autoMergeRequest -q .autoMergeRequest)
+if [ "$auto_merge" != "null" ]; then
+  GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --disable-auto
+fi
+
+# Record the base branch and re-check it before merging. A retarget leaves the
+# head sha untouched, so its checks need not rerun and --match-head-commit
+# cannot catch it; restart validation against the new base instead.
+pr_base=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json baseRefName -q .baseRefName)
+
 # Check mergeability and conflicts
 mergeable=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json mergeable -q .mergeable)
 
@@ -267,6 +280,8 @@ feedback after the grace period is acceptable.
 - If mergeability is `UNKNOWN`, wait and re-check.
 - If the watcher exits `6`, refresh the PR state. Treat `MERGED` as successful external completion; treat `CLOSED` without merge as terminal and report that no merge occurred.
 - Do not merge while review comments (human or Codex review) are outstanding.
+- Do not merge if `baseRefName` no longer matches the recorded `$pr_base`; the
+  PR was retargeted, so restart validation against the new base.
 - Do not merge while a `CHANGES_REQUESTED` review is active, even after every
   thread is addressed; without branch protection GitHub still allows it. Wait
   for the reviewer to dismiss or supersede the review.
@@ -358,9 +373,14 @@ feedback after the grace period is acceptable.
     ```
   - Only request a new review if there is at least one new commit since the
     previous request.
-  - Having requested one, wait for that review to arrive before merging. This
-    is the only case where a Codex review is required; otherwise the grace
-    window alone gates the merge.
+  - Having requested one, wait for that review to arrive before merging. The
+    watcher does not enforce this: `latest_review_request_at()` only records the
+    request so older feedback can be filtered, and `wait_for_codex()` returns
+    when the grace window expires whether or not a newer review arrived. Poll
+    `repos/$PR_REPO/pulls/$PR_NUMBER/reviews` yourself and confirm a Codex
+    review newer than your request before merging. This is the only case where
+    a Codex review is required; otherwise the grace window alone gates the
+    merge.
 
 ## Scope + PR Metadata
 
