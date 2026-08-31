@@ -204,6 +204,8 @@ class SkillLayoutTests(unittest.TestCase):
         for value in ("ToolSearch", "AskUserQuestion", "mcp__claude-in-chrome__"):
             self.assertIn(value, browser)
             self.assertIn(value, layout)
+        self.assertIn("browser:control-in-app-browser", browser)
+        self.assertIn("browser:control-in-app-browser", layout)
         for value in ("/loop", "CronList", "CronDelete", "PushNotification"):
             self.assertIn(value, babysit)
             self.assertIn(value, layout)

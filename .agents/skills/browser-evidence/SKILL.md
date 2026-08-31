@@ -32,6 +32,12 @@ Load and follow the browser-control capability exposed by the current host
 before controlling a browser. Prefer a connected, signed-in browser when the
 flow depends on existing authentication or application state.
 
+When running in Codex and the signed-in browser is exposed through the
+`browser:control-in-app-browser` skill, load and follow that skill before
+calling its browser tools. Its absence from the already-loaded context is not
+evidence that no authenticated browser connector is installed; use the host's
+skill discovery mechanism before offering Playwright.
+
 When running in Claude Code with the Claude-in-Chrome connector, preserve its
 required discovery flow. If connector schemas are deferred, use `ToolSearch`
 once to load every `mcp__claude-in-chrome__*` tool needed for the task before
