@@ -211,6 +211,8 @@ class SkillLayoutTests(unittest.TestCase):
             self.assertIn(value, layout)
         self.assertIn("reviewDecision", babysit)
         self.assertIn("APPROVED", babysit)
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("codex-ok:<head-sha>", readme)
 
     def test_shared_safety_rules_preserve_stricter_host_invariants(self) -> None:
         publish = (ROOT / ".agents" / "skills" / "publish" / "SKILL.md").read_text(encoding="utf-8")
