@@ -3,8 +3,9 @@ name: land
 description:
   Publish local changes into a pull request when needed, then land the PR by
   resolving conflicts, keeping CI green, handling feedback, and using the
-  repository's customary merge method; use when asked to land, merge, or
-  shepherd work or a PR to completion.
+  repository's customary merge method. It can also draft or send the PR and
+  preview to Slack when requested. Use when asked to land, merge, or shepherd a
+  PR to completion, or to share an existing PR through this workflow.
 ---
 
 # Land
@@ -14,6 +15,9 @@ description:
 - Ensure the PR is conflict-free with main.
 - Open a ready-for-review PR when the intended work does not already have one.
 - Keep CI green and fix failures when they occur.
+- Use native per-PR autofix dispatch when the host provides it, while retaining
+  authoritative final merge checks.
+- Share the PR and deployment preview to Slack when the user requests it.
 - Use the repository's customary merge method: merge commit, rebase, or squash.
 - Do not yield to the user until the PR is merged; keep the watcher loop running
   unless blocked.
@@ -36,6 +40,11 @@ description:
 
 ## Steps
 
+Determine the requested mode before changing repository or external state. A
+request only to share an existing PR authorizes the Slack phase, not merging:
+locate the PR, run **Share the PR in Slack**, and stop. For a landing request,
+follow the workflow below; include the Slack phase only when requested.
+
 1. Establish the intended scope, GitHub remote, target repository, and base
    branch. Inspect the complete status, diff, untracked files, and branch range;
    never include unrelated changes silently.
@@ -43,37 +52,41 @@ description:
 3. If no open PR exists, prepare and publish one using the **Open a PR when
    needed** workflow below. Create it ready for review unless the user
    explicitly requested a draft.
-4. Before every push, stage and review only the intended changes, then confirm
+4. If the user asked to share the PR in Slack, follow **Share the PR in Slack**
+   after the PR exists. This sharing phase does not authorize a merge or replace
+   CI and merge gates.
+5. Before every push, stage and review only the intended changes, then confirm
    the full gauntlet is green against that exact state. If the PR already
    existed, commit the validated staged changes and push them to the selected PR
    branch.
-5. Check mergeability and conflicts against the target base branch.
-6. If conflicts exist, use an available pull workflow to fetch and merge the
+6. Check mergeability and conflicts against the target base branch.
+7. If conflicts exist, use an available pull workflow to fetch and merge the
    target base and resolve conflicts, then push the updated branch.
-7. Ensure Codex review comments (if present) are acknowledged and any required
+8. Ensure Codex review comments (if present) are acknowledged and any required
    fixes are handled before merging.
-8. Watch checks until complete, then continue watching PR feedback for the
+9. Coordinate with the host's native per-PR autofix support as described below.
+10. Watch checks until complete, then continue watching PR feedback for the
    configured grace window (15 minutes by default) before merging.
-9. If checks fail, pull logs, fix the issue, commit the validated change, push,
+11. If checks fail, pull logs, fix the issue, commit the validated change, push,
    and re-run checks.
-10. After all merge gates pass, use the repository's customary method: prefer
+12. After all merge gates pass, use the repository's customary method: prefer
    explicit guidance, otherwise infer from recent merge history. Confirm the
    method is enabled; if ambiguous, ask instead of guessing. Do not manually
    delete the remote branch.
-11. **Context guard:** Before implementing review feedback, confirm it does not
+13. **Context guard:** Before implementing review feedback, confirm it does not
     conflict with the user’s stated intent or task context. If it conflicts,
     respond inline with a justification and ask the user before changing code.
-12. **Pushback template:** When disagreeing, reply inline with: acknowledge +
+14. **Pushback template:** When disagreeing, reply inline with: acknowledge +
     rationale + offer alternative.
-13. **Ambiguity gate:** When ambiguity blocks progress, use the clarification
+15. **Ambiguity gate:** When ambiguity blocks progress, use the clarification
     flow (assign PR to current GH user, mention them, wait for response). Do not
     implement until ambiguity is resolved.
     - If you are confident you know better than the reviewer, you may proceed
       without asking the user, but reply inline with your rationale.
-14. **Per-comment mode:** For each review comment, choose one of: accept,
+16. **Per-comment mode:** For each review comment, choose one of: accept,
     clarify, or push back. Reply inline (or in the issue thread for Codex
     reviews) stating the mode before changing code.
-15. **Reply before change:** Always respond with intended action before pushing
+17. **Reply before change:** Always respond with intended action before pushing
     code changes (inline for review comments, issue thread for Codex reviews).
 
 ## Open a PR when needed
@@ -131,6 +144,52 @@ organization-owned fork, use an authenticated GitHub connector or
 `GH_HOST="<host>" gh api` with explicit base/head repositories and branches;
 do not rely on the unsupported CLI `--head <organization>:<branch>` path or an
 unqualified API call that defaults to `github.com`.
+
+## Share the PR in Slack
+
+This phase replaces the former `publish-slack` skill. Run it when the user asks
+to share, post, or publish the PR to Slack. Use the requested channel, defaulting
+to `#zerogen` when none is supplied.
+
+1. Read the selected PR's title, URL, and body.
+2. Poll top-level issue comments every 10 seconds for up to 90 seconds for a
+   Vercel bot comment. Extract the branch preview URL matching
+   `*-git-{branch-slug}-*.vercel.app`; use `deploying...` if it does not arrive.
+3. Use any authenticated Slack capability exposed by the host to resolve the
+   channel and compose:
+   ```text
+   *PR: <title>* — <github-url>
+
+   <2-3 bullets from the PR body>
+
+   Preview: <branch-preview-url or "deploying...">
+   ```
+4. Create a Slack draft when the host supports drafts. Send immediately only
+   when the user explicitly requested sending rather than drafting. If the host
+   has no Slack write capability, report that limitation and continue landing
+   unless the user made Slack delivery a required condition.
+
+Never hard-code a host's Slack tool names in this canonical skill.
+
+## Native autofix coordination
+
+Some hosts, including Claude Code surfaces, expose a per-PR **Auto-fix CI &
+address comments** checkbox. Use it as a native event and remediation channel,
+not as a separate skill implementation:
+
+- If the control is already enabled, do not create a redundant recurring
+  babysit loop. Handle its CI and review events through this land workflow.
+- If the control is exposed to the agent and can be enabled within the user's
+  current authorization, enable it for the selected PR. Otherwise continue with
+  the bundled watcher; do not block on a UI-only control.
+- When native autofix pushes a commit, refresh the verified remote head, inspect
+  the change, rerun relevant local validation, and restart the watcher against
+  the new head.
+- Never treat the checked state as proof that a dispatch ran, CI is green,
+  feedback is addressed, or the PR is ready. The watcher and synchronous final
+  refresh remain authoritative.
+- Do not enable **Auto-merge when ready**. This skill performs the final gates
+  and uses the repository's customary merge method itself.
 
 ## Commands
 
