@@ -28,14 +28,16 @@ Before driving the browser:
 
 ## Use a browser connector first
 
-Load and follow the browser-control skill exposed by the current Codex session
-(typically `browser:control-in-app-browser`) before controlling a browser.
-Prefer a connected, signed-in browser when the flow depends on existing
-authentication or application state.
+Load and follow the browser-control capability exposed by the current host
+before controlling a browser. Prefer a connected, signed-in browser when the
+flow depends on existing authentication or application state.
 
 - If more than one browser, profile, or device is available and the choice is
   not explicit, list them and ask the user to choose. Never infer which personal
   profile to use.
+- If the host requires explicit browser selection or connection, follow its
+  browser-control guidance and give the user a real opportunity to connect the
+  intended browser before offering a fallback.
 - Create a dedicated tab or tab group for the task.
 - Re-inspect live tab state instead of reusing tab IDs or handles from an
   earlier session.
@@ -54,7 +56,7 @@ would otherwise require implementing by hand.
 Check the repository's package manager, dependencies, and test conventions
 before proposing commands. Reuse an installed compatible Playwright version;
 do not upgrade it solely for this task. Also reuse a Playwright runtime bundled
-with an available Codex browser-control environment instead of adding a project
+with an available browser-control environment instead of adding a project
 dependency.
 
 When Playwright is absent, offer the user these choices:

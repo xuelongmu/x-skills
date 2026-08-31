@@ -6,7 +6,6 @@ description: >-
   sessions, and escalate blocked work without duplicating AO's own supervision.
   Use for operating AO; use prompt-agent-orchestrator instead when the task is
   only to author or validate a coordinator prompt.
-argument-hint: "[project path, task, or session to drive]"
 ---
 
 # Drive Agent Orchestrator

@@ -9,7 +9,9 @@ description: Publish intended local changes to GitHub by confirming scope, creat
 
 Perform the complete publish flow from a local checkout: confirm scope, prepare the branch, commit, validate, push, and open a pull request ready for review.
 
-Use local `git` for branch creation, staging, commits, and pushes. Prefer the connected GitHub app for pull request creation; use `gh` when connector coverage is insufficient.
+Use local `git` for branch creation, staging, commits, and pushes. Prefer an
+authenticated GitHub connector when it can target the selected repositories
+and branches explicitly; otherwise use `gh`.
 
 ## Preconditions
 
@@ -44,7 +46,9 @@ Use local `git` for branch creation, staging, commits, and pushes. Prefer the co
    - Report environmental or unrelated failures accurately.
 6. Push the branch to the selected GitHub remote with upstream tracking.
 7. Open a pull request ready for review.
-   - Prefer the connected GitHub app after the branch is pushed, and explicitly target the derived base repository, base branch, head repository, and head branch.
+   - Prefer an authenticated GitHub connector after the branch is pushed when
+     it can explicitly target the derived base repository, base branch, head
+     repository, and head branch.
    - Set the PR's draft state to `false` explicitly when the connector supports that field.
    - For a same-repository PR, use a bare head branch with the CLI fallback:
 
@@ -53,7 +57,7 @@ Use local `git` for branch creation, staging, commits, and pushes. Prefer the co
      ```
 
    - For a cross-repository, user-owned fork, use `<head-owner>:<head-branch>` with the CLI fallback.
-   - For a cross-repository, organization-owned head, do not use `gh pr create --head <organization>:<branch>` because the CLI does not support organization owners there. Use the connected GitHub app or `gh api --hostname <host>` with explicit base repository, base branch, head repository, head branch, title, body, and draft state. When both repositories share an organization owner, pass the REST API's `head_repo` field explicitly. Stop if neither path is available.
+   - For a cross-repository, organization-owned head, do not use `gh pr create --head <organization>:<branch>` because the CLI does not support organization owners there. Use an authenticated GitHub connector or `gh api --hostname <host>` with explicit base repository, base branch, head repository, head branch, title, body, and draft state. When both repositories share an organization owner, pass the REST API's `head_repo` field explicitly. Stop if neither path is available.
 
    - Do not pass `--draft` unless the user explicitly requests a draft.
    - Write the generated PR body through a temporary file so Markdown contains real newlines, and pass the generated title and body to every creation path.

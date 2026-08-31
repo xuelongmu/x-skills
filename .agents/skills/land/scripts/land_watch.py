@@ -82,6 +82,7 @@ CODEX_BOT_LOGINS = {
 CODEX_REVIEW_BRIDGE_LOGINS = {
     "github-actions[bot]",
 }
+AGENT_REPLY_PREFIXES = ("[agent]", "[codex]")
 MAX_GH_RETRIES = 5
 BASE_GH_BACKOFF_SECONDS = 2
 
@@ -702,7 +703,7 @@ def is_bot_user(user: dict[str, Any]) -> bool:
 
 
 def is_codex_reply_body(body: str) -> bool:
-    return body.startswith("[codex]")
+    return body.startswith(AGENT_REPLY_PREFIXES)
 
 
 def is_codex_review_body(body: str) -> bool:

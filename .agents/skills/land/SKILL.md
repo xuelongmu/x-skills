@@ -23,13 +23,16 @@ description:
 ## Preconditions
 
 - Require a local Git repository with an accessible GitHub remote.
-- Require an authenticated connected GitHub app or `gh` CLI session for the
+- Require an authenticated GitHub connector or `gh` CLI session for the
   selected host.
-- When `gh` is unavailable but the connected GitHub app is authenticated, use
-  the app for PR creation and perform equivalent CI, feedback, head, and merge
-  polling; never skip a land gate because the bundled watcher cannot run.
-- This skill may be installed project-locally in `.codex/skills/land` or globally in `$CODEX_HOME/skills/land` / `~/.codex/skills/land`.
-- Run watcher commands from the PR repository working directory. The watcher script path comes from this installed skill directory, but `gh` resolves repository context from the process cwd.
+- When `gh` is unavailable but a GitHub connector is authenticated, use the
+  connector for PR creation and perform equivalent CI, feedback, head, and
+  merge polling; never skip a land gate because the bundled watcher cannot run.
+- Resolve the active skill directory from the path used to load this `SKILL.md`.
+  Do not hard-code `.agents`, `.codex`, `.claude`, or a global skills directory.
+- Run watcher commands from the PR repository working directory. The watcher
+  path is `scripts/land_watch.py` under the active skill directory, but `gh`
+  resolves repository context from the process working directory.
 
 ## Steps
 
@@ -45,14 +48,14 @@ description:
    existed, commit the validated staged changes and push them to the selected PR
    branch.
 5. Check mergeability and conflicts against the target base branch.
-6. If conflicts exist, use the `pull` skill to fetch/merge the target base and
-   resolve conflicts, then use the `push` skill to publish the updated branch.
+6. If conflicts exist, use an available pull workflow to fetch and merge the
+   target base and resolve conflicts, then push the updated branch.
 7. Ensure Codex review comments (if present) are acknowledged and any required
    fixes are handled before merging.
 8. Watch checks until complete, then continue watching PR feedback for the
    configured grace window (15 minutes by default) before merging.
-9. If checks fail, pull logs, fix the issue, commit with the `commit` skill,
-   push with the `push` skill, and re-run checks.
+9. If checks fail, pull logs, fix the issue, commit the validated change, push,
+   and re-run checks.
 10. After all merge gates pass, use the repository's customary method: prefer
    explicit guidance, otherwise infer from recent merge history. Confirm the
    method is enabled; if ambiguous, ask instead of guessing. Do not manually
@@ -103,8 +106,9 @@ When the current work has no open PR:
 7. Write a title for the full branch diff and a Markdown body covering what and
    why, user impact, validation, and any limitations.
 8. Recheck for an open PR after the push to avoid duplicates. If none exists,
-   create it with the prepared title and body. Prefer the connected GitHub app;
-   use `gh` only as fallback. Explicitly target the selected base/head
+   create it with the prepared title and body. Prefer an authenticated GitHub
+   connector when it can address the selected repositories explicitly; use
+   `gh` otherwise. Explicitly target the selected base/head
    repositories and branches, and set draft to false unless the user requested
    a draft. Persist the returned PR URL, number, hostname, and repository; pass
    that exact identity through the watcher, review-handling, and merge flows. If
@@ -123,7 +127,7 @@ gh pr create --repo "<host>/<base-owner>/<base-repository>" \
 ```
 
 For a user-owned fork, use `<head-owner>:<head-branch>`. For an
-organization-owned fork, use the connected GitHub app or
+organization-owned fork, use an authenticated GitHub connector or
 `GH_HOST="<host>" gh api` with explicit base/head repositories and branches;
 do not rely on the unsupported CLI `--head <organization>:<branch>` path or an
 unqualified API call that defaults to `github.com`.
@@ -150,8 +154,7 @@ pr_body=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json bo
 mergeable=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json mergeable -q .mergeable)
 
 if [ "$mergeable" = "CONFLICTING" ]; then
-  # Run the `pull` skill to handle fetch + merge + conflict resolution.
-  # Then run the `push` skill to publish the updated branch.
+  # Fetch and merge the target base, resolve conflicts, then push.
 fi
 
 # Preferred: use the Async Watch Helper below. It watches review feedback,
@@ -159,7 +162,7 @@ fi
 # checks are detected), it keeps polling feedback for the configured grace
 # window (15 minutes by default). A Codex review is not required to arrive; no
 # actionable feedback during that wait is enough to proceed.
-if ! LAND_WATCH_PR="$pr_url" python3 "$LAND_SKILL_DIR/land_watch.py"; then
+if ! LAND_WATCH_PR="$pr_url" python3 "$LAND_SKILL_DIR/scripts/land_watch.py"; then
   # Exit code 2 means review feedback must be handled.
   # Exit code 3 means checks failed.
   # Exit code 4 means the PR head changed and local state must be refreshed.
@@ -180,14 +183,13 @@ Preferred: use the asyncio watcher to monitor review comments, CI, and head
 updates in parallel:
 
 ```
-python3 "$LAND_SKILL_DIR/land_watch.py"
+python3 "$LAND_SKILL_DIR/scripts/land_watch.py"
 ```
 
-Resolve `LAND_SKILL_DIR` to this installed skill directory before running the
-watcher. Prefer the current repo's `.codex/skills/land` when present; otherwise use
-`${CODEX_HOME:-$HOME/.codex}/skills/land` or
-`%USERPROFILE%\.codex\skills\land`. Run the command from the PR repository
-working directory so `gh` uses the right repo.
+Resolve `LAND_SKILL_DIR` to the active skill directory containing this
+`SKILL.md`. Do not infer it from a host-specific installation path. Run the
+command from the PR repository working directory so `gh` uses the right
+repository.
 
 The watcher polls GitHub every 30 seconds by default to avoid exhausting API
 limits. For a slower cadence, set `LAND_WATCH_POLL_SECONDS` to an integer from
@@ -200,7 +202,7 @@ authoritative final CI, PR-head, merge-state, and feedback refreshes until
 consecutive feedback and PR snapshots are unchanged. For example:
 
 ```
-LAND_WATCH_PR="$pr_url" LAND_WATCH_POLL_SECONDS=60 LAND_WATCH_FEEDBACK_GRACE_SECONDS=600 python3 "$LAND_SKILL_DIR/land_watch.py"
+LAND_WATCH_PR="$pr_url" LAND_WATCH_POLL_SECONDS=60 LAND_WATCH_FEEDBACK_GRACE_SECONDS=600 python3 "$LAND_SKILL_DIR/scripts/land_watch.py"
 ```
 
 Exit codes:
@@ -222,8 +224,7 @@ feedback after the grace period is acceptable.
   `GH_HOST="$pr_host" gh pr checks "$pr_number" -R "$pr_selector"` and
   derive the repository that owns the failed run from its rollup details URL,
   then use `GH_HOST="$pr_host" gh run view <run-id> -R "<check-repository>" --log`.
-  Fix locally, commit
-  with the `commit` skill, push with the `push` skill, and re-run the watch.
+  Fix locally, commit the validated change, push, and re-run the watch.
 - Treat every reported CI failure as blocking. If a failure looks flaky (for
   example, a timeout on one platform), rerun or re-watch until the check is
   green before proceeding.
@@ -278,7 +279,7 @@ feedback after the grace period is acceptable.
     ```
     GH_HOST="$PR_HOST" gh api --method POST \
       "repos/$PR_REPO/pulls/$PR_NUMBER/comments" \
-      -f body='[codex] <response>' -F in_reply_to=<comment_id>
+      -f body='[agent] <response>' -F in_reply_to=<comment_id>
     ```
 - `in_reply_to` must be the numeric review comment id (e.g., `2710521800`), not
   the GraphQL node id (e.g., `PRRC_...`), and the endpoint must include the PR
@@ -286,31 +287,32 @@ feedback after the grace period is acceptable.
 - If GraphQL review reply mutation is forbidden, use REST.
 - A 404 on reply typically means the wrong endpoint (missing PR number) or
   insufficient scope; verify by listing comments first.
-- All GitHub comments generated by this agent must be prefixed with `[codex]`.
+- All GitHub comments generated by this skill must be prefixed with `[agent]`.
 - For Codex review issue comments, reply in the issue thread (not a review
-  thread) with `[codex]` and state whether you will address the feedback now or
+  thread) with `[agent]` and state whether you will address the feedback now or
   defer it (include rationale).
 - If feedback requires changes:
   - For inline review comments (human), reply with intended fixes
-    (`[codex] ...`) **as an inline reply to the original review comment** using
+    (`[agent] ...`) **as an inline reply to the original review comment** using
     the review comment endpoint and `in_reply_to` (do not use issue comments for
     this).
   - Implement fixes, commit, push.
-  - Reply with the fix details and commit sha (`[codex] ...`) in the same place
+  - Reply with the fix details and commit sha (`[agent] ...`) in the same place
     you acknowledged the feedback (issue comment for Codex reviews, inline reply
     for review comments).
   - The land watcher treats Codex review issue comments as unresolved until a
-    newer `[codex]` issue comment is posted acknowledging the findings.
+    newer `[agent]` issue comment is posted acknowledging the findings. Legacy
+    `[codex]` acknowledgements remain recognized.
 - Only request a new Codex review when you need a rerun (e.g., after new
   commits). Do not request one without changes since the last review.
   - Before requesting a new Codex review, re-run the land watcher and ensure
-    there are zero outstanding review comments (all have `[codex]` inline
+    there are zero outstanding review comments (all have `[agent]` inline
     replies).
   - After pushing new commits, the Codex review workflow will rerun on PR
     synchronization (or you can re-run the workflow manually). Post a concise
     root-level summary comment so reviewers have the latest delta:
     ```
-    [codex] Changes since last review:
+    [agent] Changes since last review:
     - <short bullets of deltas>
     Commits: <sha>, <sha>
     Tests: <commands run>
@@ -325,7 +327,7 @@ feedback after the grace period is acceptable.
   just the most recent fix.
 - If review feedback expands scope, decide whether to include it now or defer
   it. You can accept, defer, or decline feedback. If deferring or declining,
-  call it out in the root-level `[codex]` update with a brief reason (e.g.,
+  call it out in the root-level `[agent]` update with a brief reason (e.g.,
   out-of-scope, conflicts with intent, unnecessary).
 - Correctness issues raised in review comments should be addressed. If you plan
   to defer or decline a correctness concern, validate first and explain why the
