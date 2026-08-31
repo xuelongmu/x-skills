@@ -139,6 +139,7 @@ React to whatever changed:
 - **Checks failed** → pull details with `GH_HOST="$HOST" gh pr checks "$N" -R "$REPO"`, derive the repository owning the failed run from its rollup details URL, and read logs with `GH_HOST="$HOST" gh run view <run-id> -R "<check-repository>" --log-failed`. Fix locally, commit, push, restart this step.
 - **PR head changed** (a new `headRefOid` you did not push, e.g. a CI auto-fix commit) → integrate the new head without discarding local work: `git fetch <remote>` then `git merge --ff-only <remote>/<head-branch>`. Never `git reset --hard` and never stash — the worktree may legitimately hold tracked edits the user placed out of scope in Step 1. If the fast-forward is refused, or the worktree is dirty enough to block it, inspect the new head in an isolated temporary worktree (`git worktree add`) and reconcile deliberately. Auto-fix commits authored by GitHub Actions do **not** retrigger CI: merge the base ref if needed, add a real author commit, and push to retrigger. Then restart this step.
 - **Behind, conflicting, or dirty merge state** → go back to **Step 3**.
+- **`autoMergeRequest` is non-null** → someone armed auto-merge mid-flight, and GitHub will merge as soon as checks pass, ahead of the grace window and the convergence check. Disable it at once with `GH_HOST="$HOST" gh pr merge "$N" -R "$REPO" --disable-auto` and restart this step.
 - **`baseRefName` no longer matches `$BASE`** → the PR was retargeted. Stop and re-establish Step 1 against the new base: the head is unchanged, so its checks may never rerun and the pinned sha would merge into a branch nobody validated against.
 - **State is `MERGED` or `CLOSED`** → stop watching. Report external merge as success; report a close without merge as terminal.
 
@@ -184,7 +185,7 @@ Then implement the fix, commit, push, and post the outcome (what changed plus th
   Tests: <commands run>
   ```
 
-  Having requested one, wait for that review to arrive before merging — verify it explicitly in Step 7 by confirming a Codex review newer than your request exists. This is the only case where a Codex review is required; see Step 6 for the default.
+  Having requested one, wait for that review to arrive before merging — verify it explicitly in Step 7. Check both delivery forms: depending on the integration a Codex review arrives as an issue comment (`## Codex Review — …`) or as a submitted review, and either one newer than your request satisfies the gate. This is the only case where a Codex review is required; see Step 6 for the default.
 
 ## Step 6: Wait for late feedback
 
@@ -198,7 +199,7 @@ No Codex review is required to arrive. Absence of new actionable feedback for th
 
 ## Step 7: Merge
 
-Merge only when all of these hold: not a draft, `baseRefName` still `$BASE`, conflict-free and not behind, all checks green, `reviewDecision` is not `CHANGES_REQUESTED`, no re-review you requested still outstanding (confirm with a `reviews` poll — the grace window alone does not wait for it), every review thread addressed with no outstanding actionable feedback, and the grace window completed unchanged. Resolving the threads under a change-request review does not clear it — without branch protection GitHub will still let the merge through, so wait for the reviewer to dismiss or supersede it.
+Merge only when all of these hold: not a draft, `baseRefName` still `$BASE`, conflict-free and not behind, all checks green, `reviewDecision` is not `CHANGES_REQUESTED`, no re-review you requested still outstanding (confirm against both the issue-comment and reviews endpoints — the grace window alone does not wait for it), every review thread addressed with no outstanding actionable feedback, and the grace window completed unchanged. Resolving the threads under a change-request review does not clear it — without branch protection GitHub will still let the merge through, so wait for the reviewer to dismiss or supersede it.
 
 Use the repository's customary method. Prefer explicit user guidance; otherwise infer it from recent merge history (`git log <base-branch> -20 --merges` versus a linear history). Confirm the method is enabled on the repository; if it is ambiguous, ask instead of guessing.
 

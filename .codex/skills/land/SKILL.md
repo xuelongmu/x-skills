@@ -282,6 +282,11 @@ feedback after the grace period is acceptable.
 - Do not merge while review comments (human or Codex review) are outstanding.
 - Do not merge if `baseRefName` no longer matches the recorded `$pr_base`; the
   PR was retargeted, so restart validation against the new base.
+- The watcher does not observe auto-merge. Re-check `autoMergeRequest` after
+  each watcher exit and immediately before merging: if someone armed it
+  mid-flight, GitHub merges as soon as checks pass, ahead of the grace window.
+  Run `GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector"
+  --disable-auto` and rerun the watcher.
 - Do not merge while a `CHANGES_REQUESTED` review is active, even after every
   thread is addressed; without branch protection GitHub still allows it. Wait
   for the reviewer to dismiss or supersede the review.
@@ -377,10 +382,17 @@ feedback after the grace period is acceptable.
     watcher does not enforce this: `latest_review_request_at()` only records the
     request so older feedback can be filtered, and `wait_for_codex()` returns
     when the grace window expires whether or not a newer review arrived. Poll
-    `repos/$PR_REPO/pulls/$PR_NUMBER/reviews` yourself and confirm a Codex
-    review newer than your request before merging. This is the only case where
-    a Codex review is required; otherwise the grace window alone gates the
-    merge.
+    for it yourself and confirm a Codex review newer than your request before
+    merging. Check **both** delivery forms — depending on the integration a
+    review arrives as an issue comment (`## Codex Review — …`, see Review
+    Handling above) or as a submitted review:
+    ```sh
+    GH_HOST="$PR_HOST" gh api --paginate "repos/$PR_REPO/issues/$PR_NUMBER/comments"
+    GH_HOST="$PR_HOST" gh api --paginate "repos/$PR_REPO/pulls/$PR_NUMBER/reviews"
+    ```
+    Either one, newer than the request, satisfies the gate. This is the only
+    case where a Codex review is required; otherwise the grace window alone
+    gates the merge.
 
 ## Scope + PR Metadata
 
