@@ -23,4 +23,5 @@ Give special weight to declared constraints involving:
 
 Classify each applicable item as a verified fact, fixed constraint, assumption,
 judgment decision, deferral, or accepted risk. If repository authorities are
-absent or contradictory, surface the conflict instead of hard-coding a rule.
+absent or contradictory, surface the conflict. Do not hard-code these as
+universal facts.
