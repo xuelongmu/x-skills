@@ -183,7 +183,9 @@ the requested channel across public and private channels before drafting. A
 failed deferred-schema lookup is not evidence that Slack is unavailable; only
 take the no-capability path after discovery or connection actually fails.
 
-Never hard-code a host's Slack tool names in this canonical skill.
+Keep host-specific Slack tool names confined to the capability-conditional
+adapter above; the shared phase remains defined by channel lookup, draft, and
+send capabilities.
 
 ## Native autofix coordination
 
