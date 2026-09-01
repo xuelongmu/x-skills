@@ -136,8 +136,7 @@ Each skill file documents its own behavior; these are the cross-cutting choices:
   generic solutions archive is copied into this repository.
 - `review-change` stays self-contained for ordinary reviews. It routes
   optionally to `review-complexity` only for explicit complexity audits, large
-  review-churned diffs, or repeated review-fix chains. A host-provided system
-  `review-agent` remains a separate optional delegated defect pass.
+  review-churned diffs, or repeated review-fix chains.
 - `review-complexity` reads relevant Codex task history when the active host
   exposes task tools. Other hosts use history from the conversation or an
   export, without a separate skill implementation.

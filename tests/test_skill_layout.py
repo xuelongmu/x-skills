@@ -357,9 +357,7 @@ class SkillLayoutTests(unittest.TestCase):
         self.assertIn("large review-churned diff", skill)
         self.assertIn("two or\nthree linked review fixes", skill)
         self.assertIn("Do not invoke it for routine reviews", skill)
-        self.assertIn("system `review-agent`", skill)
-        self.assertRegex(skill, r"optional\s+delegated defect pass")
-        self.assertIn("distinct from\n`review-complexity`", skill)
+        self.assertNotIn("-".join(("review", "agent")), skill)
         for lens in (
             "Schema and migrations",
             "Billing and pricing",
