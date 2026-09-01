@@ -144,12 +144,6 @@ Local multi-agent review is optional, not a prerequisite. Use it only when the
 host, user, and change complexity justify it; this skill does not require
 fan-out or a fixed reviewer roster.
 
-When the host provides the system `review-agent`, it may be used as an optional
-delegated defect pass. Keep its defect-first result distinct from
-`review-complexity`'s architecture and accretion analysis and from this skill's
-readiness verdict. Validate its findings under the same evidence rules before
-including them.
-
 ## Return the review
 
 Use one verdict:
