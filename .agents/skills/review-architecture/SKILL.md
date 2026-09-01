@@ -78,10 +78,15 @@ before acceptance.
 `review-change` owns general implementation-diff readiness.
 `review-complexity` owns review-driven accretion, overengineering, and
 behavior-preserving simplification. If either exposes an unresolved
-consequential choice, route exploration to `design-architecture` and return here
-only when a proposal exists. `write-adr` or the repository's ADR process owns
-recording a driver-accepted durable decision. `capture-learning` owns verified
-reusable discoveries after implementation or incidents.
+consequential choice, route exploration to `design-architecture` when that skill
+is available and return here only when a proposal exists. If it is unavailable,
+preserve the review verdict and add a `Design handoff required` section naming
+the unresolved choice, why it is consequential, verified context, fixed
+constraints, and next action: install or enable `design-architecture`, or
+explicitly request a general non-decision analysis. Do not invent the missing
+architecture inside this review. `write-adr` or the repository's ADR process
+owns recording a driver-accepted durable decision. `capture-learning` owns
+verified reusable discoveries after implementation or incidents.
 
 ## External cross-model review
 

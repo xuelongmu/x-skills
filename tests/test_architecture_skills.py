@@ -173,10 +173,14 @@ class ArchitectureSkillBehaviorTests(unittest.TestCase):
                 self.assertIn("do not hard-code these as universal facts", lens.lower())
 
     def test_review_routes_code_and_meta_review_to_their_owners(self) -> None:
-        entrypoint = read("review-architecture")
+        entrypoint = compact(read("review-architecture"))
         self.assertIn("`review-change` owns general implementation-diff", entrypoint)
         self.assertIn("`review-complexity` owns review-driven accretion", entrypoint)
         self.assertIn("route exploration to `design-architecture`", entrypoint)
+        self.assertIn("when that skill is available", entrypoint)
+        self.assertIn("Design handoff required", entrypoint)
+        self.assertIn("preserve the review verdict", entrypoint)
+        self.assertIn("Do not invent the missing", entrypoint)
 
 
 if __name__ == "__main__":
