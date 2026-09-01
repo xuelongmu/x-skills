@@ -62,6 +62,17 @@ class ArchitectureSkillBehaviorTests(unittest.TestCase):
         self.assertIn("decision map, not a lesson", surfaces)
         self.assertIn("recommended default", surfaces)
         self.assertIn("falsification test", surfaces)
+        self.assertIn("judgment call under judgment decisions", surfaces)
+        self.assertIn("rationale and reversal trigger", surfaces)
+        self.assertIn("assumption only when evidence can falsify", surfaces)
+
+    def test_existing_proposal_handoff_survives_missing_review_skill(self) -> None:
+        """A selective install returns an actionable fallback instead of a dead route."""
+        entrypoint = compact(read("design-architecture"))
+        self.assertIn("when that skill is available", entrypoint)
+        self.assertIn("Review handoff required", entrypoint)
+        self.assertIn("install or enable `review-architecture`", entrypoint)
+        self.assertIn("Do not emulate its verdict", entrypoint)
 
     def test_library_only_options_are_not_distinct_architectures(self) -> None:
         """Two queue libraries inside one ownership model collapse to one design."""

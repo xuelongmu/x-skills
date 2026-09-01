@@ -57,6 +57,8 @@ is merely undecided.
 3. Explain the consequence of the default and the signal that should change it.
 4. Keep domain trivia out. The result is a decision map, not a lesson.
 
-If the driver remains unable to choose, recommend a reversible default and label
-it as an assumption. If no safe default exists, mark the decision blocked and
-name the evidence or expert judgment required.
+If the driver remains unable to choose, recommend a reversible default. Keep a
+judgment call under judgment decisions with its rationale and reversal trigger;
+label the default as an assumption only when evidence can falsify the underlying
+claim. If no safe default exists, mark the decision blocked and name the evidence
+or expert judgment required.

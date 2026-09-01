@@ -20,7 +20,12 @@ implement code, silently approve a direction, or create accepted history.
 1. Confirm that the request contains a difficult-to-reverse choice in ownership,
    boundary, durable state, execution, compatibility, or public behavior. Route
    ordinary implementation planning and local refactors to the normal planning
-   workflow. Route critique of an existing proposal to `review-architecture`.
+   workflow. Route critique of an existing proposal to `review-architecture`
+   when that skill is available. If it is unavailable, stop and return `Review
+   handoff required` with the proposal, requested review outcome, known
+   repository authorities, and next action: install or enable
+   `review-architecture`, or explicitly request a general non-verdict analysis.
+   Do not emulate its verdict or continue this design workflow.
 2. Read every applicable repository instruction. Inspect the real system before
    proposing changes: relevant code, accepted ADRs, contracts, system docs,
    infrastructure, tests, issue or PR history, and git history. Follow evidence
