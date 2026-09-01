@@ -70,8 +70,7 @@ npx skills@latest remove
 ```
 
 Project-local removal is the default. Add `--global` to remove a global
-installation. Select only entries installed from this repository. For a legacy
-installation, also select the retired `publish-slack` entry when present.
+installation. Select only entries installed from this repository.
 
 The CLI removes entries only from managed agent locations. When an entry is a
 symlink or Windows junction, the link is deleted and its external target stays
