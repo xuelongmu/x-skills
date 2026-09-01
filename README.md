@@ -48,17 +48,7 @@ after installation.
 
 ### Refresh
 
-A repository-scoped refresh uses the same command as installation. Select the
-skills you want to refresh, including any newly added skills:
-
-```bash
-npx skills@latest add xuelongmu/x-skills
-```
-
-Select the same installation scope you used originally. This command does not
-remove skills deleted upstream.
-
-To reconcile deletions across your complete installed inventory, run:
+Refresh installed skills and reconcile upstream deletions with:
 
 ```bash
 npx skills@latest update
@@ -67,8 +57,9 @@ npx skills@latest update
 Choose the project, global, or combined scope when prompted, and confirm removal
 of skills deleted upstream. The update command has no repository filter, so it
 can update skills installed from other sources in the selected scope. It reports
-new skills without installing them; rerun the repository-scoped `add` command to
-select additions. Restart each selected agent after the refresh.
+new skills without installing them. To opt into a newly reported skill, run the
+installer from the **Install** section again and select that skill. Restart each
+selected agent after the refresh.
 
 ### Remove or migrate a legacy installation
 
