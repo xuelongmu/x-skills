@@ -57,16 +57,19 @@ uvx --from skills-ref agentskills validate <skill-directory>
 | `review-change` | canonical | Intent recovery, review-only safety, verification audit, and diff-routed risk lenses do not depend on host-specific tools; optional local or external reviewers are capability- and authorization-gated. |
 | `review-complexity` | canonical | The complexity and simplification workflow is shared; Codex task-history lookup is selected only when the active host exposes that capability. |
 | `google-developer-style` | canonical | Introduced as a shared source in PR #23. |
+| `design-architecture` | canonical | Repository grounding, decision mapping, consequence analysis, and ADR handoff are host-neutral; detailed surfaces and project-invariant discovery are progressively loaded references. |
+| `review-architecture` | canonical | Architecture review is report-only and capability-neutral; artifact maturity, verdicts, external-review authorization, and ADR boundaries do not require host-specific sources. |
 | `publish-slack` | folded into `land` | PR sharing and Vercel preview lookup are host-neutral. `land` uses any authenticated Slack capability, drafts by default, and sends only on explicit request. |
 
 Before this consolidation, the repository tracked 15 `SKILL.md` sources: one
 canonical source plus seven sources for each host. The migration removed six
 duplicated cross-host pairs, folded the former Claude-only `publish-slack`
 workflow into `land`, and made `land` available to Claude Code. The repository
-now tracks eleven canonical sources, including the subsequently added
-`capture-learning`, `review-change`, and `review-complexity`, without
-reintroducing host copies. The consolidation still removes seven duplicated
-sources without removing a workflow.
+now tracks thirteen canonical sources, including the subsequently added
+`capture-learning`, `review-change`, `review-complexity`,
+`design-architecture`, and `review-architecture`, without reintroducing host
+copies. The consolidation still removes seven duplicated sources without
+removing a workflow.
 
 ## Installation constraints
 

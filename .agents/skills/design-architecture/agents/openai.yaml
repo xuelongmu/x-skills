@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design Architecture"
+  short_description: "Design consequential system decisions"
+  default_prompt: "Use $design-architecture to explore and recommend a repo-grounded architecture for this consequential decision."

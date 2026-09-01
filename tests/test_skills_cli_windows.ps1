@@ -18,11 +18,13 @@ $canonicalSkills = @(
     "babysit",
     "browser-evidence",
     "capture-learning",
+    "design-architecture",
     "drive-agent-orchestrator",
     "google-developer-style",
     "land",
     "prompt-agent-orchestrator",
     "publish",
+    "review-architecture",
     "review-change",
     "review-complexity",
     "steward-research"
@@ -38,7 +40,9 @@ $allSkills = @(
     "steward-research",
     "capture-learning",
     "review-change",
-    "google-developer-style"
+    "google-developer-style",
+    "design-architecture",
+    "review-architecture"
 )
 $tempBase = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
 $testRoot = Join-Path $tempBase ("x-skills-cli-" + [guid]::NewGuid().ToString("N"))
