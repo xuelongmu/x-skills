@@ -67,8 +67,8 @@ now tracks nine canonical sources, including the subsequently added
 ## Installation constraints
 
 Install from the repository shorthand. The CLI discovers canonical skills under
-`.agents/skills` and lets the user select skills and supported agents. Scope is
-project-local by default; `--global` selects global installation.
+`.agents/skills` and lets the user select skills, supported agents, and
+installation scope.
 
 Canonical installation has these invariants:
 
