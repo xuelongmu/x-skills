@@ -127,11 +127,10 @@ encode `/` as `%2F` when the branch name contains a slash.
 1. If a source checkout lives directly inside an agent's managed skills
    directory, move it elsewhere before cleanup.
 2. Run the interactive `npx skills@latest remove` command from the README and
-   select this repository's entries. The CLI deletes a link or junction without
-   deleting its target, but deletes a real installed copy.
-3. Run the repository-shorthand `npx skills@latest add` command from the README.
-4. Restart Codex and Claude Code so they rescan skills.
-5. Verify names and descriptions in each host, then exercise `land` from both
+   select this repository's entries. The CLI handles managed copies and links
+   without deleting link targets.
+3. Reinstall with the command in the README, then restart Codex and Claude Code.
+4. Verify names and descriptions in each host, then exercise `land` from both
    hosts to confirm that the bundled watcher resolves from the installed skill
    directory. On a Claude surface, verify that native autofix events re-enter
    the same workflow without bypassing final checks.

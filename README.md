@@ -72,12 +72,9 @@ npx skills@latest remove
 Project-local removal is the default. Add `--global` to remove a global
 installation. Select only entries installed from this repository.
 
-The CLI removes entries only from managed agent locations. When an entry is a
-symlink or Windows junction, the link is deleted and its external target stays
-intact. When an entry is a real copied directory, that installed copy is
-deleted. If an old source checkout itself is inside an agent's managed skills
-directory, move that checkout elsewhere before removal so the CLI does not
-mistake it for an installed copy. Then run the short installation command.
+For a legacy installation, move any source checkout outside the agent's managed
+skills directory before removal. The CLI handles managed copies and links
+without deleting link targets. Then reinstall with the command in **Install**.
 
 The `land` watcher is bundled at `scripts/land_watch.py`. Skills resolve bundled
 resources relative to the active `SKILL.md`; run watcher commands from the PR
