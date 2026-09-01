@@ -83,12 +83,11 @@ Canonical installation has these invariants:
    uses it. Removing the skill from all agents removes the canonical directory
    and its lock entry.
 
-Re-running `npx skills@latest add xuelongmu/x-skills` refreshes selected skills
-from this repository and discovers additions without touching other sources,
-but it does not remove skills deleted upstream. The CLI's `update` command has
-no source filter: it updates the complete selected scope, interactively offers
-to remove deleted skills, and reports newly available skills without installing
-them. Use the interactive `remove` command for repository-specific cleanup.
+Use `npx skills@latest update` for refreshes. It updates the complete selected
+scope, interactively offers to remove skills deleted upstream, and reports newly
+available skills without installing them. If the command reports a new skill,
+rerun the installer from the README to opt into it. Use the interactive `remove`
+command for repository-specific cleanup.
 
 Claude's per-PR **Auto-fix CI & address comments** control is a native event and
 remediation channel for `land`, not a distinct source. When enabled, it avoids a

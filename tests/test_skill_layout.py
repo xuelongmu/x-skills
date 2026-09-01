@@ -314,8 +314,9 @@ class SkillLayoutTests(unittest.TestCase):
         self.assertIn("npx skills@latest add xuelongmu/x-skills", readme)
         self.assertIn("npx skills@latest update", readme)
         self.assertIn("npx skills@latest remove", readme)
-        self.assertIn("repository-scoped refresh", readme)
-        self.assertIn("complete installed inventory", readme)
+        self.assertEqual(readme.count("npx skills@latest add xuelongmu/x-skills"), 1)
+        self.assertIn("Refresh installed skills and reconcile upstream deletions", readme)
+        self.assertIn("updates the complete selected", layout)
         self.assertNotRegex(
             readme,
             r"npx skills@latest add xuelongmu/x-skills[^\n]*--global",
