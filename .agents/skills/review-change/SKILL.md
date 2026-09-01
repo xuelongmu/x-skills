@@ -60,7 +60,19 @@ the change leaves one clear owner for each invariant. Preserve justified
 complexity around tenancy, authorization, exact money, idempotency, durable
 state, external providers, and compatibility.
 
-### 3. Conditional risk lenses
+### 3. Optional complexity specialist
+
+Keep ordinary reviews self-contained. If `review-complexity` is available,
+route to it only when the user explicitly requests a complexity or
+overengineering audit, the change is a large review-churned diff, or two or
+three linked review fixes suggest that an invariant is enforced at the wrong
+level. Do not invoke it for routine reviews or as mandatory fan-out.
+
+Treat the specialist's output as evidence to validate, not as a separate
+verdict. This skill still owns the final readiness assessment and must preserve
+review-only mode when the specialist is inspect-only.
+
+### 4. Conditional risk lenses
 
 Read [references/risk-lenses.md](references/risk-lenses.md), select lenses from
 concrete diff signals, and state why each selected lens applies. Do not run
@@ -131,6 +143,12 @@ external verdict as authoritative.
 Local multi-agent review is optional, not a prerequisite. Use it only when the
 host, user, and change complexity justify it; this skill does not require
 fan-out or a fixed reviewer roster.
+
+When the host provides the system `review-agent`, it may be used as an optional
+delegated defect pass. Keep its defect-first result distinct from
+`review-complexity`'s architecture and accretion analysis and from this skill's
+readiness verdict. Validate its findings under the same evidence rules before
+including them.
 
 ## Return the review
 
