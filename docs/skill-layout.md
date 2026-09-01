@@ -53,9 +53,9 @@ uvx --from skills-ref agentskills validate <skill-directory>
 | `drive-agent-orchestrator` | canonical | The instructions are host-neutral. The Claude-only autocomplete hint was removed to keep standard frontmatter. |
 | `browser-evidence` | canonical | Browser selection is capability-based instead of naming a host-specific browser connector. |
 | `steward-research` | canonical | The previous host copies were byte-identical. |
-| `code-meta-reviewer` | canonical | The meta-review and simplification workflow is shared; Codex task-history lookup is selected only when the active host exposes that capability. |
 | `capture-learning` | canonical | Evidence gates and destination routing are host-neutral. The skill discovers repository authorities and loads its routing reference only after a candidate qualifies. |
 | `review-change` | canonical | Intent recovery, review-only safety, verification audit, and diff-routed risk lenses do not depend on host-specific tools; optional local or external reviewers are capability- and authorization-gated. |
+| `review-complexity` | canonical | The complexity and simplification workflow is shared; Codex task-history lookup is selected only when the active host exposes that capability. |
 | `google-developer-style` | canonical | Introduced as a shared source in PR #23. |
 | `publish-slack` | folded into `land` | PR sharing and Vercel preview lookup are host-neutral. `land` uses any authenticated Slack capability, drafts by default, and sends only on explicit request. |
 
@@ -64,7 +64,7 @@ canonical source plus seven sources for each host. The migration removed six
 duplicated cross-host pairs, folded the former Claude-only `publish-slack`
 workflow into `land`, and made `land` available to Claude Code. The repository
 now tracks eleven canonical sources, including the subsequently added
-`code-meta-reviewer`, `capture-learning`, and `review-change`, without
+`capture-learning`, `review-change`, and `review-complexity`, without
 reintroducing host copies. The consolidation still removes seven duplicated
 sources without removing a workflow.
 
@@ -113,7 +113,8 @@ find host-only invocation surfaces that the shared instructions must preserve:
 | Claude Code | `ToolSearch` and `mcp__claude_ai_Slack__*` connector tools | `land` conditionally loads deferred Slack schemas before channel lookup, drafting, or an explicitly authorized send. |
 | Claude Code | **Auto-fix CI & address comments** | `land` treats it as optional dispatch and remediation; the shared watcher still owns final readiness. |
 | Claude Code | `reviewDecision` approval gate | `land` refreshes the selected PR immediately before merging and requires `APPROVED`; watcher success alone cannot bypass human approval. |
-| Codex desktop | Task listing and task-history readers | `code-meta-reviewer` reads only pertinent tasks associated with the target repository or workstream when those tools are available; other hosts use history supplied in the conversation or as an export. |
+| Codex desktop | Task listing and task-history readers | `review-complexity` reads only pertinent tasks associated with the target repository or workstream when those tools are available; other hosts use history supplied in the conversation or as an export. |
+| Codex | System `review-agent` | `review-change` may use this as an optional delegated defect pass while keeping its findings distinct from complexity analysis and the final readiness verdict. Other hosts keep the review self-contained unless they expose an equivalent capability. |
 
 These adapters do not change the underlying workflow or justify duplicated
 skill sources. If a future host-specific interface changes the actual tools,
@@ -135,7 +136,8 @@ encode `/` as `%2F` when the branch name contains a slash.
    without deleting link targets.
 3. Reinstall with the command in the README, then restart Codex and Claude Code.
 4. Verify names and descriptions in each host. Confirm that
-   `capture-learning` and `review-change` can load their bundled references, then
-   exercise `land` from both hosts to confirm that the watcher resolves from the
-   installed skill directory. On a Claude surface, verify that native autofix
-   events re-enter the same workflow without bypassing final checks.
+   `capture-learning`, `review-change`, and `review-complexity` can load their
+   bundled references, then exercise `land` from both hosts to confirm that the
+   watcher resolves from the installed skill directory. On a Claude surface,
+   verify that native autofix events re-enter the same workflow without
+   bypassing final checks.

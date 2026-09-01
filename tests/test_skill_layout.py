@@ -11,7 +11,6 @@ ROOT = Path(__file__).resolve().parents[1]
 CANONICAL = {
     "babysit",
     "browser-evidence",
-    "code-meta-reviewer",
     "capture-learning",
     "drive-agent-orchestrator",
     "google-developer-style",
@@ -19,6 +18,7 @@ CANONICAL = {
     "prompt-agent-orchestrator",
     "publish",
     "review-change",
+    "review-complexity",
     "steward-research",
 }
 STANDARD_FRONTMATTER_FIELDS = {
@@ -286,13 +286,13 @@ class SkillLayoutTests(unittest.TestCase):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         self.assertIn("codex-ok:<head-sha>", readme)
 
-        meta_reviewer = (
-            ROOT / ".agents" / "skills" / "code-meta-reviewer" / "SKILL.md"
+        complexity_reviewer = (
+            ROOT / ".agents" / "skills" / "review-complexity" / "SKILL.md"
         ).read_text(encoding="utf-8")
-        self.assertIn("host exposes Codex task tools", meta_reviewer)
+        self.assertIn("host exposes Codex task tools", complexity_reviewer)
         self.assertIn("Task listing and task-history readers", layout)
         for value in ("pertinent tasks", "an export"):
-            self.assertIn(value, meta_reviewer)
+            self.assertIn(value, complexity_reviewer)
             self.assertIn(value, layout)
 
     def test_shared_safety_rules_preserve_stricter_host_invariants(self) -> None:
@@ -353,6 +353,13 @@ class SkillLayoutTests(unittest.TestCase):
         self.assertIn("A trivial documentation-only diff", lenses)
         self.assertIn("does not activate generic tenancy, security", lenses)
         self.assertIn("External or cross-model review requires opt-in", skill)
+        self.assertIn("user explicitly requests a complexity or", skill)
+        self.assertIn("large review-churned diff", skill)
+        self.assertIn("two or\nthree linked review fixes", skill)
+        self.assertIn("Do not invoke it for routine reviews", skill)
+        self.assertIn("system `review-agent`", skill)
+        self.assertRegex(skill, r"optional\s+delegated defect pass")
+        self.assertIn("distinct from\n`review-complexity`", skill)
         for lens in (
             "Schema and migrations",
             "Billing and pricing",
@@ -364,6 +371,51 @@ class SkillLayoutTests(unittest.TestCase):
             "Documentation, skills, and authority staleness",
         ):
             self.assertIn(lens, lenses)
+
+    def test_review_complexity_remains_independently_invokable(self) -> None:
+        skill_dir = ROOT / ".agents" / "skills" / "review-complexity"
+        skill = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
+        metadata = (skill_dir / "agents" / "openai.yaml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("name: review-complexity", skill)
+        self.assertIn("large or review-churned diff", skill)
+        self.assertIn("After two or three linked fixes", skill)
+        self.assertIn("$review-complexity", metadata)
+
+    def test_retired_skill_name_is_limited_to_cli_cleanup(self) -> None:
+        retired = "-".join(("code", "meta", "reviewer"))
+        occurrences: list[tuple[Path, str]] = []
+        for path in ROOT.rglob("*"):
+            if not path.is_file() or ".git" in path.parts:
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                continue
+            for line in text.splitlines():
+                if retired in line:
+                    occurrences.append((path.relative_to(ROOT), line.strip()))
+
+        self.assertEqual(
+            occurrences,
+            [(Path("README.md"), f"npx skills@latest remove {retired}")],
+        )
+
+    def test_reusable_skills_do_not_name_a_local_product(self) -> None:
+        local_product = "".join(("zero", "gen"))
+        for path in (ROOT / ".agents" / "skills").rglob("*"):
+            if path.is_file():
+                try:
+                    text = path.read_text(encoding="utf-8")
+                except UnicodeDecodeError:
+                    continue
+                with self.subTest(path=path.relative_to(ROOT)):
+                    self.assertNotIn(
+                        local_product,
+                        text.lower(),
+                    )
 
     def test_documentation_uses_cli_only_for_install_lifecycle(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")

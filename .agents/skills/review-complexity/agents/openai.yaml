@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Complexity"
+  short_description: "Review code and review-driven complexity"
+  default_prompt: "Use $review-complexity to review the current diff for overengineering and report findings without editing."

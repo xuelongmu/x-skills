@@ -151,8 +151,8 @@ unqualified API call that defaults to `github.com`.
 ## Share the PR in Slack
 
 This phase replaces the former `publish-slack` skill. Run it when the user asks
-to share, post, or publish the PR to Slack. Use the requested channel, defaulting
-to `#zerogen` when none is supplied.
+to share, post, or publish the PR to Slack. Use the requested channel. If none
+is supplied, ask which channel to use before creating or sending a draft.
 
 1. Read the selected PR's title, URL, body, and `headRefName`. Derive the branch
    slug from that selected PR head rather than from the current checkout.

@@ -1,9 +1,9 @@
 ---
-name: code-meta-reviewer
-description: Review recently changed code and review-driven complexity for clarity, maintainability, and overengineering while preserving observable behavior. Use for inspect-only code review, simplification feedback, or audits of large or review-churned diffs. Edit only when the user explicitly asks for changes; do not use for feature redesigns or behavior-changing fixes disguised as cleanup.
+name: review-complexity
+description: Review recently changed code and review-driven complexity for clarity, maintainability, and overengineering while preserving observable behavior. Use for explicit complexity audits, simplification feedback, large review-churned diffs, or repeated review-fix chains. Edit only when the user explicitly asks for changes; do not use for feature redesigns or behavior-changing fixes disguised as cleanup.
 ---
 
-# Review Code and Review-Driven Complexity
+# Review Complexity and Review-Driven Accretion
 
 Make the selected change easier to understand, verify, debug, and extend without
 changing its accepted behavior. Fewer lines are not inherently simpler.

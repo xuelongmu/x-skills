@@ -17,7 +17,6 @@ if (-not (Get-Command npx -ErrorAction SilentlyContinue)) {
 $canonicalSkills = @(
     "babysit",
     "browser-evidence",
-    "code-meta-reviewer",
     "capture-learning",
     "drive-agent-orchestrator",
     "google-developer-style",
@@ -25,6 +24,7 @@ $canonicalSkills = @(
     "prompt-agent-orchestrator",
     "publish",
     "review-change",
+    "review-complexity",
     "steward-research"
 )
 $allSkills = @(
@@ -34,7 +34,7 @@ $allSkills = @(
     "prompt-agent-orchestrator",
     "drive-agent-orchestrator",
     "browser-evidence",
-    "code-meta-reviewer",
+    "review-complexity",
     "steward-research",
     "capture-learning",
     "review-change",
@@ -131,6 +131,8 @@ try {
         Assert-PathExists (Join-Path $projectRoot ".claude\skills\land\scripts\land_watch.py")
         Assert-PathExists (Join-Path $projectRoot ".claude\skills\capture-learning\references\destination-routing.md")
         Assert-PathExists (Join-Path $projectRoot ".claude\skills\review-change\references\risk-lenses.md")
+        Assert-PathExists (Join-Path $projectRoot ".claude\skills\review-complexity\references\review-archaeology.md")
+        Assert-PathExists (Join-Path $projectRoot ".claude\skills\review-complexity\references\transition-semantics.md")
 
         if (-not (Test-Path -LiteralPath $RepositoryRoot)) {
             Invoke-SkillsCli (@("update", "--project") + $canonicalSkills + @("--yes"))

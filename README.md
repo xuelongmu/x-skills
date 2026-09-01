@@ -13,9 +13,9 @@ Portable workflow skills for Claude Code and Codex.
 | drive-agent-orchestrator | Operate Agent Orchestrator: preflight, spawn/supervise workers and orchestrators, monitor sessions | `/drive-agent-orchestrator` | `drive-agent-orchestrator` | canonical |
 | browser-evidence | Drive a running app, verify a flow, and capture browser-visible evidence | `/browser-evidence` | `browser-evidence` | canonical |
 | steward-research | Organize research repositories for reproducibility and safe handoff | `/steward-research` | `steward-research` | canonical |
-| code-meta-reviewer | Review a diff for overengineering and review-driven complexity without changing accepted behavior | `/code-meta-reviewer` | `code-meta-reviewer` | canonical |
 | capture-learning | Route a verified reusable learning to its owning repository authority | `/capture-learning` | `capture-learning` | canonical |
 | review-change | Review a change against intent, resulting design, verification, and diff-selected risks | `/review-change` | `review-change` | canonical |
+| review-complexity | Audit overengineering and review-driven complexity without changing accepted behavior | `/review-complexity` | `review-complexity` | canonical |
 | google-developer-style | Draft, revise, or review clear, accessible developer documentation using distilled Google-style guidance | `/google-developer-style [documentation or path]` | `google-developer-style` | canonical |
 
 - `babysit` never merges, enables auto-merge, or deletes branches. `land` can
@@ -74,6 +74,12 @@ npx skills@latest remove
 Project-local removal is the default. Add `--global` to remove a global
 installation. Select only entries installed from this repository.
 
+For the retired pre-rename entry, run this legacy cleanup separately:
+
+```bash
+npx skills@latest remove code-meta-reviewer
+```
+
 For a legacy installation, move any source checkout outside the agent's managed
 skills directory before removal. The CLI handles managed copies and links
 without deleting link targets. Then reinstall with the command in **Install**.
@@ -116,20 +122,25 @@ Each skill file documents its own behavior; these are the cross-cutting choices:
 - `land` can share a PR through any authenticated Slack capability. It creates
   a draft by default and reads Vercel bot comments from the **issues** endpoint
   (`/issues/{n}/comments`), not `/pulls/{n}/comments`.
-- `code-meta-reviewer` reads relevant Codex task history when the active host
-  exposes task tools. Other hosts use history from the conversation or an
-  export, without a separate skill implementation.
-- `capture-learning` and `review-change` are portable cores: they discover a
+- `capture-learning`, `review-change`, and `review-complexity` are portable
+  cores: they discover a
   repository's ADRs, contracts, runbooks, instructions, tests, and issue/PR
   conventions instead of hard-coding repository-local paths. Conditional
-  destination and risk detail lives in bundled references that install with
-  each skill.
+  destination, risk, and complexity detail lives in bundled references that
+  install with each skill.
 - Their workflows synthesize ideas from immutable snapshots of
   [Compound Engineering](https://github.com/everyinc/compound-engineering-plugin/tree/5f5bc6b96518c69decdec955b353f49631f921da),
   [Matt Pocock's skills](https://github.com/mattpocock/skills/tree/6654f6b60cd9d5be8b54c6fafe44346dabeb3b76),
   and [Addy Osmani's agent-skills](https://github.com/addyosmani/agent-skills/tree/d2c37ef6225dd8726cdd369a8030307f48592d26).
   The instructions are an original, narrower synthesis; no upstream text or
   generic solutions archive is copied into this repository.
+- `review-change` stays self-contained for ordinary reviews. It routes
+  optionally to `review-complexity` only for explicit complexity audits, large
+  review-churned diffs, or repeated review-fix chains. A host-provided system
+  `review-agent` remains a separate optional delegated defect pass.
+- `review-complexity` reads relevant Codex task history when the active host
+  exposes task tools. Other hosts use history from the conversation or an
+  export, without a separate skill implementation.
 - All cross-host capabilities live once under `.agents/skills/`; CLI
   install-time links expose the same complete skill directory—including
   scripts, references, and OpenAI metadata—to Codex and Claude Code. The Google
