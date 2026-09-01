@@ -316,6 +316,10 @@ class SkillLayoutTests(unittest.TestCase):
         self.assertIn("npx skills@latest remove", readme)
         self.assertIn("repository-scoped refresh", readme)
         self.assertIn("complete installed inventory", readme)
+        self.assertNotRegex(
+            readme,
+            r"npx skills@latest add xuelongmu/x-skills[^\n]*--global",
+        )
         self.assertNotIn("--agent codex claude-code", readme)
         self.assertNotIn("--skill '*'", readme)
         self.assertNotIn("--copy", readme)

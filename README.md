@@ -43,14 +43,8 @@ npx skills@latest add xuelongmu/x-skills
 ```
 
 The CLI discovers the repository's canonical skills and lets you choose the
-skills and supported agents. Project-local installation is the default. To make
-your selections available across projects, add `--global`:
-
-```bash
-npx skills@latest add xuelongmu/x-skills --global
-```
-
-Restart each selected agent after installation.
+skills, supported agents, and installation scope. Restart each selected agent
+after installation.
 
 ### Refresh
 
@@ -61,7 +55,7 @@ skills you want to refresh, including any newly added skills:
 npx skills@latest add xuelongmu/x-skills
 ```
 
-Add `--global` when refreshing a global installation. This command does not
+Select the same installation scope you used originally. This command does not
 remove skills deleted upstream.
 
 To reconcile deletions across your complete installed inventory, run:
