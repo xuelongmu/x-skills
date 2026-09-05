@@ -22,6 +22,7 @@ CANONICAL = {
     "review-architecture",
     "review-change",
     "review-complexity",
+    "show-me",
     "steward-research",
 }
 STANDARD_FRONTMATTER_FIELDS = {

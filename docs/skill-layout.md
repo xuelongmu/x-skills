@@ -1,6 +1,6 @@
 # Skill source layout
 
-All fourteen skills live once under `.agents/skills/<skill>/`. Codex discovers
+All fifteen skills live once under `.agents/skills/<skill>/`. Codex discovers
 that tree directly; the `npx skills` installer exposes complete directories to
 Claude Code through symlinks or Windows junctions. There are no checked-in host
 links or duplicated implementations.
@@ -34,6 +34,7 @@ The installer does not automatically resolve sibling dependencies: select
 | prompt-agent-orchestrator, drive-agent-orchestrator | Prompt authoring and live AO operation remain separate. AO-specific contracts justify detailed guidance. |
 | orchestrate | One harness-independent workflow, adapting to blocking/background execution, context and workspace isolation, and resumable or one-shot workers. Optional Codex UI metadata contains no execution behavior; no separate host variants are needed. Cross-harness runtime validation remains outstanding. |
 | google-developer-style | A deliberate house style shared across hosts, with CC BY 4.0 attribution. |
+| show-me | Visual guidance and evidence labeling; the agent chooses valuable formats and detail. Callers retain scope and authority; the host supplies rendering capabilities. |
 
 `.codex/skills` and `.claude/skills` are empty. Add a real host-specific variant
 only when instructions or lifecycle meaningfully differ. Capability selection
@@ -54,6 +55,9 @@ it does not waive required evidence or authorization.
 - Architecture decision surfaces, consequence analysis, review lenses, learning
   destination routing, and review complexity references are optional detail.
   Duplicate project-invariant catalogs and mandatory report templates were removed.
+- `show-me` is an optional sibling for architecture, review, and learning skills,
+  not a bundled reference or required dependency. Callers explain directly when
+  it is absent; visual selection rules live only in `show-me`.
 
 Resolve all resources relative to the active skill directory. Run the watcher
 from the target PR repository so its checkout context is correct. Store

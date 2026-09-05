@@ -40,6 +40,10 @@ findings and what must change or be proven, with references. Include important
 hidden decisions, alternatives, and reversal costs when relevant. Scale the
 report to the decision; no fixed matrix or empty sections are required.
 
+Use `show-me` when available to clarify the proposal against a failure path,
+missing state, or boundary. Otherwise explain directly, labeling assumptions
+and inferred edges. A diagram supports the finding; it does not establish it.
+
 Explore alternatives with `design-architecture` when available and requested;
 otherwise provide useful analysis directly. Do not expand a review into an
 unrequested redesign. Record accepted decisions through the repository's ADR
