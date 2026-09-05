@@ -1,445 +1,51 @@
 ---
 name: land
-description:
-  Publish local changes into a pull request when needed, then land the PR by
-  resolving conflicts, keeping CI green, handling feedback, and using the
-  repository's customary merge method. It can also draft or send the PR and
-  preview to Slack when requested. Use when asked to land, merge, or shepherd a
-  PR to completion, or to share an existing PR through this workflow.
+description: Publish a missing PR, address CI and review feedback, and merge when the repository's gates pass. Use when asked to land or merge work. Also supports requested PR sharing to Slack without merging.
 ---
 
-# Land
+# Land a pull request
 
-## Goals
+Carry the requested work through merge, including publication when needed.
+A request only to share a PR uses [Slack sharing](references/slack.md) and ends
+there. A draft request ends at publication until the user authorizes readiness
+and landing. Reuse authorization already established in the conversation.
 
-- Ensure the PR is conflict-free with main.
-- Open a ready-for-review PR when the intended work does not already have one.
-- Keep CI green and fix failures when they occur.
-- Use native per-PR autofix dispatch when the host provides it, while retaining
-  authoritative final merge checks.
-- Share the PR and deployment preview to Slack when the user requests it.
-- Use the repository's customary merge method: merge commit, rebase, or squash.
-- Do not yield to the user until the PR is merged; keep the watcher loop running
-  unless blocked.
-- No need to delete remote branches after merge; the repo auto-deletes head
-  branches.
+Read the relevant sections of the shared [PR workflow](references/pr-workflow.md)
+for publication, base synchronization, and CI or feedback fixes. This skill owns
+those operations for `publish` and `babysit` too.
 
-## Preconditions
+## Merge gates
 
-- Require a local Git repository with an accessible GitHub remote.
-- Require an authenticated GitHub connector or `gh` CLI session for the
-  selected host.
-- When `gh` is unavailable but a GitHub connector is authenticated, use the
-  connector for PR creation and perform equivalent CI, feedback, head, and
-  merge polling; never skip a land gate because the bundled watcher cannot run.
-- Resolve the active skill directory from the path used to load this `SKILL.md`.
-  Do not hard-code `.agents`, `.codex`, `.claude`, or a global skills directory.
-- Run watcher commands from the PR repository working directory. The watcher
-  path is `scripts/land_watch.py` under the active skill directory, but `gh`
-  resolves repository context from the process working directory.
+Use the bundled [watcher](references/watcher.md) to monitor checks, feedback, and
+head changes. If an authenticated connector is available without `gh`, perform
+equivalent polling and final checks through it. Missing tooling never waives a
+merge gate.
 
-## Steps
+Before merging, require:
 
-Determine the requested mode before changing repository or external state. A
-request only to share an existing PR authorizes the Slack phase, not merging:
-locate the PR, run **Share the PR in Slack**, and stop. For a landing request,
-follow the workflow below; include the Slack phase only when requested.
+- the intended remote head, with local validation still applicable;
+- passing checks, no outstanding actionable feedback, and the completed
+  feedback grace window;
+- conflict-free, up-to-date merge state and the repository's required approvals;
+- the repository's customary enabled merge method, discovered from explicit
+  guidance or recent history.
 
-1. Establish the intended scope, GitHub remote, target repository, and base
-   branch. Inspect the complete status, diff, untracked files, and branch range;
-   never include unrelated changes silently.
-2. Locate an open PR for the current branch in the target repository.
-3. If no open PR exists, prepare and publish one using the **Open a PR when
-   needed** workflow below. Create it ready for review unless the user
-   explicitly requested a draft.
-4. If the user asked to share the PR in Slack, follow **Share the PR in Slack**
-   after the PR exists. This sharing phase does not authorize a merge or replace
-   CI and merge gates.
-5. Before every push, stage and review only the intended changes, then confirm
-   the full gauntlet is green against that exact state. If the PR already
-   existed, commit the validated staged changes and push them to the selected PR
-   branch.
-6. Check mergeability and conflicts against the target base branch.
-7. If conflicts exist, use an available pull workflow to fetch and merge the
-   target base and resolve conflicts, then push the updated branch.
-8. Ensure Codex review comments (if present) are acknowledged and any required
-   fixes are handled before merging.
-9. Coordinate with the host's native per-PR autofix support as described below.
-10. Watch checks until complete, then continue watching PR feedback for the
-   configured grace window (15 minutes by default) before merging.
-11. If checks fail, pull logs, fix the issue, commit the validated change, push,
-   and re-run checks.
-12. After all merge gates pass, use the repository's customary method: prefer
-   explicit guidance, otherwise infer from recent merge history. Confirm the
-   method is enabled; if ambiguous, ask instead of guessing. On Claude Code,
-   synchronously refresh `reviewDecision` immediately before merging and
-   require `APPROVED`; an empty decision, `REVIEW_REQUIRED`, or
-   `CHANGES_REQUESTED` remains blocking even when the watcher succeeds. Do not
-   manually delete the remote branch.
-13. **Context guard:** Before implementing review feedback, confirm it does not
-    conflict with the user’s stated intent or task context. If it conflicts,
-    respond inline with a justification and ask the user before changing code.
-14. **Pushback template:** When disagreeing, reply inline with: acknowledge +
-    rationale + offer alternative.
-15. **Ambiguity gate:** When ambiguity blocks progress, use the clarification
-    flow (assign PR to current GH user, mention them, wait for response). Do not
-    implement until ambiguity is resolved.
-    - If you are confident you know better than the reviewer, you may proceed
-      without asking the user, but reply inline with your rationale.
-16. **Per-comment mode:** For each review comment, choose one of: accept,
-    clarify, or push back. Reply inline (or in the issue thread for Codex
-    reviews) stating the mode before changing code.
-17. **Reply before change:** Always respond with intended action before pushing
-    code changes (inline for review comments, issue thread for Codex reviews).
+The watcher returns `LAND_WATCH_VALIDATED_HEAD=<sha>`. Pass that exact SHA to
+`gh pr merge --match-head-commit <sha>` with the selected `--merge`, `--rebase`,
+or `--squash` method. A connector must provide equivalent expected-head
+protection; otherwise use the CLI. Do not substitute a newly queried head for
+the validated one. Re-enter validation when the head changes.
 
-## Open a PR when needed
+Approval requirements come from the repository and user, consistently across
+hosts. Refresh required approval state immediately before merging. Do not enable
+auto-merge as a shortcut around these gates. Delete branches only when requested
+or required by repository policy; do not assume automatic deletion is enabled.
 
-When the current work has no open PR:
+When the host provides native per-PR autofix, use it within the current
+authorization instead of adding duplicate remediation loops. It supplies events
+and fixes; the watcher and final merge gates remain authoritative.
 
-1. Select and verify the push remote, GitHub hostname, head repository, target
-   repository, and base branch. Preserve an explicitly requested base; otherwise
-   use the repository default. Keep head and base repositories distinct for
-   fork workflows.
-2. If detached or on the target base branch, create a focused branch before
-   staging or committing. Otherwise keep the current branch unless the user
-   requested a new one.
-3. Refresh the target base ref. Inspect `git log <base-ref>..HEAD --oneline` and
-   `git diff <base-ref>...HEAD` together with the worktree diff and every
-   intended untracked file. Stop if scope is ambiguous or there is nothing to
-   publish.
-4. Stage only intended files and review the complete staged diff. Do not commit
-   yet.
-5. Run the relevant local validation against that exact staged worktree. Fix
-   attributable failures within scope, stage the fixes, review the staged diff
-   again, and rerun affected checks. When unrelated unstaged changes coexist,
-   materialize the index in an isolated temporary worktree and validate there;
-   do not test the mixed working tree or stash the user's changes. Then create a
-   terse commit when staged changes exist. Reuse unpublished branch commits;
-   never create an empty commit.
-6. Push the selected branch with upstream tracking. Never force-push unless the
-   user explicitly authorizes it and the target branch is verified. An
-   established workflow alone is not authorization.
-7. Write a title for the full branch diff and a Markdown body covering what and
-   why, user impact, validation, and any limitations.
-8. Recheck for an open PR after the push to avoid duplicates. If none exists,
-   create it with the prepared title and body. Prefer an authenticated GitHub
-   connector when it can address the selected repositories explicitly; use
-   `gh` otherwise. Explicitly target the selected base/head
-   repositories and branches, and set draft to false unless the user requested
-   a draft. Persist the returned PR URL, number, hostname, and repository; pass
-   that exact identity through the watcher, review-handling, and merge flows. If
-   the user requested a draft, stop after publishing it and explain that landing
-   is paused until they authorize marking it ready. Otherwise continue the land
-   workflow without yielding.
-
-For a same-repository CLI fallback:
-
-```sh
-gh pr create --repo "<host>/<base-owner>/<base-repository>" \
-  --base "<base-branch>" \
-  --head "$(git branch --show-current)" \
-  --title "<title>" \
-  --body-file "<body-file>"
-```
-
-For a user-owned fork, use `<head-owner>:<head-branch>`. For an
-organization-owned fork, use an authenticated GitHub connector or
-`GH_HOST="<host>" gh api` with explicit base/head repositories and branches;
-do not rely on the unsupported CLI `--head <organization>:<branch>` path or an
-unqualified API call that defaults to `github.com`.
-
-## Share the PR in Slack
-
-This phase replaces the former `publish-slack` skill. Run it when the user asks
-to share, post, or publish the PR to Slack. Use the requested channel. If none
-is supplied, ask which channel to use before creating or sending a draft.
-
-1. Read the selected PR's title, URL, body, and `headRefName`. Derive the branch
-   slug from that selected PR head rather than from the current checkout.
-2. Poll top-level issue comments every 10 seconds for up to 90 seconds for a
-   Vercel bot comment. Extract the branch preview URL matching
-   `*-git-{branch-slug}-*.vercel.app`; use `deploying...` if it does not arrive.
-3. Use any authenticated Slack capability exposed by the host to resolve the
-   channel and compose:
-   ```text
-   *PR: <title>* — <github-url>
-
-   <2-3 bullets from the PR body>
-
-   Preview: <branch-preview-url or "deploying...">
-   ```
-4. Create a Slack draft when the host supports drafts. Send immediately only
-   when the user explicitly requested sending rather than drafting. If the host
-   has no Slack write capability, report that limitation. Stop when this was a
-   share-only request; continue landing only when the original request also
-   independently authorized landing.
-
-On Claude Code, the Slack connector schemas may be deferred. Use `ToolSearch`
-once to load the capabilities needed for the requested action before calling
-them directly: `mcp__claude_ai_Slack__slack_search_channels`,
-`mcp__claude_ai_Slack__slack_send_message_draft`, and, only for an explicitly
-authorized immediate send, `mcp__claude_ai_Slack__slack_send_message`. Search
-the requested channel across public and private channels before drafting. A
-failed deferred-schema lookup is not evidence that Slack is unavailable; only
-take the no-capability path after discovery or connection actually fails.
-
-Keep host-specific Slack tool names confined to the capability-conditional
-adapter above; the shared phase remains defined by channel lookup, draft, and
-send capabilities.
-
-## Native autofix coordination
-
-Some hosts, including Claude Code surfaces, expose a per-PR **Auto-fix CI &
-address comments** checkbox. Use it as a native event and remediation channel,
-not as a separate skill implementation:
-
-- If the control is already enabled, do not create a redundant recurring
-  babysit loop. Handle its CI and review events through this land workflow.
-- If the control is exposed to the agent and can be enabled within the user's
-  current authorization, enable it for the selected PR. Otherwise continue with
-  the bundled watcher; do not block on a UI-only control.
-- When native autofix pushes a commit, refresh the verified remote head, inspect
-  the change, rerun relevant local validation, and restart the watcher against
-  the new head.
-- Never treat the checked state as proof that a dispatch ran, CI is green,
-  feedback is addressed, or the PR is ready. The watcher and synchronous final
-  refresh remain authoritative.
-- Do not enable **Auto-merge when ready**. This skill performs the final gates
-  and uses the repository's customary merge method itself.
-
-## Commands
-
-```
-# Ensure branch and PR context
-branch=$(git branch --show-current)
-# If no open PR resolves here, run "Open a PR when needed" above, then retry.
-pr_url="${LAND_WATCH_PR:-}"
-if [ -z "$pr_url" ]; then
-  pr_url=$(gh pr view --json url -q .url)
-fi
-export LAND_WATCH_PR="$pr_url"
-pr_number=$(gh pr view "$pr_url" --json number -q .number)
-pr_host=$(gh pr view "$pr_url" --json url --jq '.url | split("/")[2]')
-pr_repo=$(gh pr view "$pr_url" --json url --jq '.url | split("/") | .[3:5] | join("/")')
-pr_selector="$pr_repo"
-pr_title=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json title -q .title)
-pr_body=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json body -q .body)
-
-# Check mergeability and conflicts
-mergeable=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json mergeable -q .mergeable)
-
-if [ "$mergeable" = "CONFLICTING" ]; then
-  # Fetch and merge the target base, resolve conflicts, then push.
-fi
-
-# Preferred: use the Async Watch Helper below. It watches review feedback,
-# checks, and PR head changes in parallel. After checks pass (or when no CI
-# checks are detected), it keeps polling feedback for the configured grace
-# window (15 minutes by default). A Codex review is not required to arrive; no
-# actionable feedback during that wait is enough to proceed.
-if watch_output=$(LAND_WATCH_PR="$pr_url" python3 "$LAND_SKILL_DIR/scripts/land_watch.py"); then
-  watch_status=0
-else
-  watch_status=$?
-fi
-printf '%s\n' "$watch_output"
-if [ "$watch_status" -ne 0 ]; then
-  # Exit code 2 means review feedback must be handled.
-  # Exit code 3 means checks failed.
-  # Exit code 4 means the PR head changed and local state must be refreshed.
-  # Exit code 5 means the PR is behind, conflicting, or dirty.
-  # Exit code 6 means the PR was merged or closed while being watched.
-  exit 1
-fi
-
-# Claude Code sets CLAUDECODE=1. Only that host requires human approval here;
-# Codex and other hosts retain the selected repository's review policy.
-if [ "${CLAUDECODE:-}" = "1" ]; then
-  review_decision=$(GH_HOST="$pr_host" gh pr view "$pr_number" -R "$pr_selector" --json reviewDecision -q .reviewDecision)
-  if [ "$review_decision" != "APPROVED" ]; then
-    echo "Claude Code requires an APPROVED reviewDecision before landing." >&2
-    exit 1
-  fi
-fi
-validated_head=$(printf '%s\n' "$watch_output" | sed -n 's/^LAND_WATCH_VALIDATED_HEAD=//p' | tail -n 1)
-if [ -z "$validated_head" ]; then
-  echo "Watcher did not return its validated PR head; refusing to merge." >&2
-  exit 1
-fi
-
-# Run the customary enabled method:
-# merge:  GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --merge --match-head-commit "$validated_head"
-# rebase: GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --rebase --match-head-commit "$validated_head"
-# squash: GH_HOST="$pr_host" gh pr merge "$pr_number" -R "$pr_selector" --squash --match-head-commit "$validated_head" --subject "$pr_title" --body "$pr_body"
-```
-
-## Async Watch Helper
-
-Preferred: use the asyncio watcher to monitor review comments, CI, and head
-updates in parallel:
-
-```
-python3 "$LAND_SKILL_DIR/scripts/land_watch.py"
-```
-
-Resolve `LAND_SKILL_DIR` to the active skill directory containing this
-`SKILL.md`. Do not infer it from a host-specific installation path. Run the
-command from the PR repository working directory so `gh` uses the right
-repository.
-
-The watcher polls GitHub every 30 seconds by default to avoid exhausting API
-limits. For a slower cadence, set `LAND_WATCH_POLL_SECONDS` to an integer from
-30 to 300 before launching it. The feedback grace window defaults to 900
-seconds (15 minutes); set `LAND_WATCH_FEEDBACK_GRACE_SECONDS` to an integer from
-30 to 86400 to override it. Set `LAND_WATCH_PR` to the exact PR URL returned by
-creation so the watcher cannot resolve another PR for the same branch or
-checkout. Before returning success, the watcher performs
-authoritative final CI, PR-head, merge-state, and feedback refreshes until
-consecutive feedback and PR snapshots are unchanged. For example:
-
-```
-LAND_WATCH_PR="$pr_url" LAND_WATCH_POLL_SECONDS=60 LAND_WATCH_FEEDBACK_GRACE_SECONDS=600 python3 "$LAND_SKILL_DIR/scripts/land_watch.py"
-```
-
-Exit codes:
-
-- 2: Review comments detected before merge (address feedback)
-- 3: CI checks failed
-- 4: PR head updated (autofix commit detected)
-- 5: PR is behind, conflicting, or dirty
-- 6: PR is merged or closed; refresh state and stop watching
-
-The helper returns success only after the PR is conflict-free, checks are green,
-and the configured feedback grace period passes after green checks with no
-outstanding feedback. It does not require a Codex review to arrive; absence of
-feedback after the grace period is acceptable. On success it emits
-`LAND_WATCH_VALIDATED_HEAD=<sha>` for the exact head that passed final
-validation. Carry that emitted value into `gh pr merge --match-head-commit`;
-never replace it with a fresh head query that could bless an unvalidated commit.
-
-## Failure Handling
-
-- If checks fail, pull details with
-  `GH_HOST="$pr_host" gh pr checks "$pr_number" -R "$pr_selector"` and
-  derive the repository that owns the failed run from its rollup details URL,
-  then use `GH_HOST="$pr_host" gh run view <run-id> -R "<check-repository>" --log`.
-  Fix locally, commit the validated change, push, and re-run the watch.
-- Treat every reported CI failure as blocking. If a failure looks flaky (for
-  example, a timeout on one platform), rerun or re-watch until the check is
-  green before proceeding.
-- If CI pushes an auto-fix commit (authored by GitHub Actions), it does not
-  trigger a fresh CI run. Detect the updated PR head, pull locally, merge
-  the selected target base ref if needed, add a real author commit, and push to
-  the verified PR remote to retrigger CI, then restart the checks loop.
-- If all jobs fail with corrupted pnpm lockfile errors on the merge commit, the
-  remediation is to fetch and merge the selected target base ref, push to the
-  verified PR remote, and rerun CI.
-- If mergeability is `UNKNOWN`, wait and re-check.
-- If the watcher exits `6`, refresh the PR state. Treat `MERGED` as successful external completion; treat `CLOSED` without merge as terminal and report that no merge occurred.
-- Do not merge while review comments (human or Codex review) are outstanding.
-- Codex review jobs retry on failure and are non-blocking; merge is gated by
-  outstanding feedback plus the configured post-green feedback wait, not by a
-  requirement that a Codex review comment must arrive.
-- Do not enable auto-merge; this repo has no required checks so auto-merge can
-  skip tests.
-- If the remote PR branch advanced, fetch and integrate it without discarding
-  collaborator commits. Do not force-push unless the user explicitly
-  authorizes that history rewrite and the target branch is verified; when they
-  do, use `git push --force-with-lease` rather than an unguarded force push.
-
-## Review Handling
-
-- Codex reviews now arrive as issue comments posted by GitHub Actions. They
-  start with `## Codex Review — <persona>` and include the reviewer’s
-  methodology + guardrails used. Treat these as feedback that must be
-  acknowledged before merge.
-- Human review comments are blocking and must be addressed (responded to and
-  resolved) before requesting a new review or merging.
-- If multiple reviewers comment in the same thread, respond to each comment
-  (batching is fine) before closing the thread.
-- Derive API coordinates from the selected PR before fetching or replying; do
-  not use checkout-derived placeholders or the CLI's default hostname:
-  ```sh
-  PR_URL="${LAND_WATCH_PR:-$(gh pr view --json url --jq .url)}"
-  PR_HOST=$(gh pr view "$PR_URL" --json url --jq '.url | split("/")[2]')
-  PR_REPO=$(gh pr view "$PR_URL" --json url --jq '.url | split("/") | .[3:5] | join("/")')
-  PR_NUMBER=$(gh pr view "$PR_URL" --json number --jq .number)
-  ```
-- Fetch review comments via `gh api` and reply with a prefixed comment.
-- Use review comment endpoints (not issue comments) to find inline feedback:
-  - List PR review comments:
-    ```
-    GH_HOST="$PR_HOST" gh api "repos/$PR_REPO/pulls/$PR_NUMBER/comments"
-    ```
-  - PR issue comments (top-level discussion):
-    ```
-    GH_HOST="$PR_HOST" gh api "repos/$PR_REPO/issues/$PR_NUMBER/comments"
-    ```
-  - Reply to a specific review comment:
-    ```
-    GH_HOST="$PR_HOST" gh api --method POST \
-      "repos/$PR_REPO/pulls/$PR_NUMBER/comments" \
-      -f body='[agent] <response>' -F in_reply_to=<comment_id>
-    ```
-- `in_reply_to` must be the numeric review comment id (e.g., `2710521800`), not
-  the GraphQL node id (e.g., `PRRC_...`), and the endpoint must include the PR
-  number (`/pulls/<pr_number>/comments`).
-- If GraphQL review reply mutation is forbidden, use REST.
-- A 404 on reply typically means the wrong endpoint (missing PR number) or
-  insufficient scope; verify by listing comments first.
-- All GitHub comments generated by this skill must be prefixed with `[agent]`.
-- For Codex review issue comments, reply in the issue thread (not a review
-  thread) with `[agent]` and state whether you will address the feedback now or
-  defer it (include rationale).
-- If feedback requires changes:
-  - For inline review comments (human), reply with intended fixes
-    (`[agent] ...`) **as an inline reply to the original review comment** using
-    the review comment endpoint and `in_reply_to` (do not use issue comments for
-    this).
-  - Implement fixes, commit, push.
-  - Reply with the fix details and commit sha (`[agent] ...`) in the same place
-    you acknowledged the feedback (issue comment for Codex reviews, inline reply
-    for review comments).
-  - The land watcher treats Codex review issue comments as unresolved until a
-    newer `[agent]` issue comment is posted acknowledging the findings. Legacy
-    `[codex]` acknowledgements remain recognized.
-- Only request a new Codex review when you need a rerun (e.g., after new
-  commits). Do not request one without changes since the last review.
-  - Before requesting a new Codex review, re-run the land watcher and ensure
-    there are zero outstanding review comments (all have `[agent]` inline
-    replies).
-  - After pushing new commits, the Codex review workflow will rerun on PR
-    synchronization (or you can re-run the workflow manually). Post a concise
-    root-level summary comment so reviewers have the latest delta:
-    ```
-    [agent] Changes since last review:
-    - <short bullets of deltas>
-    Commits: <sha>, <sha>
-    Tests: <commands run>
-    ```
-  - Only request a new review if there is at least one new commit since the
-    previous request.
-  - Wait for the next Codex review comment before merging.
-
-## Scope + PR Metadata
-
-- The PR title and description should reflect the full scope of the change, not
-  just the most recent fix.
-- If review feedback expands scope, decide whether to include it now or defer
-  it. You can accept, defer, or decline feedback. If deferring or declining,
-  call it out in the root-level `[agent]` update with a brief reason (e.g.,
-  out-of-scope, conflicts with intent, unnecessary).
-- Correctness issues raised in review comments should be addressed. If you plan
-  to defer or decline a correctness concern, validate first and explain why the
-  concern does not apply.
-- Classify each review comment as one of: correctness, design, style,
-  clarification, scope.
-- For correctness feedback, provide concrete validation (test, log, or
-  reasoning) before closing it.
-- When accepting feedback, include a one-line rationale in the root-level
-  update.
-- When declining feedback, offer a brief alternative or follow-up trigger.
-- Prefer a single consolidated "review addressed" root-level comment after a
-  batch of fixes instead of many small updates.
-- For doc feedback, confirm the doc change matches behavior (no doc-only edits
-  to appease review).
+Continue until merged or a concrete blocker needs user action. An externally
+merged PR is successful completion; a PR closed without merge is terminal and
+must be reported as unmerged. Return the PR URL, result, and material remaining
+limitations without a transcript of each check.

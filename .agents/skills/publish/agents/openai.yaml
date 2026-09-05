@@ -1,4 +1,4 @@
 interface:
   display_name: "Publish Changes"
   short_description: "Publish changes in a ready pull request"
-  default_prompt: "Use $publish to commit and push my intended changes, then open a pull request ready for review."
+  default_prompt: "Use $publish to commit and push my intended changes to a new or existing pull request."

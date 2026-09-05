@@ -539,16 +539,10 @@ class PullRequestIdentityTests(unittest.TestCase):
         )
 
 
-class LandSkillDocumentationTests(unittest.TestCase):
+class FeedbackAndRoutingTests(unittest.TestCase):
     def test_agent_and_legacy_ack_prefixes_are_recognized(self) -> None:
         self.assertTrue(land_watch.is_codex_reply_body("[agent] Addressed in abc123"))
         self.assertTrue(land_watch.is_codex_reply_body("[codex] Addressed in abc123"))
-
-    def test_organization_fork_api_fallback_routes_selected_host(self) -> None:
-        skill_path = WATCHER_PATH.parents[1] / "SKILL.md"
-        skill = skill_path.read_text(encoding="utf-8")
-
-        self.assertIn('GH_HOST="<host>" gh api', skill)
 
     def test_clean_codex_review_summary_is_not_feedback(self) -> None:
         comment = {

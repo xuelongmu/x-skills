@@ -1,145 +1,82 @@
 # Skill source layout
 
-This repository stores each cross-host capability once and follows the Agent
-Skills specification for every `SKILL.md`.
+All thirteen skills live once under `.agents/skills/<skill>/`. Codex discovers
+that tree directly; the `npx skills` installer exposes complete directories to
+Claude Code through symlinks or Windows junctions. There are no checked-in host
+links or duplicated implementations.
 
-## Storage contract
+## Storage and installation contract
 
-- `.agents/skills/<skill>` is the canonical source for behavior available in
-  both Codex and Claude Code. Codex discovers this directory directly.
-- `.codex/skills` and `.claude/skills` are currently empty. Add a source there
-  only when a future capability is genuinely host-only and cannot be expressed
-  as portable instructions with capability-based tool selection.
-- Checked-in links are not part of the source layout. The installer creates a
-  symlink, or a Windows junction, for a host that does not discover the
-  canonical location directly.
+Use `npx skills` for installation, refresh, migration, and removal, following the
+[README](../README.md). The update command updates the complete selected scope,
+including other sources; it reports new skills without installing them and
+offers removal of upstream deletions.
 
-This matches `vercel-labs/skills` 1.5.23 at revision
-[`435076e`](https://github.com/vercel-labs/skills/tree/435076e78988e1e6ec40d00b0b1d76bdbbc5419a):
-[`installer.ts`](https://github.com/vercel-labs/skills/blob/435076e78988e1e6ec40d00b0b1d76bdbbc5419a/src/installer.ts)
-uses `.agents/skills` and `~/.agents/skills` as the canonical project and
-global locations and creates Windows junctions with absolute targets;
-[`agents.ts`](https://github.com/vercel-labs/skills/blob/435076e78988e1e6ec40d00b0b1d76bdbbc5419a/src/agents.ts)
-classifies Codex as universal and Claude Code as `.claude/skills`.
+The canonical directory is `.agents/skills` for project scope or
+`~/.agents/skills` for global scope. Host links must include references, scripts,
+and metadata. Removing only one host's link must preserve a canonical copy still
+used by another host.
 
-## Agent Skills compliance
+This topology was checked against `vercel-labs/skills` 1.5.23 at
+[revision 435076e](https://github.com/vercel-labs/skills/tree/435076e78988e1e6ec40d00b0b1d76bdbbc5419a).
+The installer does not automatically resolve sibling dependencies: select
+`land` in the same scope when installing `publish` or `babysit`.
 
-Every source uses standard top-level frontmatter: `name`, `description`, and
-only the optional fields defined by the Agent Skills specification. Host-only
-fields such as Claude Code's `argument-hint` are not present in canonical
-sources. OpenAI UI metadata remains in the optional `agents/openai.yaml` file.
+## Ownership audit
 
-Bundled code lives under `scripts/`. Instructions resolve scripts and other
-resources relative to the active `SKILL.md`, never from a hard-coded host
-installation path. The `land` watcher is therefore available at
-`land/scripts/land_watch.py` through both the canonical Codex directory and the
-Claude link to that directory.
+| Skills | Canonical ownership |
+| --- | --- |
+| publish, babysit, land | Three user intents; shared PR operations and watcher contract belong to land. Only landing authorizes merge. |
+| browser-evidence | Evidence criteria are portable; the active host owns browser selection and tool protocols. Platform launchers are optional scripts. |
+| review-change, review-complexity | Change readiness and overengineering remain separate capabilities; specialist references are conditional. |
+| design-architecture, review-architecture | Design generation and assessment remain separate. Optional sibling routing has a direct-analysis fallback. |
+| capture-learning, steward-research | Verified reusable knowledge and reproducible research have distinct destinations and evidence requirements. |
+| prompt-agent-orchestrator, drive-agent-orchestrator | Prompt authoring and live AO operation remain separate. AO-specific contracts justify detailed guidance. |
+| google-developer-style | A deliberate house style shared across hosts, with CC BY 4.0 attribution. |
 
-Run the repository tests plus the official reference validator:
+`.codex/skills` and `.claude/skills` are empty. Add a real host-specific variant
+only when instructions or lifecycle meaningfully differ. Capability selection
+alone does not require another implementation. Host-specific review approval
+policies, browser tool-name catalogs, and sign-off labels are no longer embedded
+in portable workflows. Any unavailable capability must be reported accurately;
+it does not waive required evidence or authorization.
+
+## Bundled resources
+
+- `land/references/pr-workflow.md` owns publication and maintenance mechanics.
+  `publish` and `babysit` link to it relative to their active directories.
+- `land/scripts/land_watch.py` remains the deterministic PR watcher.
+  `land/references/watcher.md` defines its invocation and readiness contract.
+- `land/references/slack.md` loads only for requested PR sharing.
+- `browser-evidence/scripts/launch-chrome.ps1` and `launch-chrome.sh` contain
+  the former inline fallback launchers. Browser fallbacks explain use and cleanup.
+- Architecture decision surfaces, consequence analysis, review lenses, learning
+  destination routing, and review complexity references are optional detail.
+  Duplicate project-invariant catalogs and mandatory report templates were removed.
+
+Resolve all resources relative to the active skill directory. Run the watcher
+from the target PR repository so its checkout context is correct. Store
+executable helpers in `scripts/` and product metadata in `agents/openai.yaml`.
+Every `SKILL.md` uses only Agent Skills standard frontmatter.
+
+## Validation
+
+Run structural, resource, and watcher checks:
 
 ```bash
-python -m unittest discover -s tests -v
+python -B -m unittest discover -s tests -v
 uvx --from skills-ref agentskills validate <skill-directory>
 ```
 
-## Consolidation audit
+The resource audit checks relative links, including sibling links under a relocated
+installation. It does not enforce prose, report headings, or a fixed process.
+The watcher tests retain executable coverage of feedback, CI, selected-host
+identity, changed heads, and terminal states.
 
-| Skill | Decision | Reason |
-|---|---|---|
-| `publish` | canonical | Both implementations performed the same Git, validation, push, and ready-PR workflow; the shared source chooses an authenticated GitHub connector when suitable and otherwise uses `gh`. |
-| `babysit` | canonical | Both implementations kept a PR healthy without merging. The shared source uses the host's recurring monitor and the bundled `land` watcher. |
-| `land` | canonical | The merge workflow, `gh` operations, Python watcher, optional Slack sharing, and native-autofix coordination are expressed through host capabilities; the complete skill directory installs for both hosts. |
-| `prompt-agent-orchestrator` | canonical | The readiness contract is shared. The prompt template remains a progressively loaded reference. |
-| `drive-agent-orchestrator` | canonical | The instructions are host-neutral. The Claude-only autocomplete hint was removed to keep standard frontmatter. |
-| `browser-evidence` | canonical | Browser selection is capability-based instead of naming a host-specific browser connector. |
-| `steward-research` | canonical | The previous host copies were byte-identical. |
-| `capture-learning` | canonical | Evidence gates and destination routing are host-neutral. The skill discovers repository authorities and loads its routing reference only after a candidate qualifies. |
-| `review-change` | canonical | Intent recovery, review-only safety, verification audit, and diff-routed risk lenses do not depend on host-specific tools; optional local or external reviewers are capability- and authorization-gated. |
-| `review-complexity` | canonical | The complexity and simplification workflow is shared; Codex task-history lookup is selected only when the active host exposes that capability. |
-| `google-developer-style` | canonical | Introduced as a shared source in PR #23. |
-| `design-architecture` | canonical | Repository grounding, decision mapping, consequence analysis, and ADR handoff are host-neutral; detailed surfaces and project-invariant discovery are progressively loaded references. |
-| `review-architecture` | canonical | Architecture review is report-only and capability-neutral; artifact maturity, verdicts, external-review authorization, and ADR boundaries do not require host-specific sources. |
-| `publish-slack` | folded into `land` | PR sharing and Vercel preview lookup are host-neutral. `land` uses any authenticated Slack capability, drafts by default, and sends only on explicit request. |
+After changing launcher code, validate shell syntax and exercise the launcher on
+its supported platform in task-local scratch space, verifying endpoint ownership
+and cleanup. A syntax check on a different OS is not runtime coverage.
 
-Before this consolidation, the repository tracked 15 `SKILL.md` sources: one
-canonical source plus seven sources for each host. The migration removed six
-duplicated cross-host pairs, folded the former Claude-only `publish-slack`
-workflow into `land`, and made `land` available to Claude Code. The repository
-now tracks thirteen canonical sources, including the subsequently added
-`capture-learning`, `review-change`, `review-complexity`,
-`design-architecture`, and `review-architecture`, without reintroducing host
-copies. The consolidation still removes seven duplicated sources without
-removing a workflow.
-
-## Installation constraints
-
-Install from the repository shorthand. The CLI discovers canonical skills under
-`.agents/skills` and lets the user select skills, supported agents, and
-installation scope.
-
-Canonical installation has these invariants:
-
-1. One real directory exists at `.agents/skills/<skill>` for project scope or
-   `~/.agents/skills/<skill>` for global scope.
-2. Codex uses that directory directly.
-3. Claude Code receives `.claude/skills/<skill>` pointing to the same complete
-   directory, including `scripts/`, `references/`, and `agents/`.
-4. Updating a canonical skill preserves the canonical directory and Claude
-   link topology.
-5. Removing only Claude's link keeps the canonical directory while Codex still
-   uses it. Removing the skill from all agents removes the canonical directory
-   and its lock entry.
-
-Use `npx skills@latest update` for refreshes. It updates the complete selected
-scope, interactively offers to remove skills deleted upstream, and reports newly
-available skills without installing them. If the command reports a new skill,
-rerun the installer from the README to opt into it. Use the interactive `remove`
-command for repository-specific cleanup.
-
-Claude's per-PR **Auto-fix CI & address comments** control is a native event and
-remediation channel for `land`, not a distinct source. When enabled, it avoids a
-redundant recurring babysit loop, while the bundled watcher and synchronous
-final refresh remain authoritative. `land` does not enable Claude's separate
-**Auto-merge when ready** control.
-
-## Host-only interfaces retained in canonical skills
-
-The audit found no meaningfully different skill implementations, but it did
-find host-only invocation surfaces that the shared instructions must preserve:
-
-| Host | Interface | Canonical handling |
-|---|---|---|
-| Codex | `browser:control-in-app-browser` | `browser-evidence` conditionally loads the signed-in browser-control skill before offering an unauthenticated fallback. |
-| Claude Code | Slash-command invocations such as `/land` and `/babysit` | Documentation shows Claude's invocation syntax while the installed `SKILL.md` remains shared. |
-| Claude Code | `ToolSearch`, `AskUserQuestion`, and `mcp__claude-in-chrome__*` browser tools | `browser-evidence` conditionally loads deferred connector schemas, asks the user to select a connected browser, and follows the connector recovery flow. |
-| Claude Code | `/loop`, `CronList`, `CronDelete`, and `PushNotification` | `babysit` conditionally preserves recurring-loop cleanup, the once-per-head Codex sign-off notification, and Claude's `reviewDecision == APPROVED` readiness gate. |
-| Claude Code | `ToolSearch` and `mcp__claude_ai_Slack__*` connector tools | `land` conditionally loads deferred Slack schemas before channel lookup, drafting, or an explicitly authorized send. |
-| Claude Code | **Auto-fix CI & address comments** | `land` treats it as optional dispatch and remediation; the shared watcher still owns final readiness. |
-| Claude Code | `reviewDecision` approval gate | `land` refreshes the selected PR immediately before merging and requires `APPROVED`; watcher success alone cannot bypass human approval. |
-| Codex desktop | Task listing and task-history readers | `review-complexity` reads only pertinent tasks associated with the target repository or workstream when those tools are available; other hosts use history supplied in the conversation or as an export. |
-
-These adapters do not change the underlying workflow or justify duplicated
-skill sources. If a future host-specific interface changes the actual tools,
-authorization boundary, or lifecycle semantics rather than merely dispatching
-the same workflow, add a host-specific source and record the exception here.
-
-Run `python -m unittest discover -s tests -v` for the source and format audit.
-Run `pwsh -File tests/test_skills_cli_windows.ps1 -RepositoryRoot <source>` on
-Windows for an isolated lifecycle check. A GitHub shorthand with a fragment
-ref, such as `owner/repo#feature-branch`, exercises remote update checking. URL
-encode `/` as `%2F` when the branch name contains a slash.
-
-## Migration checklist
-
-1. If a source checkout lives directly inside an agent's managed skills
-   directory, move it elsewhere before cleanup.
-2. Run the interactive `npx skills@latest remove` command from the README and
-   select this repository's entries. The CLI handles managed copies and links
-   without deleting link targets.
-3. Reinstall with the command in the README, then restart Codex and Claude Code.
-4. Verify names and descriptions in each host. Confirm that
-   `capture-learning`, `review-change`, and `review-complexity` can load their
-   bundled references, then exercise `land` from both hosts to confirm that the
-   watcher resolves from the installed skill directory. On a Claude surface,
-   verify that native autofix events re-enter the same workflow without
-   bypassing final checks.
+Use the [evaluation scenarios](skill-evaluation.md) for instruction behavior.
+Compare completion, scope, unnecessary questions and checks, and justified
+boundaries. Do not claim cross-model validation from phrase assertions.

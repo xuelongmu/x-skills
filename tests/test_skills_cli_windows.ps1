@@ -133,6 +133,10 @@ try {
         $landWatcher = Join-Path $projectRoot ".agents\skills\land\scripts\land_watch.py"
         Assert-PathExists $landWatcher
         Assert-PathExists (Join-Path $projectRoot ".claude\skills\land\scripts\land_watch.py")
+        Assert-PathExists (Join-Path $projectRoot ".claude\skills\publish\..\land\references\pr-workflow.md")
+        Assert-PathExists (Join-Path $projectRoot ".claude\skills\babysit\..\land\references\watcher.md")
+        Assert-PathExists (Join-Path $projectRoot ".claude\skills\browser-evidence\scripts\launch-chrome.ps1")
+        Assert-PathExists (Join-Path $projectRoot ".claude\skills\browser-evidence\scripts\launch-chrome.sh")
         Assert-PathExists (Join-Path $projectRoot ".claude\skills\capture-learning\references\destination-routing.md")
         Assert-PathExists (Join-Path $projectRoot ".claude\skills\review-change\references\risk-lenses.md")
         Assert-PathExists (Join-Path $projectRoot ".claude\skills\review-complexity\references\review-archaeology.md")

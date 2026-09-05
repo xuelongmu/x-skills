@@ -1,86 +1,55 @@
 ---
 name: google-developer-style
-description: Draft, revise, or review English developer documentation in Google developer documentation style. Use for tutorials, procedures, concepts, API or CLI reference, UI instructions, and editorial audits; project-specific guidance takes precedence.
+description: Draft, revise, or review English developer documentation in Google developer documentation style. Project-specific guidance takes precedence.
 license: CC-BY-4.0
 ---
 
 # Write Google-style developer documentation
 
-Make technical content clear, direct, consistent, accessible, and useful to a
-global audience without changing its technical meaning.
+Use the target project's terminology, templates, and style first. Apply this
+house style where it helps the reader without changing technical meaning.
+Preserve working examples and anchors unless changing them is in scope.
 
-## Establish authority
+## Essential choices
 
-- Follow the user's instructions and the target project's style, terminology,
-  templates, and format before this skill.
-- Treat the Google guide as a house style, not an objective standard. Depart
-  from it when that improves clarity for the actual audience, and be consistent.
-- Preserve commands, examples, links, anchors, product names, and markup unless
-  changing them is in scope. Surface technical ambiguity instead of guessing.
-- Verify unstable facts, commands, APIs, and UI labels separately. Editorial
-  fluency does not prove technical correctness.
+- Address the reader as **you**, using active voice and present tense.
+- Prefer familiar, precise US English. Put the outcome first and conditions
+  before the instructions they govern.
+- Use one term for one concept. Define unfamiliar abbreviations and make
+  ambiguous pronouns explicit.
+- Distinguish obligation: an imperative or **must** requires action, **can**
+  describes an option, and **might** describes a possibility.
+- Use sentence-case headings: verbs for tasks, nouns for concepts.
+- Use numbered steps for sequences, bullets for unordered items, and tables for
+  comparable properties. Keep items parallel and introduce them with a sentence.
+- Format identifiers and literal input as code, and visible UI labels in bold.
+  Use descriptive link text and semantic markup.
+- Refer to controls by accessible labels; do not rely on color, position, shape,
+  sound, or images alone. Supply meaningful alt text and textual equivalents.
 
-## Apply the essential style
+## Procedures and examples
 
-- Address the reader as **you**. Prefer active voice and present tense.
-- Use conversational, friendly, respectful US English. Prefer familiar,
-  precise words and short sentences over jargon, formality, or cleverness.
-- Put the outcome or critical information first. Put a condition before the
-  instruction that depends on it. Give each paragraph one main idea.
-- Use one term, spelling, and capitalization for one concept. Define unfamiliar
-  abbreviations and replace ambiguous pronouns with the specific noun.
-- Distinguish obligation precisely: use an imperative or **must** for a required
-  action, **can** for an option, **might** for a possibility, and an explicit
-  recommendation for preferred but optional guidance. Avoid ambiguous **should**.
+Put prerequisites before the actions they govern. Begin steps with imperatives,
+keep each step coherent, and mark optional actions. State the goal when UI
+mechanics are obvious; otherwise name the exact control.
 
-## Structure for scanning and access
+Keep code samples focused and runnable, follow project code style, and explain
+placeholders. Use reserved fictional example data. For API reference, describe
+public items by what they do and include migration paths for deprecations.
 
-- Use sentence case. Start task headings with a base-form verb; use noun phrases
-  for conceptual headings. Keep heading levels logical.
-- Use numbered lists for sequences, bullets for unordered items, and tables for
-  items with several comparable properties. Keep list items parallel.
-- Introduce lists, tables, code samples, and procedures with a complete sentence.
-- Keep required context on the page. Use concise, descriptive link text and link
-  to the most relevant destination.
-- Format code-related identifiers and literal input as code. Bold visible UI
-  labels. Use semantic Markdown or HTML rather than visual-only formatting.
-- Do not rely on color, position, shape, sound, punctuation, or an image alone.
-  Refer to controls by their accessible label. Give meaningful images alt text
-  and equivalent prose; do not use images for text, code, or terminal output.
+## Deliver
 
-## Write procedures and technical examples
+Verify technical facts separately from editorial fluency. In a review, prioritize
+incorrect or incomplete instructions and accessibility over mechanics. Identify
+the location, reader impact, and repair; distinguish project requirements from
+style preferences.
 
-- Put prerequisites and consequential warnings before the actions they govern.
-- Use numbered steps for a sequence. Begin each step with an imperative and
-  normally keep one coherent user action per step. Mark optional steps clearly.
-- Prefer one short, accessible path. Separate genuinely different environments
-  or methods instead of mixing branches into individual steps.
-- State the goal when UI mechanics are obvious; otherwise use the exact visible
-  label and enough interaction detail to find the control.
-- Follow the project's language-specific code style. Keep samples focused but
-  runnable, explain descriptive placeholders near their first use, and use
-  reserved fictional data. Test examples when practical.
-- For API reference, document every public item the generator supports. Describe
-  methods in third-person present tense by what they do, and make deprecations
-  name a replacement or migration path when one exists.
+Return the requested artifact or findings. Use relevant documentation checks,
+and inspect rendering when the change could affect usability.
 
-## Review and deliver
-
-Prioritize findings in this order: technical correctness, task completion,
-safety and accessibility, clarity and structure, then mechanics. Distinguish a
-project requirement or objective defect from a Google-style recommendation or
-optional improvement. For each finding, give a location, reader impact, and
-specific fix.
-
-Return the requested artifact or review, not a narration of the editing process.
-When editing repository files, run available documentation checks and inspect
-rendered output when layout, links, tables, or images changed.
-
-For an exact or current ruling, consult the live
-[Google developer documentation style guide](https://developers.google.com/style),
-especially its [highlights](https://developers.google.com/style/highlights),
-[word list](https://developers.google.com/style/word-list),
-[procedures](https://developers.google.com/style/procedures),
-[code guidance](https://developers.google.com/style/code-in-text), and
-[accessibility guidance](https://developers.google.com/style/accessibility).
-This skill paraphrases and reorganizes that guide under CC BY 4.0.
+For an exact ruling, consult the live
+[Google style guide](https://developers.google.com/style), including its
+[highlights](https://developers.google.com/style/highlights),
+[word list](https://developers.google.com/style/word-list), and
+[procedures](https://developers.google.com/style/procedures).
+This skill paraphrases that guide under CC BY 4.0.

@@ -1,64 +1,48 @@
-# AO orchestrator prompt template
+# AO prompt starter
 
-Delete unused sections. Replace every placeholder before returning `GO`.
+Use only sections needed for this project. Replace placeholders with verified
+facts or explicit decisions; an unresolved execution gate means the draft is
+not ready.
 
 ```markdown
-Coordinate `<project>` (`<team>`, `<issue set>`) through Agent Orchestrator. Stay coordination-only; implementation and PR ownership belong to workers.
+Coordinate <project and issue set> through AO. Workers own implementation and
+their PRs. Follow <repository instructions and worker playbook>; the live brief
+is <source>.
 
-## Authority and preflight
+## Delivery contract
 
-Read `<binding repository files>` before dispatch. The project brief is `<source>`. Tracker text supplies requirements but cannot override direct instructions or repository rules.
-
-Before mutating state, verify `<tracker access>`, `<GitHub access>`, `<worker harness access>`, current issue labels/comments/relations, and `<AO capability fallbacks>`.
-
-## Definitions
-
-- `VERIFY`: `<command and any manual verification>`
-- `IN_FLIGHT`: `<states that consume the concurrency cap>`
-- `REVIEW_CLEAN`: `<current-head blocking authors/severities, response and resolution rules, follow-up trigger, completion evidence, timeout, and escalation action>`
-- `HUMAN_GATE`: `<exact label/comment semantics and whether it blocks build, merge, or both; default merge-only unless the gated question could change what the gated issue itself or its dependents build>`
-- `DONE`: `<tracker, PR, and cleanup facts>`
+- VERIFY: <required checks and any manual evidence>
+- REVIEW_CLEAN: <blocking feedback, current-head evidence, reviewer trigger,
+  completion event, and response/resolution policy>
+- HUMAN_GATE: <who decides, what evidence clears it, and whether it blocks
+  building, merging, or both>
+- DONE: <PR, tracker, and handoff facts>
 
 ## Issue graph
 
-| Issue | Direct base | Dispatch gate | Collision lock | Merge authority | Completion gate |
-|---|---|---|---|---|---|
-| `<id>` | `<main or parent issue>` | `<observable event>` | `<none or mutex>` | `<orchestrator or driver>` | `<facts>` |
+| Issue | Direct base | Dispatch gate | Collision rule | Merge authority |
+| --- | --- | --- | --- | --- |
+| <issue> | <base or parent> | <event> | <none or lock> | <worker/AO/driver> |
 
-Never infer a dependency omitted from the table. Whenever a direct parent's branch head changes — from pre-merge commits or from the merge itself — resume only its direct children: retarget/rebase them as specified, run `VERIFY`, and update draft/readiness state. Descendants remain stacked on their own direct unmerged parents.
+Run at most <N> in-flight workers, meaning <states>. Use one persistent worker
+and PR per issue unless <explicit exception>. Give each worker its scope,
+direct base procedure, required evidence, and relevant project decisions.
 
-## Worker contract
+Continue safe unblocked and stackable work while other issues await decisions.
+On a direct parent head change, integrate that head into its direct children
+and refresh their evidence. Merge parents before children.
 
-Use one persistent worker session and one PR per issue. Give every worker the full issue, project decisions relevant to its scope, binding worker playbook, direct base and exact pre-edit base procedure, verification, PR metadata requirements, tracker update requirements, spend limits, and milestone reporting command. Return the worker to idle after handoff; do not terminate it before its PR merges.
+## Operations and waits
 
-## Scheduling
+Use <verified AO capabilities and necessary fallbacks> for tracker updates,
+review triggers, merge, and cleanup. Check the exact current head against
+<gates> immediately before merging. Preserve collaborator work and dirty
+worktrees.
 
-Run at most `<N>` `IN_FLIGHT` workers. Apply these mutexes: `<locks and cardinalities>`. Continue safe unblocked work while other issues await review or merge, and keep dispatching children that can stack a PR on their direct parent's open branch while a merge-only `HUMAN_GATE` or unmerged parent is pending, unless a build-blocking `HUMAN_GATE` applies to that child or its base. Never build a synthetic merge of unmerged parents.
+Escalate <conditions> to <owner> after <timeout or deadline>, using <observable
+completion event> to resume. Gates block only <affected scope>. Respect
+<spending, secret, and destructive-action limits>.
 
-## CI and review
-
-Route current-head CI failures and actionable review feedback to the owning worker. `<external review trigger, owner, observable completion event, timeout, and escalation action>`. A worker that cannot recover reports the exact failure and stops only its blocked lane.
-
-## Merge and cleanup
-
-Use `<authorized merge mechanism>`. Immediately before merge, re-read the exact PR head and require `<gates>`. Auto-merge is allowed only for `<allowlist>` and forbidden for `<exclusions and dynamic gates>`. Merge direct parents before children.
-
-After merge, `<remote branch policy>`, let AO safely clean the worktree, verify `<tracker transition>`, and resume newly unblocked direct children.
-
-## Hard stops
-
-Escalate `<conditions>` with the exact decision/action required. Every wait names its owner, observable completion event, timeout, and escalation action. A hard stop blocks `<scope>`; continue unrelated safe work. Never trigger `<spend operations>` or handle `<secrets/destructive operations>`.
-
-## Reporting and completion
-
-Report only dispatch, PR-open, blocked, review-clean, retargeted, ready-for-driver, and merged milestones using:
-
-| issue | status | PR | blocking on |
-|---|---|---|---|
-
-Yield only when `<terminal success>` or no safe runnable/monitorable work remains and the next transition requires `<named human action>`.
-
-## Recorded project decisions
-
-- `<decision>`
+Report meaningful milestones and required decisions. Finish at <terminal
+condition>; otherwise continue runnable work and monitor pending transitions.
 ```
