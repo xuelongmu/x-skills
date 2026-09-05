@@ -9,6 +9,7 @@ Portable workflow skills for Claude Code and Codex.
 | publish | Publish intended changes to a new or existing PR | `/publish` | `publish` | canonical |
 | babysit | Keep the PR ready without merging: fix CI, address review comments, and sync the base branch | `/babysit` | `babysit` | canonical |
 | land | Open or share a PR, keep it healthy, and merge once checks and feedback gates pass | `/land` | `land` | canonical |
+| orchestrate | Lead delegated work through bounded milestones, selective updates, and human review checkpoints | `/orchestrate` | `orchestrate` | canonical |
 | prompt-agent-orchestrator | Draft and validate multi-issue Agent Orchestrator project prompts | `/prompt-agent-orchestrator <brief>` | `prompt-agent-orchestrator` | canonical |
 | drive-agent-orchestrator | Operate Agent Orchestrator: preflight, spawn/supervise workers and orchestrators, monitor sessions | `/drive-agent-orchestrator` | `drive-agent-orchestrator` | canonical |
 | browser-evidence | Drive a running app, verify a flow, and capture browser-visible evidence | `/browser-evidence` | `browser-evidence` | canonical |
@@ -120,6 +121,14 @@ references load only for the relevant mode or risk.
 - Review and architecture skills preserve distinct user intents without
   requiring a fixed series of passes or reports. Missing optional sibling skills
   do not block assessment. Design recommendations do not create accepted ADRs.
+- `orchestrate` owns host-neutral coordination judgment: task boundaries,
+  dependencies, quiet progress handling, review scope, and checkpoint handoff.
+  The same source is intended for Claude Code, Codex, and other skill-capable
+  harnesses; it adapts to blocking, background, or non-resumable workers without
+  requiring a particular tool API. `agents/openai.yaml` is optional Codex UI
+  metadata, not an execution dependency. Other harnesses have not been runtime-tested.
+  The AO skills own service-specific prompt contracts and operations; none
+  authorizes delegation or external changes beyond the user's request.
 - Reusable learnings belong in their owning test, contract, runbook, or skill.
   Avoid general advice and duplicated rules.
 

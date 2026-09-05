@@ -16,6 +16,7 @@ CANONICAL = {
     "drive-agent-orchestrator",
     "google-developer-style",
     "land",
+    "orchestrate",
     "prompt-agent-orchestrator",
     "publish",
     "review-architecture",
