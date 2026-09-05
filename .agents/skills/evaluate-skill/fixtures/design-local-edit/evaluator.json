@@ -1,0 +1,29 @@
+{
+  "id": "design-local-edit",
+  "version": 1,
+  "target_skill": "design-architecture",
+  "question": "Does normal discovery avoid activating architecture guidance for a complete, local wording edit?",
+  "kind": "ordinary and discovery negative",
+  "split": "development",
+  "mode": "simulated-decision",
+  "criteria": [
+    {
+      "id": "simple-completion",
+      "expectation": "Returns the updated line with the same meaning and no unrelated changes.",
+      "evidence": "The line uses Retry limit and retains Maximum attempts before stopping.",
+      "consequential": false
+    },
+    {
+      "id": "no-ceremony",
+      "expectation": "Does not block on architecture questions or expand to an ADR, alternatives analysis, or diagram.",
+      "evidence": "Answer and proposed actions.",
+      "consequential": false
+    },
+    {
+      "id": "discovery-negative",
+      "expectation": "In the available condition, the target is not activated; unknown load telemetry remains unknown.",
+      "evidence": "Actual host load events, not the output's wording. A forced-loaded run measures restraint separately.",
+      "consequential": false
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "id": "review-job-boundary",
+  "version": 1,
+  "target_skill": "review-change",
+  "question": "Does the review identify a queued read that violates the accepted current-membership guard after admission?",
+  "kind": "held-out positive",
+  "split": "held-out",
+  "mode": "simulated-decision",
+  "criteria": [
+    {
+      "id": "queued-guard",
+      "expectation": "Identifies run_next reading after membership was revoked, despite successful admission, and locates the missing current check.",
+      "evidence": "Finding gives admission → revocation → run_next trigger and src/report.py:5-7.",
+      "consequential": true
+    },
+    {
+      "id": "bounded-repair",
+      "expectation": "Proposes using the existing guard before the read and a regression case without inventing a new scheduling or permission subsystem.",
+      "evidence": "Repair and test proposal respect the outer executor serialization.",
+      "consequential": false
+    },
+    {
+      "id": "no-noise",
+      "expectation": "Does not manufacture unrelated findings or claim tests were executed.",
+      "evidence": "All findings and evidence statements.",
+      "consequential": false
+    }
+  ],
+  "known_defects": [
+    "queued-read-after-revocation"
+  ]
+}

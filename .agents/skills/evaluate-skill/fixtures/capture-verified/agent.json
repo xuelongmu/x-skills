@@ -1,0 +1,18 @@
+{
+  "request": "Capture the verified learning from this parser fix where it will prevent recurrence.",
+  "artifacts": {
+    "src/parser.py": "def first_token(text):\n    parts = text.split()\n    return parts[0] if parts else None\n",
+    "tests/test_parser.py": "import unittest\nfrom src.parser import first_token\n\nclass ParserTests(unittest.TestCase):\n    def test_word(self):\n        self.assertEqual(first_token('alpha beta'), 'alpha')\n",
+    "observations.txt": "The accepted API returns None for empty or whitespace-only input. Before the fix, first_token returned text.split()[0]. An isolated reproduction of both '' and '   ' raised IndexError on that version on three independent executions. The supplied fixed version returned None for both, and the existing word test passed. Empty records occur routinely in the import input. No regression test covers empty input yet.",
+    "AGENTS.md": "Keep parser behavior enforced in tests/test_parser.py. Do not add a parallel learning archive. Local test additions are authorized."
+  },
+  "environment": "Manual simulated decision evaluation. Inspect only the supplied complete relevant excerpts and observations. No network, external tools, or live repository is available. Propose actions or patches; do not execute them or claim new test results. Skill availability is controlled separately by the evaluator.",
+  "constraints": [
+    "Preserve the fixed parser's behavior and existing word test.",
+    "Capture only the demonstrated input cases; no commits, publication, or external writes."
+  ],
+  "termination": {
+    "condition": "Return one final answer completing the request or identifying a concrete unresolved fact.",
+    "max_responses": 1
+  }
+}

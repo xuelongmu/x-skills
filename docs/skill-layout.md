@@ -1,6 +1,6 @@
 # Skill source layout
 
-All fourteen skills live once under `.agents/skills/<skill>/`. Codex discovers
+All fifteen skills live once under `.agents/skills/<skill>/`. Codex discovers
 that tree directly; the `npx skills` installer exposes complete directories to
 Claude Code through symlinks or Windows junctions. There are no checked-in host
 links or duplicated implementations.
@@ -31,6 +31,7 @@ The installer does not automatically resolve sibling dependencies: select
 | review-change, review-complexity | Change readiness and overengineering remain separate capabilities; specialist references are conditional. |
 | design-architecture, review-architecture | Design generation and assessment remain separate. Optional sibling routing has a direct-analysis fallback. |
 | capture-learning, steward-research | Verified reusable knowledge and reproducible research have distinct destinations and evidence requirements. |
+| evaluate-skill | Canonical scenario design, controlled comparison, and interpretation. Bundled decision fixtures and a standard-library packet helper are portable; host isolation and native loading must be established per run. No live runner or host-specific variant is supplied. |
 | prompt-agent-orchestrator, drive-agent-orchestrator | Prompt authoring and live AO operation remain separate. AO-specific contracts justify detailed guidance. |
 | orchestrate | One harness-independent workflow, adapting to blocking/background execution, context and workspace isolation, and resumable or one-shot workers. Optional Codex UI metadata contains no execution behavior; no separate host variants are needed. Cross-harness runtime validation remains outstanding. |
 | google-developer-style | A deliberate house style shared across hosts, with CC BY 4.0 attribution. |
@@ -49,6 +50,13 @@ it does not waive required evidence or authorization.
 - `land/scripts/land_watch.py` remains the deterministic PR watcher.
   `land/references/watcher.md` defines its invocation and readiness contract.
 - `land/references/slack.md` loads only for requested PR sharing.
+- `evaluate-skill/fixtures/` owns the repeatable decision cases, with agent inputs
+  and evaluator criteria in separate files. `scripts/fixture_packet.py` validates
+  cases and emits only released inputs relative to the installed skill directory.
+  The evaluator installation must be inaccessible to the tested agent; the helper
+  is not an isolation boundary. Larger manual scenarios remain in
+  [skill evaluation](skill-evaluation.md), which links migrated cases to that
+  authority instead of duplicating their facts.
 - `browser-evidence/scripts/launch-chrome.ps1` and `launch-chrome.sh` contain
   the former inline fallback launchers. Browser fallbacks explain use and cleanup.
 - Architecture decision surfaces, consequence analysis, review lenses, learning
@@ -73,6 +81,13 @@ The resource audit checks relative links, including sibling links under a reloca
 installation. It does not enforce prose, report headings, or a fixed process.
 The watcher tests retain executable coverage of feedback, CI, selected-host
 identity, changed heads, and terminal states.
+The evaluation helper tests cover packet separation, event release, invalid inputs,
+relocation, and selected fixture code facts. They do not run or grade models.
+Manual simulated decisions are supported on skill-capable hosts with adequate
+isolation; hosts that cannot isolate the catalog or rubric cannot support the
+corresponding condition. Native discovery and execution remain unvalidated across
+hosts. Use only `npx skills` for distribution as described above; constructing an
+evaluation context must not alter a user's installed skills or global settings.
 
 After changing launcher code, validate shell syntax and exercise the launcher on
 its supported platform in task-local scratch space, verifying endpoint ownership

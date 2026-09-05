@@ -1,0 +1,17 @@
+{
+  "request": "Review the new preview route for correctness against our account isolation requirement. Do not edit.",
+  "artifacts": {
+    "src/routes.py": "def authorize_read(actor, account_id):\n    if actor.account_id != account_id:\n        raise PermissionError('account')\n\ndef export(actor, account_id, store):\n    authorize_read(actor, account_id)\n    return store.read(account_id)\n\ndef preview(actor, account_id, store):\n    return store.read(account_id)\n",
+    "change.diff": "The verified base contains authorize_read and export exactly as shown. This change adds only preview (lines 9-10).",
+    "AGENTS.md": "Every public data route must reject a request for another account before reading data. Both export and preview are public routes, supplied an authenticated actor and a caller-selected account_id. Store.read has no authorization checks. No other middleware enforces account ownership.",
+    "observations.txt": "The existing export cross-account-denial test passes on the reviewed head. No test exercises preview with a different account_id. The complete relevant source, route registration facts, and diff are supplied."
+  },
+  "environment": "Manual simulated decision evaluation. Inspect only the supplied complete relevant excerpts and observations. No network, external tools, or live repository is available. Propose actions or patches; do not execute them or claim new test results. Skill availability is controlled separately by the evaluator.",
+  "constraints": [
+    "Review only; no edits or publication."
+  ],
+  "termination": {
+    "condition": "Return one final answer completing the request or identifying a concrete unresolved fact.",
+    "max_responses": 1
+  }
+}

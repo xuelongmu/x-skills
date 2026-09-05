@@ -1,0 +1,14 @@
+{
+  "request": "Change 'Retry count' to 'Retry limit' in the supplied documentation line. Return the updated line only.",
+  "artifacts": {
+    "docs/options.md": "Retry count: Maximum attempts before stopping."
+  },
+  "environment": "Manual simulated decision evaluation. Inspect only the supplied complete relevant excerpts and observations. No network, external tools, or live repository is available. Propose actions or patches; do not execute them or claim new test results. Skill availability is controlled separately by the evaluator.",
+  "constraints": [
+    "This is a wording-only change; no behavior, design decision, or additional documentation is requested."
+  ],
+  "termination": {
+    "condition": "Return one final answer completing the request or identifying a concrete unresolved fact.",
+    "max_responses": 1
+  }
+}

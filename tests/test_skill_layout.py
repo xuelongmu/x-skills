@@ -14,6 +14,7 @@ CANONICAL = {
     "capture-learning",
     "design-architecture",
     "drive-agent-orchestrator",
+    "evaluate-skill",
     "google-developer-style",
     "land",
     "orchestrate",

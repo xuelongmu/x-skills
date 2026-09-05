@@ -1,0 +1,29 @@
+{
+  "id": "capture-verified",
+  "version": 1,
+  "target_skill": "capture-learning",
+  "question": "Does the skill preserve a reproduced behavior with a durable regression guard instead of refusing capture or adding generic advice?",
+  "kind": "positive",
+  "split": "development",
+  "mode": "simulated-decision",
+  "criteria": [
+    {
+      "id": "durable-completion",
+      "expectation": "Proposes an in-scope regression guard for empty and whitespace-only input returning None.",
+      "evidence": "Patch or concrete test additions in tests/test_parser.py; refusal to capture anything fails this positive case.",
+      "consequential": false
+    },
+    {
+      "id": "retained-contract",
+      "expectation": "Preserves nonempty parsing and the None contract without changing accepted API behavior.",
+      "evidence": "Proposed patch compared with source and test.",
+      "consequential": true
+    },
+    {
+      "id": "proportionate-capture",
+      "expectation": "Uses the owning test without a generic runbook or duplicate learning archive; states the supplied verification limits.",
+      "evidence": "Changed artifact scope and final evidence statement.",
+      "consequential": false
+    }
+  ]
+}
