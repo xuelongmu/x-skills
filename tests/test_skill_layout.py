@@ -182,16 +182,6 @@ class SkillLayoutTests(unittest.TestCase):
         self.assertEqual(skill_dirs(ROOT / ".codex" / "skills"), set())
         self.assertEqual(skill_dirs(ROOT / ".claude" / "skills"), set())
 
-    def test_canonical_skills_have_no_host_source_copies(self) -> None:
-        for name in CANONICAL:
-            with self.subTest(skill=name):
-                self.assertFalse(
-                    (ROOT / ".codex" / "skills" / name / "SKILL.md").exists()
-                )
-                self.assertFalse(
-                    (ROOT / ".claude" / "skills" / name / "SKILL.md").exists()
-                )
-
     def test_every_skill_uses_standard_frontmatter(self) -> None:
         name_pattern = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
         for skill in all_skill_paths():
@@ -242,25 +232,6 @@ class SkillLayoutTests(unittest.TestCase):
             (ROOT / ".agents" / "skills" / "land" / "land_watch.py").exists()
         )
 
-    def test_retired_skill_name_is_limited_to_cli_cleanup(self) -> None:
-        retired = "-".join(("code", "meta", "reviewer"))
-        occurrences: list[tuple[Path, str]] = []
-        for path in ROOT.rglob("*"):
-            if not path.is_file() or ".git" in path.parts:
-                continue
-            try:
-                text = path.read_text(encoding="utf-8")
-            except UnicodeDecodeError:
-                continue
-            for line in text.splitlines():
-                if retired in line:
-                    occurrences.append((path.relative_to(ROOT), line.strip()))
-
-        self.assertEqual(
-            occurrences,
-            [(Path("README.md"), f"npx skills@latest remove {retired}")],
-        )
-
     def test_reusable_skills_do_not_name_a_local_product(self) -> None:
         local_product = "".join(("zero", "gen"))
         for path in (ROOT / ".agents" / "skills").rglob("*"):
@@ -274,32 +245,6 @@ class SkillLayoutTests(unittest.TestCase):
                         local_product,
                         text.lower(),
                     )
-
-    def test_documentation_uses_cli_only_for_install_lifecycle(self) -> None:
-        readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        layout = (ROOT / "docs" / "skill-layout.md").read_text(encoding="utf-8")
-        combined = f"{readme}\n{layout}"
-
-        for stale_recipe in ("New-Item -ItemType Junction", "ln -s ", "Copy-Item", "cp -R "):
-            with self.subTest(recipe=stale_recipe):
-                self.assertNotIn(stale_recipe, combined)
-
-        self.assertIn("npx skills@latest add xuelongmu/x-skills", readme)
-        self.assertIn("npx skills@latest update", readme)
-        self.assertIn("npx skills@latest remove", readme)
-        self.assertEqual(readme.count("npx skills@latest add xuelongmu/x-skills"), 1)
-        self.assertIn("Refresh installed skills and reconcile upstream deletions", readme)
-        self.assertIn("updates the complete selected", layout)
-        self.assertNotRegex(
-            readme,
-            r"npx skills@latest add xuelongmu/x-skills[^\n]*--global",
-        )
-        self.assertNotIn("--agent codex claude-code", readme)
-        self.assertNotIn("--skill '*'", readme)
-        self.assertNotIn("--copy", readme)
-        self.assertNotIn("tree/main/.agents/skills", readme)
-        self.assertNotIn("tree/main/.codex/skills", readme)
-        self.assertNotIn("tree/main/.claude/skills", readme)
 
 
 if __name__ == "__main__":

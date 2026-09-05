@@ -61,6 +61,12 @@ Every `SKILL.md` uses only Agent Skills standard frontmatter.
 
 ## Validation
 
+Repository tests cover skill metadata, inventory, bundled-resource links, and
+watcher behavior. Installation, updates, host links, and removal belong to
+`npx skills`; this repository does not maintain an installer lifecycle test.
+Review installation and migration guidance for accuracy without locking its
+wording or command formatting in tests.
+
 Run structural, resource, and watcher checks:
 
 ```bash
