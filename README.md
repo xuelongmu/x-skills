@@ -20,6 +20,7 @@ Portable workflow skills for Claude Code and Codex.
 | google-developer-style | Draft, revise, or review clear, accessible developer documentation using distilled Google-style guidance | `/google-developer-style [documentation or path]` | `google-developer-style` | canonical |
 | design-architecture | Explore consequential system choices and recommend a repo-grounded architecture before implementation | `/design-architecture [decision]` | `design-architecture` | canonical |
 | review-architecture | Review a design proposal or ADR draft and return an evidence-backed architecture verdict | `/review-architecture [artifact]` | `review-architecture` | canonical |
+| show-me | Explain technical relationships visually | `/show-me [question]` | `show-me` | canonical |
 
 - `babysit` never merges, enables auto-merge, or deletes branches. `land` can
   publish a missing PR and is the only skill that merges.
@@ -131,12 +132,21 @@ references load only for the relevant mode or risk.
   authorizes delegation or external changes beyond the user's request.
 - Reusable learnings belong in their owning test, contract, runbook, or skill.
   Avoid general advice and duplicated rules.
+- `show-me` owns visual format selection. Architecture, review, and learning
+  skills can use it when helpful, but still work without it installed. Recurring
+  learnings need useful checks and follow-ups, not a mandatory handoff form.
 
 The review and learning workflows synthesize ideas from immutable snapshots of
 [Compound Engineering](https://github.com/everyinc/compound-engineering-plugin/tree/5f5bc6b96518c69decdec955b353f49631f921da),
 [Matt Pocock's skills](https://github.com/mattpocock/skills/tree/6654f6b60cd9d5be8b54c6fafe44346dabeb3b76),
 and [Addy Osmani's agent-skills](https://github.com/addyosmani/agent-skills/tree/d2c37ef6225dd8726cdd369a8030307f48592d26).
 The Google style skill is a CC BY 4.0 synthesis of the Google guide.
+
+Visual guidance and recurrence checks also draw on immutable HumanLayer snapshots:
+[show-me](https://github.com/humanlayer/skills/blob/3c2629142c5d437428269b1b722b08c0b87f574d/plugins/show-me/skills/show-me/SKILL.md),
+[design-control-loop](https://github.com/humanlayer/skills/blob/3c2629142c5d437428269b1b722b08c0b87f574d/plugins/design-control-loop/skills/design-control-loop/SKILL.md),
+and [build-iterated-agentic-loop](https://github.com/humanlayer/skills/blob/3c2629142c5d437428269b1b722b08c0b87f574d/plugins/build-iterated-agentic-loop/skills/build-iterated-agentic-loop/SKILL.md).
+These inform the guidance; they do not add an autonomous workflow.
 
 See [evaluation scenarios](docs/skill-evaluation.md) for checking behavior after
 instruction changes. Structural checks do not prove agent behavior.

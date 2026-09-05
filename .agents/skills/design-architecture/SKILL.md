@@ -17,7 +17,7 @@ feasibility; familiarity is not evidence of an external contract.
 ## Compare consequential choices
 
 Identify the source of truth, write ownership, boundaries, and public or durable
-contracts affected. Include the status quo or smallest change when viable.
+contracts affected. Include the status quo or an incremental change when viable.
 Compare materially different architectures only when such alternatives exist;
 different libraries inside one ownership model are implementation variants.
 Do not invent alternatives to fill a quota.
@@ -42,6 +42,10 @@ asking them to invent domain facts.
 Use the repository's existing format if one applies; otherwise return a concise
 brief covering the decision, evidence, alternatives, recommendation, and open
 proofs or judgments. Omit sections that do not help the decision.
+
+Use `show-me` when available if a visual clarifies ownership, failure paths,
+choices, or migration. Otherwise explain directly; distinguish evidence from
+proposals and assumptions.
 
 A design-only request ends with the brief. Do not mark a proposal or ADR accepted
 on the user's behalf. If implementation is also requested or an approved
