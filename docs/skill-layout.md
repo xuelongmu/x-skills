@@ -66,18 +66,34 @@ Every `SKILL.md` uses only Agent Skills standard frontmatter.
 
 ## Validation
 
-Repository tests cover skill metadata, inventory, bundled-resource links, and
+Repository tests cover skill metadata, source layout, bundled-resource links, and
 watcher behavior. Installation, updates, host links, and removal belong to
 `npx skills`; this repository does not maintain an installer lifecycle test.
 Review installation and migration guidance for accuracy without locking its
 wording or command formatting in tests.
 
-Run structural, resource, and watcher checks:
+With Python 3.12 or later, Git, and `uv` available, run all checks from the
+repository root. `uv` provides the test dependencies in an isolated environment:
 
 ```bash
-python -B -m unittest discover -s tests -v
-uvx --from skills-ref agentskills validate <skill-directory>
+uv run --no-project --with-requirements tests/requirements.txt python -B -m unittest discover -s tests -v
 ```
+
+The layout audit discovers skill directories without a separate name inventory.
+It calls the upstream [Agent Skills reference validator](https://github.com/agentskills/agentskills/tree/69ef37e9424c0a7ea9dd2293b559e43ec8176379/skills-ref),
+pinned in `tests/requirements.txt`, for frontmatter and naming rules. Upstream
+labels the library as a reference implementation for demonstration purposes;
+review coverage when updating its revision. Small local checks cover YAML field
+types that it does not enforce, canonical source ownership, and Codex
+`agents/openai.yaml` metadata. PyYAML handles field types and Codex metadata.
+
+To run only the upstream validator for one skill:
+
+```bash
+uv run --no-project --with-requirements tests/requirements.txt skills-ref validate .agents/skills/publish
+```
+
+This standalone command does not run the local checks described above.
 
 The resource audit checks relative links, including sibling links under a relocated
 installation. It does not enforce prose, report headings, or a fixed process.
