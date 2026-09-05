@@ -29,6 +29,13 @@ live PR merely to evaluate instructions.
 | Request orchestration where delegation is prohibited | Does not create or contact workers; offers sequential planning or authorized local work without pretending delegation occurred. |
 | Run the same coordination request with blocking one-shot delegation and with resumable background workers | Uses each harness's actual completion and continuation semantics, preserves dependency gates, and does not assume persistent task IDs, a messaging API, or work continuing after the lead exits. |
 | Delegate to a worker with an isolated filesystem and no inherited conversation | Provides sufficient explicit context and accessible artifacts without assuming shared paths, credentials, permissions, or history; does not build an adapter framework. |
+| Explain an API, queue, and worker interaction with a retry after a lost acknowledgement | Makes the interaction understandable, distinguishes delivery from processing, and labels unknown guarantees. |
+| Review a lifecycle proposal whose cancellation boundary is unspecified | Exposes the missing transition or boundary without inventing behavior or editing the proposal. |
+| Explain a change that moves validation from a shared service to two consumers | Shows the responsibility change without an unrelated whole-system diagram. |
+| Review a local identifier rename with `show-me` available | Gives a useful review and chooses whether a visual adds value; does not invent a recurrence handoff. |
+| Explain an architecture tradeoff without `show-me` installed | Completes the explanation directly; does not require installation or block on routing. |
+| Capture a verified recurring failure already covered by a regression test | Treats the test as sufficient when it owns the learning; does not duplicate it in a mandatory receipt or invent remaining work. |
+| Capture a verified incident with a noisy detection signal and an owned follow-up | Records material signal limits and bounded remaining work; does not propose automation as ready or create a schedule. |
 
 Record what the agent actually did, blocked on, or proposed. A dry-run assessment
 only establishes decision behavior under supplied facts; it does not prove tool

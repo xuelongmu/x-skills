@@ -5,7 +5,7 @@ description: Audit overengineering or simplify a change while preserving accepte
 
 # Review complexity
 
-Find the smallest coherent implementation of the accepted behavior. A review
+Improve clarity and maintainability while preserving accepted behavior. A review
 request produces findings; a simplification or fix request authorizes in-scope
 edits. Fewer lines alone are not evidence of improvement.
 
@@ -50,7 +50,7 @@ their inputs are unchanged. Add regression tests when they protect an actual
 contract; disposable probes need not become permanent files.
 
 Prioritize a few substantial recommendations. For each, give the location,
-evidence, retained invariant, and smallest coherent alternative. Distinguish
+evidence, retained invariant, and recommended alternative. Distinguish
 safe simplifications from decisions requiring changed requirements, and explain
 important complexity that should stay. For edits, report what changed and the
 verification or unresolved limits. If the original is clearer, leave it alone.

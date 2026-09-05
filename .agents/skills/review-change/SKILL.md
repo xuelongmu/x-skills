@@ -44,6 +44,9 @@ fixes, `review-complexity` can help when available. Use its conclusions as
 evidence rather than requiring a second verdict. Its absence does not block
 review.
 
+Use a visual when it helps the reader understand or verify a finding.
+`show-me` can help when available; otherwise explain directly.
+
 ## Evidence and result
 
 Reuse applicable verification already performed. Probe unresolved material
@@ -56,6 +59,10 @@ Lead with `Ready`, `Not ready`, or `Inconclusive`, followed by findings with
 tight file/line locations, impact, and repairs. Include the scope and material
 verification results or gaps; omit empty boilerplate sections. Identify stale
 guidance only when the change makes it relevant.
+
+For a verified recurring problem, identify a useful regression signal, guard, or
+bounded follow-up. Report it without invoking a capture or automation workflow
+in review-only mode.
 
 External review requires authorization covering the artifact, recipient, prompt,
 and data or cost boundary. Reuse applicable authorization; reconcile external

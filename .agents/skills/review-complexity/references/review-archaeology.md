@@ -45,7 +45,7 @@ but requires an explicit decision rather than being smuggled into cleanup.
 ## Assess the candidate
 
 For each material recommendation, give its evidence, owning invariant, cost,
-and smallest coherent alternative. Keep justified controls; simplify duplicate
+and recommended alternative. Keep justified controls; simplify duplicate
 mechanisms; move concerns to their owner; remove unsupported machinery; and
 separate proposals that change accepted behavior.
 

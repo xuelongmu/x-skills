@@ -1,0 +1,4 @@
+interface:
+  display_name: "Show Me"
+  short_description: "Explain technical relationships visually"
+  default_prompt: "Use $show-me to explain this visually, choosing the format and detail that help understanding."
