@@ -1,0 +1,4 @@
+interface:
+  display_name: "Orchestrate"
+  short_description: "Lead delegated work with quiet, bounded coordination"
+  default_prompt: "Use $orchestrate to coordinate this work toward the next reviewable milestone, with clear ownership and selective updates."
