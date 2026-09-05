@@ -1,18 +1,13 @@
 ---
 name: drive-agent-orchestrator
-description: >-
-  Drive Agent Orchestrator (AO) when it is installed: preflight the daemon,
-  register projects, spawn and supervise workers and orchestrators, monitor
-  sessions, and escalate blocked work without duplicating AO's own supervision.
-  Use for operating AO; use prompt-agent-orchestrator instead when the task is
-  only to author or validate a coordinator prompt.
+description: Operate an installed Agent Orchestrator daemon, projects, workers, and coordinators without duplicating AO supervision.
 ---
 
 # Drive Agent Orchestrator
 
 Drive AO as the external operator: preflight, register, spawn, message, monitor,
-and escalate. Treat a project-specific coordinator prompt produced by
-`prompt-agent-orchestrator` as input; do not author that charter here.
+and escalate. Use a supplied project charter as input. When prompt authoring is
+also requested, `prompt-agent-orchestrator` can help if available.
 
 Verified against AO v0.10.3 source through revision `08791937`. Treat
 `ao --help` and the live daemon API as authoritative when the installed build
@@ -20,7 +15,8 @@ differs.
 
 ## Step 1: Detect and preflight
 
-Run `ao version --json`, `ao status`, and `ao doctor` before anything else.
+Establish the installed version and daemon health with `ao version --json`,
+`ao status`, and `ao doctor`; reuse current preflight evidence within the session.
 
 - Resolve which `ao` is running before diagnosing failures. On Windows, a
   legacy npm/Node shim can shadow the canonical Go binary and fail `ao doctor`.
@@ -30,7 +26,8 @@ Run `ao version --json`, `ao status`, and `ao doctor` before anything else.
 - Read the live loopback port from `ao status` or `~/.ao/running.json` before
   calling the API. The default is 3001 and state lives under `~/.ao/data`.
 
-Never proceed on a failing `ao doctor`. Report the exact failure and stop.
+Resolve preflight failures that prevent the requested operation. Report a
+remaining blocker without abandoning independent inspection or preparation.
 
 ## Step 2: Projects
 

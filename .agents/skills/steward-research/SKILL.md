@@ -1,106 +1,51 @@
 ---
 name: steward-research
-description: Steward research repositories for reproducibility and handoff. Use when an agent needs to audit or document experiments, record provenance or assumptions, create runbooks, separate local artifacts from versioned source, promote reusable research tooling, prepare a focused contribution, or hand unfinished research to another collaborator.
+description: Make research work reproducible and ready for handoff through provenance, experiment records, artifact separation, and reusable tooling.
 ---
 
-# Steward a Research Repository
+# Steward research
 
-Turn exploratory work into a reproducible handoff without disturbing the
-user's data, unfinished work, or repository conventions.
+Preserve the user's data and unfinished work while producing the requested audit,
+organization, or handoff. An audit is inspect-only. Do not infer permission to
+rerun costly experiments, delete artifacts, stop processes, or upload data.
 
-## Set scope
+## Reproducible evidence
 
-1. Read applicable repository instructions and documentation.
-2. Inspect Git status, the current branch, remotes, recent commits, and all
-   modified or untracked files. Treat existing changes as user-authored unless
-   their provenance is known.
-3. Match the work to the request:
-   - **audit:** inspect and report without writing;
-   - **organize or hand off:** update local documentation or reusable tooling;
-   - **publish:** use the repository's publishing workflow only when requested.
-4. Define a focused file and contribution scope before broad reorganization.
+Use existing research records and conventions. Record the details needed to
+reproduce or interpret each meaningful result:
 
-Do not infer permission to rerun costly experiments, delete artifacts, stop
-processes, upload data, or mutate remote state.
-
-## Keep a reproducible record
-
-Follow existing documentation conventions. If none fit, add only what the
-handoff needs, usually a dated experiment log or focused runbook.
-
-For each meaningful experiment or decision, record what applies:
-
-- date, objective, status, and next action;
-- input identity, provenance, access limits, and license caveats;
+- objective, status, and next action;
+- input identity and provenance, access or license constraints;
 - code revision, environment, configuration, seeds, and data split;
-- the exact command or repository-relative launcher;
-- reused artifacts or caches and the variable intentionally changed;
-- quantitative results with units and qualitative observations;
-- failures, limitations, uncertainty, and artifact locations.
+- exact command, reused artifacts or caches, and the variable changed;
+- results with units, diagnostics, uncertainty, and artifact locations.
 
-Append corrections instead of silently rewriting history. Distinguish
-observations from inferences and verified ground truth from proxies. Preserve
-negative or superseded results when they affect later decisions.
+Distinguish observations, inferences, and proxies. Preserve negative results and
+append corrections when they affect later interpretation. Methodology changes
+made after seeing results are new experiments.
 
-## Preserve experimental validity
+For ablations, keep claimed controls fixed. A successful exit is not scientific
+evidence: inspect relevant diagnostics and representative output, and label
+partial, invalid, or unverified results accurately.
 
-- Change one intended variable in an ablation and keep claimed controls fixed.
-- Record reused artifacts and their compatibility assumptions.
-- Inspect relevant diagnostics and representative outputs; a successful exit
-  alone is not scientific evidence.
-- Mark pending, partial, blocked, and invalid runs clearly.
-- Record methodology changes made after seeing results as new experiments.
+## Source and artifacts
 
-## Separate source from artifacts
+Keep reusable source, configuration, and documentation distinct from datasets,
+weights, caches, checkpoints, and generated media. Follow repository policy for
+canonical fixtures; otherwise keep artifacts in ignored scratch space and record
+their locations. Do not commit credentials, private machine paths, or restricted
+assets. Upload only within the user's authorization and applicable data policy.
 
-Classify files before staging:
+Promote a helper when it is reusable: use explicit inputs, configurable paths,
+input validation before costly work, and a manifest for data transformations.
+Preserve overwrite protections. Test fragile transforms at their behavioral seam.
 
-| Class | Normal handling |
-| --- | --- |
-| reusable source, tests, configs, and documentation | version when sanitized and in scope |
-| datasets, model weights, credentials, and private paths | keep out of Git |
-| generated outputs, caches, and checkpoints | ignore unless the repository defines a canonical fixture |
-| images, audio, video, and render previews | keep local by default |
+## Handoff
 
-Upload media only when repository policy permits it and the user confirms it
-is non-sensitive client data. Never upload credentials, restricted or licensed
-assets, or private machine state.
+Verify the evidence needed for the requested handoff without rerunning the full
+research program by default. Distinguish configuration checks, smoke tests, and
+actual experiment reproduction.
 
-Use the repository's scratch convention. If none exists and policy permits,
-use an ignored root `tmp/` directory. Before staging, scan for secrets, private
-paths, unexpected binaries, generated output, and licensed assets.
-
-## Promote reusable tooling
-
-- Use explicit inputs, configurable paths, and repository-relative defaults.
-- Write a manifest for data or calibration transformations.
-- Validate inputs before expensive work and require opt-in for overwrites.
-- Test fragile transforms, conversions, indexing, and format parsing.
-- Reuse the repository's runtime and dependencies.
-
-Keep personal paths and unexplained machine-specific helpers out of the
-contribution.
-
-## Validate proportionately
-
-Use repository-native checks. When applicable:
-
-1. run `git diff --check` and `git diff --cached --check`;
-2. inspect the final diff, status, untracked files, and staged file list;
-3. parse changed configuration and verify documentation links or commands;
-4. run focused tests, dry-runs, or the smallest representative smoke test;
-5. confirm the contribution contains no unrelated files or disallowed artifacts.
-
-Separate environmental failures from defects. State whether validation covered
-syntax, configuration, a smoke test, or full experiment reproduction.
-
-## Contribute and hand off
-
-- Work on a focused branch and keep unrelated changes unstaged.
-- Verify the repository and branch immediately before any remote action.
-- Do not push, open or merge a PR, create an issue, or upload data unless the
-  user requested it.
-- Use the established publishing workflow instead of duplicating it here.
-
-At handoff, summarize the branch, intended diff, validation, excluded local
-work, artifact handling, pending research, and next action.
+Report reproducible results, the intended contribution, excluded local work,
+pending experiments, and next action. Use the repository's publishing workflow
+only when publication is requested.

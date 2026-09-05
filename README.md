@@ -6,7 +6,7 @@ Portable workflow skills for Claude Code and Codex.
 
 | Skill | What it does | Claude Code | Codex | Source |
 |---|---|---|---|---|
-| publish | Commit intended changes, validate, push, and open a PR ready for review (draft only on request) | `/publish` | `publish` | canonical |
+| publish | Publish intended changes to a new or existing PR | `/publish` | `publish` | canonical |
 | babysit | Keep the PR ready without merging: fix CI, address review comments, and sync the base branch | `/babysit` | `babysit` | canonical |
 | land | Open or share a PR, keep it healthy, and merge once checks and feedback gates pass | `/land` | `land` | canonical |
 | prompt-agent-orchestrator | Draft and validate multi-issue Agent Orchestrator project prompts | `/prompt-agent-orchestrator <brief>` | `prompt-agent-orchestrator` | canonical |
@@ -22,8 +22,11 @@ Portable workflow skills for Claude Code and Codex.
 
 - `babysit` never merges, enables auto-merge, or deletes branches. `land` can
   publish a missing PR and is the only skill that merges.
-- `babysit` reuses `land/scripts/land_watch.py`. For continuous monitoring, it
-  uses the recurring monitor or loop mechanism available in the current host.
+- `publish` and `babysit` share operational references owned by `land`.
+  Select `land` alongside either skill in the installer, in the same scope;
+  the CLI does not automatically install sibling dependencies.
+- Continuous `babysit` follows the requested duration or completion condition and
+  uses the current host's recurring facility. Quiet cycles do not end monitoring.
 - `land` includes the former `publish-slack` workflow. Ask it to share the PR in
   Slack to create a draft with the Vercel preview; ask explicitly to send when
   a draft is not desired.
@@ -95,55 +98,36 @@ intentional exceptions, CLI constraints, and duplication counts.
 
 ## Design notes
 
-Each skill file documents its own behavior; these are the cross-cutting choices:
+Skills specify outcomes, meaningful constraints, and non-obvious operational
+knowledge. Agents choose the method and proportionate verification. Supporting
+references load only for the relevant mode or risk.
 
-- `babysit` follows explicit repository guidance when syncing a conflicting or
-  behind PR branch, otherwise uses the repository's enabled rebase/merge
-  settings when they identify one method, and prefers rebase when no preference
-  is declared. Rebases are published with `--force-with-lease`, never plain
-  `--force`. It replies on review threads after addressing feedback.
-- `babysit` binds feedback API calls to the hostname and repository selected by
-  `gh pr view`, not whichever remote the checkout resolves or the CLI's default
-  host. API subprocesses use `GH_HOST` so custom GitHub Enterprise ports are
-  preserved without passing an invalid `host:port` value to `gh api --hostname`.
-- The shared PR watcher polls GitHub every 30 seconds by default; set
-  `LAND_WATCH_POLL_SECONDS` from 30 to 300 seconds when a repository needs a
-  lower API request rate. The feedback grace window defaults to 900 seconds
-  (15 minutes) and can be overridden with
-  `LAND_WATCH_FEEDBACK_GRACE_SECONDS` from 30 to 86400 seconds.
-- Continuous `babysit` stops immediately when its PR is merged or closed and
-  removes its monitor state. Otherwise, it stops after three consecutive
-  unchanged feedback cycles. On Claude surfaces with the sign-off notification
-  adapter, Codex activity plus a missing `codex-ok:<head-sha>` sentinel keeps
-  the monitor running until the pending sign-off/green-CI notification fires or
-  the PR reaches a terminal state.
-- `land` uses a host's native per-PR autofix control when available. On Claude
-  surfaces, **Auto-fix CI & address comments** can provide wake-ups and fixes,
-  but the shared watcher and final synchronous refresh remain the merge gates;
-  **Auto-merge when ready** stays disabled.
-- `land` can share a PR through any authenticated Slack capability. It creates
-  a draft by default and reads Vercel bot comments from the **issues** endpoint
-  (`/issues/{n}/comments`), not `/pulls/{n}/comments`.
-- `capture-learning`, `review-change`, and `review-complexity` are portable
-  cores: they discover a
-  repository's ADRs, contracts, runbooks, instructions, tests, and issue/PR
-  conventions instead of hard-coding repository-local paths. Conditional
-  destination, risk, and complexity detail lives in bundled references that
-  install with each skill.
-- Their workflows synthesize ideas from immutable snapshots of
-  [Compound Engineering](https://github.com/everyinc/compound-engineering-plugin/tree/5f5bc6b96518c69decdec955b353f49631f921da),
-  [Matt Pocock's skills](https://github.com/mattpocock/skills/tree/6654f6b60cd9d5be8b54c6fafe44346dabeb3b76),
-  and [Addy Osmani's agent-skills](https://github.com/addyosmani/agent-skills/tree/d2c37ef6225dd8726cdd369a8030307f48592d26).
-  The instructions are an original, narrower synthesis; no upstream text or
-  generic solutions archive is copied into this repository.
-- `review-change` stays self-contained for ordinary reviews. It routes
-  optionally to `review-complexity` only for explicit complexity audits, large
-  review-churned diffs, or repeated review-fix chains.
-- `review-complexity` reads relevant Codex task history when the active host
-  exposes task tools. Other hosts use history from the conversation or an
-  export, without a separate skill implementation.
-- All cross-host capabilities live once under `.agents/skills/`; CLI
-  install-time links expose the same complete skill directory—including
-  scripts, references, and OpenAI metadata—to Codex and Claude Code. The Google
-  style skill distills the guide's highest-impact decisions, while
-  project-specific style and the live Google guide remain authoritative.
+- `land` owns shared PR publication and maintenance operations, plus the
+  deterministic watcher. `publish` stops at publication; `babysit` maintains
+  readiness; only a landing request authorizes merging.
+- Required approvals, merge methods, and branch cleanup follow the target
+  repository and user on every host. Base synchronization preserves shared
+  history by default; an authorized rebase uses `--force-with-lease`.
+- The watcher keeps its 30-second polling and 15-minute feedback grace defaults.
+  Its [contract](.agents/skills/land/references/watcher.md) documents overrides,
+  exit codes, and the validated head that must be passed to merging.
+- Native autofix can own remediation without creating a second loop. Readiness
+  notifications use current-head evidence and monitor state, not bot reactions
+  or repository labels. A closed unmerged PR is terminal, not ready.
+- Browser control follows the active capability's schemas. Optional raw-CDP
+  launchers live under `browser-evidence/scripts/`; a working connector never
+  requires loading them.
+- Review and architecture skills preserve distinct user intents without
+  requiring a fixed series of passes or reports. Missing optional sibling skills
+  do not block assessment. Design recommendations do not create accepted ADRs.
+- Reusable learnings belong in their owning test, contract, runbook, or skill.
+  Avoid general advice and duplicated rules.
+
+The review and learning workflows synthesize ideas from immutable snapshots of
+[Compound Engineering](https://github.com/everyinc/compound-engineering-plugin/tree/5f5bc6b96518c69decdec955b353f49631f921da),
+[Matt Pocock's skills](https://github.com/mattpocock/skills/tree/6654f6b60cd9d5be8b54c6fafe44346dabeb3b76),
+and [Addy Osmani's agent-skills](https://github.com/addyosmani/agent-skills/tree/d2c37ef6225dd8726cdd369a8030307f48592d26).
+The Google style skill is a CC BY 4.0 synthesis of the Google guide.
+
+See [evaluation scenarios](docs/skill-evaluation.md) for checking behavior after
+instruction changes. Structural checks do not prove agent behavior.
