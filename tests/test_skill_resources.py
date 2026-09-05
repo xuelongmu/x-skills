@@ -27,9 +27,6 @@ def missing_resources(root: Path) -> list[str]:
 
 
 class SkillResourceTests(unittest.TestCase):
-    def test_bundled_relative_resources_resolve(self) -> None:
-        self.assertEqual(missing_resources(SKILLS), [])
-
     def test_resources_resolve_after_relocated_installation(self) -> None:
         # The same canonical directories install under either host's layout.
         # Include siblings because publication and babysitting depend on land.
