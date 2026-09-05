@@ -1,0 +1,16 @@
+{
+  "request": "Assess whether this proposal meets the committed-order event requirement. Do not implement it or accept the ADR.",
+  "artifacts": {
+    "docs/proposal.md": "# Draft order events proposal\nWrite the order and its outbox event in one local database transaction. A dispatcher reads committed unsent outbox records, publishes, and marks sent only after broker acknowledgement. After a crash, it retries any unsent record. Consumers deduplicate by order ID before effects.",
+    "docs/requirements.md": "No committed order may permanently lose its event after an application-process crash; eventual service recovery is assumed. Duplicate delivery is allowed; duplicate consumer effects are not. Atomic commit of both local rows is a verified database property. The broker durably retains acknowledged messages and redelivers until consumer acknowledgement. The dispatcher resumes on restart and retries until acknowledgement. Consumer deduplication and its effect are atomic. No cross-service exactly-once delivery is promised.",
+    "observations.txt": "Supplied fault tests confirm rollback of both rows before commit, eventual delivery after a commit-before-publish crash, and harmless duplicate delivery after a publish-before-mark-sent crash. The ADR remains a draft."
+  },
+  "environment": "Manual simulated decision evaluation. Inspect only the supplied complete relevant excerpts and observations. No network, external tools, or live repository is available. Propose actions or patches; do not execute them or claim new test results. Skill availability is controlled separately by the evaluator.",
+  "constraints": [
+    "Assess the supplied scope only; no implementation or ADR acceptance."
+  ],
+  "termination": {
+    "condition": "Return one final answer completing the request or identifying a concrete unresolved fact.",
+    "max_responses": 1
+  }
+}

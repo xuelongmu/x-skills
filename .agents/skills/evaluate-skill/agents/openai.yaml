@@ -1,0 +1,4 @@
+interface:
+  display_name: "Evaluate Skill"
+  short_description: "Compare skill benefit, discovery, and overhead"
+  default_prompt: "Use $evaluate-skill to assess whether this skill improves outcomes under controlled comparisons."

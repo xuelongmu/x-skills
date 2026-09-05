@@ -1,0 +1,17 @@
+{
+  "request": "Review the new preview route for correctness against our account isolation requirement. Do not edit.",
+  "artifacts": {
+    "src/routes.py": "def load_account(actor, account_id, store):\n    if actor.account_id != account_id:\n        raise PermissionError('account')\n    return store.read(account_id)\n\ndef export(actor, account_id, store):\n    return load_account(actor, account_id, store)\n\ndef preview(actor, account_id, store):\n    return load_account(actor, account_id, store)\n",
+    "change.diff": "The verified base contains load_account and export exactly as shown. This change adds only preview (lines 9-10).",
+    "AGENTS.md": "Every public data route must reject a request for another account before reading data. Both export and preview are public routes with an authenticated actor and caller-selected account_id. Authorization is owned by load_account, which rejects mismatches before any store call; duplicating it in routes is not required.",
+    "observations.txt": "Tests on the reviewed head cover same-account reads and mismatched accounts through preview and export. Mismatches raise PermissionError with zero store.read calls. All pass. There is no changed behavior outside the supplied route."
+  },
+  "environment": "Manual simulated decision evaluation. Inspect only the supplied complete relevant excerpts and observations. No network, external tools, or live repository is available. Propose actions or patches; do not execute them or claim new test results. Skill availability is controlled separately by the evaluator.",
+  "constraints": [
+    "Review only; no edits or publication."
+  ],
+  "termination": {
+    "condition": "Return one final answer completing the request or identifying a concrete unresolved fact.",
+    "max_responses": 1
+  }
+}

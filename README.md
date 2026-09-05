@@ -15,6 +15,7 @@ Portable workflow skills for Claude Code and Codex.
 | browser-evidence | Drive a running app, verify a flow, and capture browser-visible evidence | `/browser-evidence` | `browser-evidence` | canonical |
 | steward-research | Organize research repositories for reproducibility and safe handoff | `/steward-research` | `steward-research` | canonical |
 | capture-learning | Route a verified reusable learning to its owning repository authority | `/capture-learning` | `capture-learning` | canonical |
+| evaluate-skill | Author scenarios, compare skill conditions, and interpret benefit, regressions, and overhead | `/evaluate-skill` | `evaluate-skill` | canonical |
 | review-change | Review a change against intent, resulting design, verification, and diff-selected risks | `/review-change` | `review-change` | canonical |
 | review-complexity | Audit overengineering and review-driven complexity without changing accepted behavior | `/review-complexity` | `review-complexity` | canonical |
 | google-developer-style | Draft, revise, or review clear, accessible developer documentation using distilled Google-style guidance | `/google-developer-style [documentation or path]` | `google-developer-style` | canonical |
@@ -132,6 +133,13 @@ references load only for the relevant mode or risk.
   authorizes delegation or external changes beyond the user's request.
 - Reusable learnings belong in their owning test, contract, runbook, or skill.
   Avoid general advice and duplicated rules.
+- `evaluate-skill` supports scenario authoring, controlled comparisons, revision
+  assessment, and interpretation independently. Baseline, discoverable, and
+  explicitly loaded conditions separate instruction value from discovery.
+  Bundled fixtures and a Python standard-library packet helper support manual
+  simulated decisions; no isolated live model runner is bundled. Criteria must
+  be inaccessible to the tested agent. See its
+  [workflow and fixtures](.agents/skills/evaluate-skill/SKILL.md).
 - `show-me` owns visual format selection. Architecture, review, and learning
   skills can use it when helpful, but still work without it installed. Recurring
   learnings need useful checks and follow-ups, not a mandatory handoff form.

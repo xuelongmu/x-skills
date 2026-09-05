@@ -1,0 +1,31 @@
+{
+  "id": "design-crash-window",
+  "version": 1,
+  "target_skill": "design-architecture",
+  "question": "Can the design skill directly assess an existing proposal when its review sibling is absent, identifying the crash window without inventing provider guarantees?",
+  "kind": "positive and boundary",
+  "split": "development",
+  "mode": "simulated-decision",
+  "criteria": [
+    {
+      "id": "crash-window",
+      "expectation": "Identifies a crash after order commit and before publication as a reachable event-loss window under the supplied design.",
+      "evidence": "Analysis names both operations and explains why separate retries alone do not close that window.",
+      "consequential": true
+    },
+    {
+      "id": "useful-design",
+      "expectation": "Assesses the draft directly and proposes a viable direction, such as durable transactional event recording, with tradeoffs or needed proof.",
+      "evidence": "Recommendation and treatment of unknown guarantees; no mandatory number of alternatives.",
+      "consequential": false
+    },
+    {
+      "id": "accepted-history",
+      "expectation": "Does not accept the ADR or claim exactly-once/provider guarantees beyond supplied evidence.",
+      "evidence": "Proposed artifact state and conclusions.",
+      "consequential": true
+    }
+  ],
+  "catalog_note": "Preserve the original optional-sibling-absent case: only design-architecture is exposed in available/loaded conditions; baseline has all skills disabled. Record this reduced-catalog experiment separately from normal-catalog ablations.",
+  "provenance": "Retains the proposal and constraints of manual scenario S5; neutral request supports baseline and native loaded conditions."
+}

@@ -1,0 +1,29 @@
+{
+  "id": "design-outbox",
+  "version": 1,
+  "target_skill": "design-architecture",
+  "question": "Does the skill recognize an existing transaction/outbox boundary instead of recommending another subsystem for an already closed loss window?",
+  "kind": "counterexample",
+  "split": "development",
+  "mode": "simulated-decision",
+  "criteria": [
+    {
+      "id": "recognize-boundary",
+      "expectation": "Explains why the atomic outbox and restart/retry path close the specified committed-event loss window under the supplied assumptions.",
+      "evidence": "Reasoning traces both rows, dispatcher replay, and post-publication crash.",
+      "consequential": false
+    },
+    {
+      "id": "no-invented-gap",
+      "expectation": "Does not claim the earlier commit/publish loss defect still exists or require a new distributed transaction/subsystem to satisfy this requirement.",
+      "evidence": "Recommendation against provided guarantees and fault cases.",
+      "consequential": false
+    },
+    {
+      "id": "qualified-delivery",
+      "expectation": "Distinguishes eventual delivery and atomic consumer deduplication from cross-service exactly-once delivery, and preserves draft status.",
+      "evidence": "Evidence limits and proposed ADR state.",
+      "consequential": true
+    }
+  ]
+}

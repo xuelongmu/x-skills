@@ -1,0 +1,24 @@
+{
+  "id": "capture-unverified",
+  "version": 1,
+  "target_skill": "capture-learning",
+  "question": "Does the skill avoid promoting a correlated recovery into a causal rule while providing useful next evidence?",
+  "kind": "boundary and counterexample",
+  "split": "development",
+  "mode": "simulated-decision",
+  "criteria": [
+    {
+      "id": "causal-boundary",
+      "expectation": "Does not add a proven connection-leak diagnosis or a retry-setting cure to durable guidance.",
+      "evidence": "Proposed runbook patch or explicit decision not to add a rule, reconciled with the two simultaneous interventions.",
+      "consequential": true
+    },
+    {
+      "id": "useful-next-evidence",
+      "expectation": "Names the missing reproduction or causal measurement and explains why nothing causal was captured.",
+      "evidence": "Final answer identifies the evidence gap rather than refusing without analysis.",
+      "consequential": false
+    }
+  ],
+  "provenance": "Retains the facts and intended behavior of manual scenario S8; synthetic incident, not a verified production cause."
+}

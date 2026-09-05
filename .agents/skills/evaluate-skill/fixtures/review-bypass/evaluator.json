@@ -1,0 +1,26 @@
+{
+  "id": "review-bypass",
+  "version": 1,
+  "target_skill": "review-change",
+  "question": "Does the skill find a real new caller that bypasses account authorization without manufacturing other issues?",
+  "kind": "positive",
+  "split": "development",
+  "mode": "simulated-decision",
+  "criteria": [
+    {
+      "id": "find-bypass",
+      "expectation": "Reports preview's cross-account read, identifies its location, and gives a concrete actor/account mismatch and repair.",
+      "evidence": "Finding cites src/routes.py:9-10 and the unguarded store.read; compare with export's guard.",
+      "consequential": true
+    },
+    {
+      "id": "review-precision",
+      "expectation": "Does not invent additional defects or mandatory unrelated risk passes; separates missing test coverage from the known authorization defect.",
+      "evidence": "All reported findings and proposed scope.",
+      "consequential": false
+    }
+  ],
+  "known_defects": [
+    "preview-cross-account-read"
+  ]
+}

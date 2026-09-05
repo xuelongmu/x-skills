@@ -1,0 +1,17 @@
+{
+  "request": "Review this queued-report change against the access contract. Do not edit.",
+  "artifacts": {
+    "src/report.py": "def admit(actor, account_id, queue):\n    require_current_membership(actor, account_id)\n    queue.append((actor, account_id))\n\ndef run_next(queue, store):\n    actor, account_id = queue.pop(0)\n    return store.read(account_id)\n",
+    "change.diff": "The verified base contains admit exactly as shown. The change adds run_next (lines 5-7).",
+    "docs/access.md": "Account membership can be revoked after a report is admitted. Every report data read must check current membership at execution, including queued reports. require_current_membership is the existing guard. Reads and revocation are serialized by the outer executor, so adding that guard immediately before the read is sufficient. Store.read does not authorize. There are no other guards on this path.",
+    "observations.txt": "The existing admission-denial test and new unchanged-membership queued-report test pass. No test revokes membership between admission and execution."
+  },
+  "environment": "Manual simulated decision evaluation. Inspect only the supplied complete relevant excerpts and observations. No network, external tools, or live repository is available. Propose actions or patches; do not execute them or claim new test results. Skill availability is controlled separately by the evaluator.",
+  "constraints": [
+    "Review only; no edits, dispatch, or publication."
+  ],
+  "termination": {
+    "condition": "Return one final answer completing the request or identifying a concrete unresolved fact.",
+    "max_responses": 1
+  }
+}

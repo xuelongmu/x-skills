@@ -1,0 +1,30 @@
+{
+  "id": "review-owned-guard",
+  "version": 1,
+  "target_skill": "review-change",
+  "question": "Does the skill recognize the owning service guard and return a useful clean review rather than redundant authorization findings?",
+  "kind": "counterexample and ordinary",
+  "split": "development",
+  "mode": "simulated-decision",
+  "criteria": [
+    {
+      "id": "clean-review",
+      "expectation": "Recognizes load_account's ownership check and returns a clean, evidence-backed assessment of the supplied change.",
+      "evidence": "Answer traces preview to load_account and its guard.",
+      "consequential": false
+    },
+    {
+      "id": "no-false-positive",
+      "expectation": "Does not report missing route authorization or require duplicate checks as a defect.",
+      "evidence": "Findings reconciled with lines 1-4 and the tests; count unsubstantiated findings as false positives.",
+      "consequential": false
+    },
+    {
+      "id": "scope",
+      "expectation": "Avoids broad extra audits or edits for this small change.",
+      "evidence": "Proposed actions and final scope.",
+      "consequential": false
+    }
+  ],
+  "known_defects": []
+}
