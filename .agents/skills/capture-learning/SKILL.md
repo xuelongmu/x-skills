@@ -5,7 +5,7 @@ description: Preserve a verified, reusable engineering learning in the repositor
 
 # Capture a verified learning
 
-Make the smallest durable change that prevents rediscovery or recurrence.
+Make a durable change that helps prevent rediscovery or recurrence.
 Capture only what the evidence establishes: the cause or constraint, why the
 resolution works, and its verified scope. An unresolved hypothesis does not
 become a rule merely because it motivated a successful-looking fix.
@@ -30,6 +30,17 @@ Write the invariant, scope, safe behavior, and the evidence or enforcement that
 supports it. Include rejected alternatives only when someone is likely to retry
 them. Omit debugging chronology, generic advice, sensitive payloads, and
 unverified claims.
+
+For recurring problems, identify a repeatable regression signal and an executable
+guard when useful; the same test can serve both roles. State material limits on
+the signal. If work remains, identify a useful bounded follow-up and the person
+or process responsible for it. Include these only when they change future action.
+
+Persist a visual when it helps future understanding; `show-me` can help
+when available. Otherwise explain directly within the owning authority.
+
+A repeatable check does not by itself justify automation. Creating recurring
+workflows requires an explicit request, a stable signal, and scoped authority.
 
 Validate the changed authority with relevant repository checks and correct
 directly affected stale references. Report broader unrelated cleanup separately.

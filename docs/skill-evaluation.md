@@ -81,6 +81,13 @@ decisions in a dry run, or actions when an isolated execution setup is available
 | [S8: Unverified incident theory](#s8) | `capture-learning` | Automatic discovery | Use the canonical [capture-unverified criteria](../.agents/skills/evaluate-skill/fixtures/capture-unverified/evaluator.json). |
 | [S9: Small documentation review](#s9) | `review-change` | Automatic discovery | Reports the incorrect default with its line and supporting source, proposes a repair without editing, and avoids unrelated risk passes or empty report sections. |
 | [S10: AO merge gate and stack](#s10) | `prompt-agent-orchestrator` | Explicit invocation | Drafts an executable prompt with owners, direct bases, concurrency, and merge authority. Allows safe child work before human merge approval; refreshes direct-child evidence after base changes without reflexively retargeting grandchildren. |
+| [S11: Retry after lost acknowledgement](#s11) | `show-me` | Automatic discovery | Makes delivery, processing, and the retry understandable; distinguishes observed edges from unknown duplicate-effect guarantees. |
+| [S12: Unspecified cancellation](#s12) | `review-architecture` | Explicit invocation | Identifies the missing cancellation boundary and its consequence without inventing accepted behavior or editing the proposal. |
+| [S13: Validation ownership moves](#s13) | `show-me` | Automatic discovery | Explains the before/after responsibility change and affected callers without an unrelated whole-system diagram. |
+| [S14: Local rename](#s14) | `review-change` | Automatic discovery | Gives a proportionate clean review; chooses whether a visual helps and does not invent a recurrence handoff. |
+| [S15: Visual sibling absent](#s15) | `design-architecture` | Explicit invocation | Explains the tradeoff directly with useful evidence limits; neither requires installation nor blocks on visual routing. |
+| [S16: Learning already enforced](#s16) | `capture-learning` | Explicit invocation | Recognizes the owning regression test as sufficient; does not duplicate the learning in a receipt or manufacture remaining work. |
+| [S17: Noisy signal and follow-up](#s17) | `capture-learning` | Automatic discovery | Preserves the verified cause, signal limitations, and bounded owned follow-up; does not claim automation is ready or create a schedule. |
 
 ## Agent-facing requests and fixtures
 
@@ -240,6 +247,87 @@ compatible implementation fix at A2 with refreshed tests and review. B has not
 integrated A2. Include how the drafted prompt handles this event and any later
 direct-base change affecting C. Prompt authoring tools can read these records
 and return text; authoring itself does not operate AO.
+
+### S11
+
+**Request:** "Explain the API, queue, and worker interaction, including the retry
+after the worker's acknowledgement is lost. A visual would help."
+
+**Facts:** The API enqueues job 7. The queue delivers it to a worker, which processes
+it and sends an acknowledgement. That acknowledgement is lost, and the queue
+redelivers job 7. Delivery is at least once; no deduplication or idempotency
+guarantee is supplied for processing. Mermaid and text rendering are available.
+Explain only; no edits or service operations are authorized.
+
+### S12
+
+**Request:** "Review this lifecycle proposal before we accept it. Do not edit it."
+
+**Facts:** The draft defines `queued -> running -> completed`, with cancellation
+allowed while queued. A running worker can emit an external effect before recording
+completion. The draft also says users can cancel any unfinished job, but specifies
+neither cancellation during running nor a boundary after which effects cannot be
+prevented. Read-only proposal inspection and diagram rendering are available. No
+accepted decision resolves this gap; the review must leave the draft unaccepted.
+
+### S13
+
+**Request:** "Explain what changes when validation moves from the shared service
+to the two consumers shown here."
+
+**Facts:** Before: CLI and HTTP handlers call `save`, which validates the record
+and writes it. After: each handler validates, then calls `save`, which only writes.
+These are all current callers. The accepted behavior for both handlers is unchanged;
+future callers must establish validation themselves. Text and Mermaid rendering
+are available. Explain the supplied change only; no repository edits are requested.
+
+### S14
+
+**Request:** "Review this local identifier rename for correctness. Do not edit."
+
+**Facts:** The complete diff renames local variable `retry_count` to `retry_limit`
+at its declaration and both references within a single function. It changes no
+public name, serialization, string lookup, closure, or behavior. Tests for that
+function passed on the reviewed head. `show-me` is available alongside the usual
+catalog, with text and Mermaid rendering. Read-only diff inspection is available;
+there is no incident, recurring failure, or unresolved follow-up.
+
+### S15
+
+**Request:** "Explain the tradeoff between keeping background jobs in the API
+process and moving them to a durable queue and worker. Do not implement either."
+
+**Facts:** An API process restart currently loses in-memory queued jobs. The
+proposed queue durably retains accepted jobs and retries delivery to workers;
+consumers would need duplicate-effect protection. The requirement is survival of
+an API restart, and operating another service has a maintenance cost. No throughput
+measurements are available. `show-me` is absent in every condition; other agreed
+skills and read-only facts stay fixed. Plain text output is available.
+
+### S16
+
+**Request:** "Capture the verified learning from this recurring empty-input crash."
+
+**Facts:** The accepted parser contract returns an empty result for empty input.
+The old parser indexed an empty token list and crashed. A reproduced fix now checks
+that case, and the owning parser test includes empty and whitespace-only input.
+The test failed on the old version and passes on the fixed head. Existing guidance
+points to that test as the contract authority. No related gap remains. Local
+inspection and justified knowledge edits are authorized; publication is not.
+
+### S17
+
+**Request:** "Capture the verified incident learning, including the detection
+limits and the follow-up already assigned."
+
+**Facts:** Reproduction and traces confirm that a timed-out request left a connection
+open; closing it on timeout fixes the leak and passes the regression test. The
+existing runbook records the fix, but calls a high connection-count alert a reliable
+leak detector. Normal traffic spikes also trigger that alert, so count alone cannot
+identify a leak. The reliability owner has accepted a follow-up to compare connection
+age with timeout traces and propose a better detector; no detector or automatic
+remediation is validated yet. Local runbook edits are authorized. External tracking
+and scheduling tools exist, but no new schedule or external write was requested.
 
 ## Orchestration scenarios (evaluator only)
 

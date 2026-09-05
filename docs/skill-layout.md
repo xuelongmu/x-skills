@@ -1,6 +1,6 @@
 # Skill source layout
 
-All fifteen skills live once under `.agents/skills/<skill>/`. Codex discovers
+All sixteen skills live once under `.agents/skills/<skill>/`. Codex discovers
 that tree directly; the `npx skills` installer exposes complete directories to
 Claude Code through symlinks or Windows junctions. There are no checked-in host
 links or duplicated implementations.
@@ -35,6 +35,7 @@ The installer does not automatically resolve sibling dependencies: select
 | prompt-agent-orchestrator, drive-agent-orchestrator | Prompt authoring and live AO operation remain separate. AO-specific contracts justify detailed guidance. |
 | orchestrate | One harness-independent workflow, adapting to blocking/background execution, context and workspace isolation, and resumable or one-shot workers. Optional Codex UI metadata contains no execution behavior; no separate host variants are needed. Cross-harness runtime validation remains outstanding. |
 | google-developer-style | A deliberate house style shared across hosts, with CC BY 4.0 attribution. |
+| show-me | Visual guidance and evidence labeling; the agent chooses valuable formats and detail. Callers retain scope and authority; the host supplies rendering capabilities. |
 
 `.codex/skills` and `.claude/skills` are empty. Add a real host-specific variant
 only when instructions or lifecycle meaningfully differ. Capability selection
@@ -62,6 +63,9 @@ it does not waive required evidence or authorization.
 - Architecture decision surfaces, consequence analysis, review lenses, learning
   destination routing, and review complexity references are optional detail.
   Duplicate project-invariant catalogs and mandatory report templates were removed.
+- `show-me` is an optional sibling for architecture, review, and learning skills,
+  not a bundled reference or required dependency. Callers explain directly when
+  it is absent; visual selection rules live only in `show-me`.
 
 Resolve all resources relative to the active skill directory. Run the watcher
 from the target PR repository so its checkout context is correct. Store
@@ -70,12 +74,34 @@ Every `SKILL.md` uses only Agent Skills standard frontmatter.
 
 ## Validation
 
-Run structural, resource, and watcher checks:
+Repository tests cover skill metadata, source layout, bundled-resource links, and
+watcher behavior. Installation, updates, host links, and removal belong to
+`npx skills`; this repository does not maintain an installer lifecycle test.
+Review installation and migration guidance for accuracy without locking its
+wording or command formatting in tests.
+
+With Python 3.12 or later, Git, and `uv` available, run all checks from the
+repository root. `uv` provides the test dependencies in an isolated environment:
 
 ```bash
-python -B -m unittest discover -s tests -v
-uvx --from skills-ref agentskills validate <skill-directory>
+uv run --no-project --with-requirements tests/requirements.txt python -B -m unittest discover -s tests -v
 ```
+
+The layout audit discovers skill directories without a separate name inventory.
+It calls the upstream [Agent Skills reference validator](https://github.com/agentskills/agentskills/tree/69ef37e9424c0a7ea9dd2293b559e43ec8176379/skills-ref),
+pinned in `tests/requirements.txt`, for frontmatter and naming rules. Upstream
+labels the library as a reference implementation for demonstration purposes;
+review coverage when updating its revision. Small local checks cover YAML field
+types that it does not enforce, canonical source ownership, and Codex
+`agents/openai.yaml` metadata. PyYAML handles field types and Codex metadata.
+
+To run only the upstream validator for one skill:
+
+```bash
+uv run --no-project --with-requirements tests/requirements.txt skills-ref validate .agents/skills/publish
+```
+
+This standalone command does not run the local checks described above.
 
 The resource audit checks relative links, including sibling links under a relocated
 installation. It does not enforce prose, report headings, or a fixed process.
