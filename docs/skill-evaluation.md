@@ -4,15 +4,6 @@ Structural tests validate packaging; watcher tests validate code. Evaluate
 instruction changes with realistic requests and artifacts. These scenarios are
 a small manual evaluation set, not an API benchmark harness.
 
-For invocation changes, first give the evaluator only skill names and frontmatter
-descriptions, the request, and the current phase. Record the primary workflow,
-supporting skills needed now or later, and any ambiguity. Then read selected
-skills and check that their bodies preserve those boundaries and the user's
-authority. A relevant skill may support one step without owning the campaign;
-explicit invocation should still load relevant guidance. Use the
-[invocation audit](skill-invocation-audit.md) for positive, negative, and mixed
-phase examples. Its local walkthrough is not an independent model benchmark.
-
 Give an independent agent the request, relevant skills, and raw scenario facts.
 Keep the acceptance criteria below out of its prompt. Use isolated fixtures or
 read-only simulated tool observations for external workflows; do not mutate a

@@ -102,14 +102,6 @@ Skills specify outcomes, meaningful constraints, and non-obvious operational
 knowledge. Agents choose the method and proportionate verification. Supporting
 references load only for the relevant mode or risk.
 
-Select skills by the user's requested outcome and the current task phase.
-Descriptions carry the discovery boundaries because selection happens before
-the full workflow is read. Explicit invocation remains valid; apply the relevant
-guidance within the user's scope. Supporting skills can enter at the phase that
-needs them without taking ownership of the whole task. See the
-[invocation audit](docs/skill-invocation-audit.md) for boundaries and evaluated
-examples across the inventory.
-
 - `land` owns shared PR publication and maintenance operations, plus the
   deterministic watcher. `publish` stops at publication; `babysit` maintains
   readiness; only a landing request authorizes merging.
