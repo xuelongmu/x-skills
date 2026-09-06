@@ -2,6 +2,8 @@
 
 Portable workflow skills for Claude Code and Codex.
 
+See the [changelog](CHANGELOG.md) for additions, behavior changes, and removals.
+
 ## Skills
 
 | Skill | What it does | Claude Code | Codex | Source |

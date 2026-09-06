@@ -20,5 +20,7 @@ Use the universal skill layout for behavior shared by Codex and Claude:
   relative to the active skill directory, not a hard-coded host path.
 - Document unsupported hosts and intentional variants instead of silently omitting them.
 - Run the layout audit and relevant behavioral checks.
+- Keep `CHANGELOG.md` current for user-visible skill, workflow, and installation
+  changes. Add pending changes under `Unreleased` and date them when they land.
 
 When a user asks to install skills without specifying scope, ask whether they want a global or project-local installation.
