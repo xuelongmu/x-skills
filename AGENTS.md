@@ -21,6 +21,6 @@ Use the universal skill layout for behavior shared by Codex and Claude:
 - Document unsupported hosts and intentional variants instead of silently omitting them.
 - Run the layout audit and relevant behavioral checks.
 - Keep `CHANGELOG.md` current for user-visible skill, workflow, and installation
-  changes. Add pending changes under `Unreleased` and date them when they land.
+  changes. Group entries under the current date using `YYYY-MM-DD` headings.
 
 When a user asks to install skills without specifying scope, ask whether they want a global or project-local installation.

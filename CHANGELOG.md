@@ -1,11 +1,11 @@
 # Changelog
 
-Notable changes to the skills and their installation. Pending changes appear
-under **Unreleased**. Historical entries use mainline commit dates and summarize
-the resulting behavior; they are not versioned releases. For current installation
-instructions, see the [README](README.md#setup).
+Notable changes to the skills and their installation, grouped by date. Add new
+entries under the current date. Backfilled entries use mainline commit dates;
+these are not versioned releases. For current installation instructions, see the
+[README](README.md#setup).
 
-## Unreleased
+## 2026-09-06
 
 ### Added
 
