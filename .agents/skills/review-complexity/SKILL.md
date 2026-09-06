@@ -1,6 +1,6 @@
 ---
 name: review-complexity
-description: Audit overengineering or simplify a change while preserving accepted behavior. Use for explicit complexity reviews or accumulating review-fix chains; edit only when changes are requested.
+description: Audit overengineering or simplify a change while preserving accepted behavior. Use for requested complexity reviews or simplification, or when repeated review fixes indicate accumulating complexity; not for every review or bug fix. Edit only when changes are requested.
 ---
 
 # Review complexity

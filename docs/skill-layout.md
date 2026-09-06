@@ -1,6 +1,6 @@
 # Skill source layout
 
-All fifteen skills live once under `.agents/skills/<skill>/`. Codex discovers
+All thirteen skills live once under `.agents/skills/<skill>/`. Codex discovers
 that tree directly; the `npx skills` installer exposes complete directories to
 Claude Code through symlinks or Windows junctions. There are no checked-in host
 links or duplicated implementations.
@@ -31,7 +31,6 @@ The installer does not automatically resolve sibling dependencies: select
 | review-change, review-complexity | Change readiness and overengineering remain separate capabilities; specialist references are conditional. |
 | design-architecture, review-architecture | Design generation and assessment remain separate. Optional sibling routing has a direct-analysis fallback. |
 | capture-learning, steward-research | Verified reusable knowledge and reproducible research have distinct destinations and evidence requirements. |
-| prompt-agent-orchestrator, drive-agent-orchestrator | Prompt authoring and live AO operation remain separate. AO-specific contracts justify detailed guidance. |
 | orchestrate | One harness-independent workflow, adapting to blocking/background execution, context and workspace isolation, and resumable or one-shot workers. Optional Codex UI metadata contains no execution behavior; no separate host variants are needed. Cross-harness runtime validation remains outstanding. |
 | google-developer-style | A deliberate house style shared across hosts, with CC BY 4.0 attribution. |
 | show-me | Visual guidance and evidence labeling; the agent chooses valuable formats and detail. Callers retain scope and authority; the host supplies rendering capabilities. |

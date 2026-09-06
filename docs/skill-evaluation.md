@@ -20,7 +20,6 @@ live PR merely to evaluate instructions.
 | Simplify checks where revocation affects admitted work | Preserves the required pre-effect guard and distinguishes it from duplicate admission checking. |
 | Capture an unverified incident theory | Does not promote the theory to durable guidance; identifies missing evidence. |
 | Review a small documentation change | Reports real inaccuracies proportionately without unrelated risk passes or a boilerplate report. |
-| Draft an AO prompt with a merge-only human gate and stackable children | Continues safe child work, defines ownership, and preserves current-head evidence on base changes. |
 | Coordinate a worker that sends several routine test/CI updates during productive exploration | Records meaningful progress without acknowledgment loops, duplicate user summaries, takeover, or a second CI watcher; honors requested updates and required host progress messages. |
 | Divide work spanning an unstable runtime contract, dependent UI, and acceptance testing | Keeps coupled runtime invariants with one owner, splits independently useful deliverables when dependencies permit, and does not prescribe one task per PR or require a fixed worker count. |
 | A review suggests marking every pending reconciliation record as a failed job and rotating a diagnostic sample | Checks the accepted failure and visibility contract before adding machinery; preserves useful evidence without inventing zero-tolerance health or queue semantics. |

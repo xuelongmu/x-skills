@@ -1,9 +1,17 @@
 ---
 name: browser-evidence
-description: Verify browser-visible behavior and capture trustworthy screenshots or walkthrough evidence from a running application.
+description: Verify a specific browser-visible behavior or capture screenshots or walkthrough evidence from a running application. Use for the browser verification phase of a larger task, not to lead a test campaign merely because the system has a web UI.
 ---
 
 # Browser evidence
+
+Use this workflow when the current step needs direct browser observation or
+visual evidence. The task's domain runbook or testing workflow owns the larger
+campaign, acceptance criteria, and spending limits. For example, in a billing
+test, use this skill for quote, generation, and balance UI checks; API load,
+ledger reconciliation, and implementation tracking remain with their owners.
+Ordinary browsing or operating a UI without a verification or capture objective
+does not require this evidence workflow.
 
 Prove the requested behavior in the running app. Establish the route,
 prerequisites, expected visible state, and the few captures needed to demonstrate

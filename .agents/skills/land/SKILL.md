@@ -1,6 +1,6 @@
 ---
 name: land
-description: Publish a missing PR, address CI and review feedback, and merge when the repository's gates pass. Use when asked to land or merge work. Also supports requested PR sharing to Slack without merging.
+description: Land or merge work when requested, including PR publication and maintenance needed to pass repository gates. Also supports requested PR sharing to Slack without merging. Use publish for publication alone and babysit for maintenance without merge.
 ---
 
 # Land a pull request

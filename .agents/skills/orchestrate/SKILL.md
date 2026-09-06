@@ -1,12 +1,14 @@
 ---
 name: orchestrate
-description: Coordinate delegated engineering work across agent harnesses. Use when asked to lead multiple tasks or workers toward a shared outcome.
+description: Coordinate delegated engineering work across agent harnesses. Use when asked to lead workers or coordinate delegated tasks toward a shared outcome, not merely because a task has multiple steps or components.
 ---
 
 # Orchestrate
 
 Own the outcome, dependencies, and scope decisions. Give workers room to solve
 their tasks. The lead's contribution is judgment, not relaying activity.
+
+Skill selection does not itself authorize delegation.
 
 ## Shape useful milestones
 
