@@ -556,6 +556,66 @@ class FeedbackAndRoutingTests(unittest.TestCase):
             [],
         )
 
+    def test_connector_activity_summary_is_not_actionable_feedback(self) -> None:
+        for status in ("Running", "Completed"):
+            with self.subTest(status=status):
+                summary = {
+                    "id": 1,
+                    "user": {"login": "chatgpt-codex-connector", "type": "Bot"},
+                    "created_at": "2026-09-06T12:00:00Z",
+                    "body": (
+                        "<!-- codex-pull-request-review-summary -->\n\n"
+                        "## Codex Review Summary\n\n"
+                        "| Review | Status | Commit | Review trigger |\n"
+                        "| --- | --- | --- | --- |\n"
+                        f"| Code Review | {status} | abc123 | New commits |"
+                    ),
+                }
+                with patch.object(
+                    land_watch,
+                    "fetch_review_context",
+                    AsyncMock(return_value=([summary], [], [], None, set(), set())),
+                ):
+                    snapshot = asyncio.run(
+                        land_watch.check_review_feedback(
+                            42, "PR_node_id", "github.com", "owner", "repo",
+                        ),
+                    )
+                # Keep status changes observable to the final stabilization loop.
+                self.assertIn(summary["body"], snapshot[0][0])
+
+    def test_activity_marker_does_not_hide_human_or_inline_findings(self) -> None:
+        marker = "<!-- codex-pull-request-review-summary -->\n\n## Codex Review Summary"
+        base = {
+            "id": 1,
+            "node_id": "comment-node",
+            "user": {"login": "chatgpt-codex-connector", "type": "Bot"},
+            "created_at": "2026-09-06T12:00:00Z",
+            "body": marker,
+        }
+        cases = (
+            ([{**base, "user": {"login": "reviewer", "type": "User"}}], []),
+            ([], [{**base, "pull_request_review_id": 2}]),
+            (
+                [base, {**base, "id": 2, "body": "[P2] Retry can duplicate the charge."}],
+                [],
+            ),
+        )
+        for issue_comments, inline_comments in cases:
+            with self.subTest(issue_comments=issue_comments, inline_comments=inline_comments):
+                context = (
+                    issue_comments, inline_comments, [], None, {"comment-node"}, set(),
+                )
+                with patch.object(
+                    land_watch, "fetch_review_context", AsyncMock(return_value=context),
+                ):
+                    with self.assertRaisesRegex(land_watch.WatchExit, "2"):
+                        asyncio.run(
+                            land_watch.check_review_feedback(
+                                42, "PR_node_id", "github.com", "owner", "repo",
+                            ),
+                        )
+
     def test_review_threads_are_looked_up_by_pull_request_node_id(self) -> None:
         payload = {
             "data": {

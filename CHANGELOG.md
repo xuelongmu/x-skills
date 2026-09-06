@@ -24,6 +24,11 @@ these are not versioned releases. For current installation instructions, see the
   metadata and prompt template. General delegated coordination remains available
   through `orchestrate`.
 
+### Fixed
+
+- Stopped the PR watcher from treating the Codex connector's generated review
+  activity summary as actionable feedback. Separate findings still block merging.
+
 ## 2026-09-05
 
 - Added `orchestrate` for coordinating delegated engineering work across agent

@@ -728,6 +728,14 @@ def is_codex_feedback_comment(
     body = (comment.get("body") or "").strip()
     if is_codex_clean_review_body(body):
         return False
+    # The connector updates this issue comment with review activity. Findings
+    # arrive separately; status text is neither feedback nor proof of approval.
+    if (
+        is_codex_bot_user(comment.get("user", {}))
+        and not comment.get("pull_request_review_id")
+        and body.startswith("<!-- codex-pull-request-review-summary -->")
+    ):
+        return False
     review_id = comment.get("pull_request_review_id")
     if review_id in codex_review_ids:
         return True
