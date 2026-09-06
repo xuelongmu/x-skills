@@ -1,6 +1,6 @@
 ---
 name: review-change
-description: Review a local change or PR for correctness, resulting design, and sufficient verification. Return evidence-backed findings without editing or publishing.
+description: Review a local change or PR for correctness, resulting design, and sufficient verification. Use for requested code review or a distinct review phase, not routine implementation checks or critique of an unimplemented architecture proposal. Review-only requests return findings without editing or publishing.
 ---
 
 # Review a change
@@ -39,10 +39,10 @@ and P2 for meaningful correctness, reliability, or maintainability issues.
 Omit stylistic nits unless requested. Unproven concerns and missing evidence
 belong under uncertainty, not confirmed defects.
 
-For explicit overengineering audits or repeated fixes inside earlier review
-fixes, `review-complexity` can help when available. Use its conclusions as
-evidence rather than requiring a second verdict. Its absence does not block
-review.
+For explicit overengineering audits or repeated review fixes that indicate
+accumulating complexity, `review-complexity` can help when available. Use its
+conclusions as evidence rather than requiring a second verdict. Its absence
+does not block review.
 
 Use a visual when it helps the reader understand or verify a finding.
 `show-me` can help when available; otherwise explain directly.

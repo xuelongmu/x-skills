@@ -1,6 +1,6 @@
 # Skill source layout
 
-All fifteen skills live once under `.agents/skills/<skill>/`. Codex discovers
+All thirteen skills live once under `.agents/skills/<skill>/`. Codex discovers
 that tree directly; the `npx skills` installer exposes complete directories to
 Claude Code through symlinks or Windows junctions. There are no checked-in host
 links or duplicated implementations.
@@ -31,10 +31,26 @@ The installer does not automatically resolve sibling dependencies: select
 | review-change, review-complexity | Change readiness and overengineering remain separate capabilities; specialist references are conditional. |
 | design-architecture, review-architecture | Design generation and assessment remain separate. Optional sibling routing has a direct-analysis fallback. |
 | capture-learning, steward-research | Verified reusable knowledge and reproducible research have distinct destinations and evidence requirements. |
-| prompt-agent-orchestrator, drive-agent-orchestrator | Prompt authoring and live AO operation remain separate. AO-specific contracts justify detailed guidance. |
 | orchestrate | One harness-independent workflow, adapting to blocking/background execution, context and workspace isolation, and resumable or one-shot workers. Optional Codex UI metadata contains no execution behavior; no separate host variants are needed. Cross-harness runtime validation remains outstanding. |
 | google-developer-style | A deliberate house style shared across hosts, with CC BY 4.0 attribution. |
 | show-me | Visual guidance and evidence labeling; the agent chooses valuable formats and detail. Callers retain scope and authority; the host supplies rendering capabilities. |
+
+The [invocation audit](skill-invocation-audit.md) covers all thirteen sources.
+Its outcome and phase boundaries are host-neutral: browser evidence supports
+specific UI checks; research stewardship owns reproducibility; learning capture
+owns durable verified constraints; coordination applies to delegated work.
+Publication, maintenance, landing, code review, and
+complexity review retain their separate endpoints. These changes need no host
+variants or invocation-policy overrides. Existing UI metadata describes the
+intended outcomes and remains aligned. Service-specific orchestration skills
+and their prompt template have been removed; general coordination remains in
+`orchestrate`. Refresh installed skills through `npx skills` as described in the
+[README](../README.md) to reconcile upstream removals after publication.
+
+Project-specific model integration and domain billing, testing, and issue
+workflows are not owned here. Proposals for external skills must be reviewed in
+their owning repository rather than copied into this inventory or applied to
+live installations. Installed copies and plugin caches are not authoring targets.
 
 `.codex/skills` and `.claude/skills` are empty. Add a real host-specific variant
 only when instructions or lifecycle meaningfully differ. Capability selection

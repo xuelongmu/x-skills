@@ -1,9 +1,13 @@
 ---
 name: steward-research
-description: Make research work reproducible and ready for handoff through provenance, experiment records, artifact separation, and reusable tooling.
+description: Audit or organize research work for reproducibility or handoff through provenance, experiment records, artifact separation, and reusable tooling. Use when preserving or assessing reproducible research is an outcome, not for ordinary fact-finding, product testing, or running an existing benchmark alone.
 ---
 
 # Steward research
+
+This can support an experiment's provenance or handoff phase when that work is
+needed. The domain protocol still owns experiment design and execution; a test
+run does not by itself call for a research-repository audit or reorganization.
 
 Preserve the user's data and unfinished work while producing the requested audit,
 organization, or handoff. An audit is inspect-only. Do not infer permission to

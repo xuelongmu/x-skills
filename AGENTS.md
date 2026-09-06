@@ -10,6 +10,10 @@ Use the universal skill layout for behavior shared by Codex and Claude:
 - Do not create checked-in host-directory links for canonical skills. Codex discovers `.agents/skills` directly; installers expose canonical skills to hosts such as Claude with symlinks or Windows junctions.
 - Document `npx skills` as the only installation, refresh, migration, and removal path. Do not add manual junction, symlink, or copy recipes.
 - For every new skill or behavior change, audit whether it is canonical or host-specific. Keep real variants behaviorally aligned where their capabilities overlap without flattening host-specific behavior.
+- Write invocation descriptions around the requested outcome and current task
+  phase, not incidental technologies or keywords. Add exclusions or adjacent-skill
+  boundaries where they prevent likely misrouting. Preserve explicit invocation
+  and relevant supporting phases without expanding the task's authority.
 - Keep reusable skills codebase-agnostic. Do not hard-code repository, organization, project, product, or customer names into skill instructions, metadata, examples, documentation, or tests unless the skill is intentionally scoped to that named context.
 - Update related templates, scripts, references, README inventory, installation lists, and `docs/skill-layout.md`; remove stale names and paths after moves or renames.
 - Store executable helpers under `scripts/` and resolve bundled resources

@@ -1,6 +1,6 @@
 ---
 name: capture-learning
-description: Preserve a verified, reusable engineering learning in the repository authority that owns it. Use after a non-obvious problem is solved or when asked to capture a learning.
+description: Preserve a verified, reusable engineering learning in its owning repository authority. Use when asked to capture a learning, or after a solved problem reveals a non-obvious constraint worth preserving to prevent recurrence; not for routine fixes, status summaries, or unresolved theories.
 ---
 
 # Capture a verified learning

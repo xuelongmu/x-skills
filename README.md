@@ -8,15 +8,13 @@ Portable workflow skills for Claude Code and Codex.
 |---|---|---|---|---|
 | publish | Publish intended changes to a new or existing PR | `/publish` | `publish` | canonical |
 | babysit | Keep the PR ready without merging: fix CI, address review comments, and sync the base branch | `/babysit` | `babysit` | canonical |
-| land | Open or share a PR, keep it healthy, and merge once checks and feedback gates pass | `/land` | `land` | canonical |
-| orchestrate | Lead delegated work through bounded milestones, selective updates, and human review checkpoints | `/orchestrate` | `orchestrate` | canonical |
-| prompt-agent-orchestrator | Draft and validate multi-issue Agent Orchestrator project prompts | `/prompt-agent-orchestrator <brief>` | `prompt-agent-orchestrator` | canonical |
-| drive-agent-orchestrator | Operate Agent Orchestrator: preflight, spawn/supervise workers and orchestrators, monitor sessions | `/drive-agent-orchestrator` | `drive-agent-orchestrator` | canonical |
-| browser-evidence | Drive a running app, verify a flow, and capture browser-visible evidence | `/browser-evidence` | `browser-evidence` | canonical |
-| steward-research | Organize research repositories for reproducibility and safe handoff | `/steward-research` | `steward-research` | canonical |
-| capture-learning | Route a verified reusable learning to its owning repository authority | `/capture-learning` | `capture-learning` | canonical |
-| review-change | Review a change against intent, resulting design, verification, and diff-selected risks | `/review-change` | `review-change` | canonical |
-| review-complexity | Audit overengineering and review-driven complexity without changing accepted behavior | `/review-complexity` | `review-complexity` | canonical |
+| land | Carry requested landing through merge, or handle requested PR sharing to Slack | `/land` | `land` | canonical |
+| orchestrate | Lead delegated tasks and workers toward a shared outcome | `/orchestrate` | `orchestrate` | canonical |
+| browser-evidence | Verify a specific browser-visible behavior or capture visual evidence during the browser phase | `/browser-evidence` | `browser-evidence` | canonical |
+| steward-research | Audit or organize research for reproducibility and handoff | `/steward-research` | `steward-research` | canonical |
+| capture-learning | Preserve a verified reusable constraint worth retaining to prevent recurrence | `/capture-learning` | `capture-learning` | canonical |
+| review-change | Review a change or PR in a dedicated review phase against intent, design, and verification | `/review-change` | `review-change` | canonical |
+| review-complexity | Audit or simplify overengineering, including complexity accumulating through review fixes | `/review-complexity` | `review-complexity` | canonical |
 | google-developer-style | Draft, revise, or review clear, accessible developer documentation using distilled Google-style guidance | `/google-developer-style [documentation or path]` | `google-developer-style` | canonical |
 | design-architecture | Explore consequential system choices and recommend a repo-grounded architecture before implementation | `/design-architecture [decision]` | `design-architecture` | canonical |
 | review-architecture | Review a design proposal or ADR draft and return an evidence-backed architecture verdict | `/review-architecture [artifact]` | `review-architecture` | canonical |
@@ -104,6 +102,14 @@ Skills specify outcomes, meaningful constraints, and non-obvious operational
 knowledge. Agents choose the method and proportionate verification. Supporting
 references load only for the relevant mode or risk.
 
+Select skills by the user's requested outcome and the current task phase.
+Descriptions carry the discovery boundaries because selection happens before
+the full workflow is read. Explicit invocation remains valid; apply the relevant
+guidance within the user's scope. Supporting skills can enter at the phase that
+needs them without taking ownership of the whole task. See the
+[invocation audit](docs/skill-invocation-audit.md) for boundaries and evaluated
+examples across the inventory.
+
 - `land` owns shared PR publication and maintenance operations, plus the
   deterministic watcher. `publish` stops at publication; `babysit` maintains
   readiness; only a landing request authorizes merging.
@@ -128,8 +134,8 @@ references load only for the relevant mode or risk.
   harnesses; it adapts to blocking, background, or non-resumable workers without
   requiring a particular tool API. `agents/openai.yaml` is optional Codex UI
   metadata, not an execution dependency. Other harnesses have not been runtime-tested.
-  The AO skills own service-specific prompt contracts and operations; none
-  authorizes delegation or external changes beyond the user's request.
+  The skill does not authorize delegation or external changes beyond the user's
+  request.
 - Reusable learnings belong in their owning test, contract, runbook, or skill.
   Avoid general advice and duplicated rules.
 - `show-me` owns visual format selection. Architecture, review, and learning
