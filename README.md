@@ -25,6 +25,8 @@ See the [changelog](CHANGELOG.md) for additions, behavior changes, and removals.
 - `babysit` never merges, enables auto-merge, or deletes branches. `land` can
   publish a missing PR and is the only skill that merges.
 - `publish` and `babysit` share operational references owned by `land`.
+  Base synchronization follows repository conventions, using rebase when linear
+  history or an established rebase workflow calls for it.
   Select `land` alongside either skill in the installer, in the same scope;
   the CLI does not automatically install sibling dependencies.
 - Continuous `babysit` follows the requested duration or completion condition and

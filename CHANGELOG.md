@@ -5,6 +5,14 @@ entries under the current date. Backfilled entries use mainline commit dates;
 these are not versioned releases. For current installation instructions, see the
 [README](README.md#setup).
 
+## 2026-09-13
+
+### Changed
+
+- `publish` and `babysit` now follow repository guidance and history when
+  incorporating base changes, using rebase for linear history or an established
+  rebase workflow. Shared PR operations apply the same convention during landing.
+
 ## 2026-09-06
 
 ### Added
