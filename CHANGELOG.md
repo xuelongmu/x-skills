@@ -9,9 +9,8 @@ these are not versioned releases. For current installation instructions, see the
 
 ### Changed
 
-- `publish` and `babysit` now follow repository guidance and history when
-  incorporating base changes, using rebase for linear history or an established
-  rebase workflow. Shared PR operations apply the same convention during landing.
+- PR base updates follow repository conventions, using rebase for linear history
+  or an established rebase workflow.
 
 ## 2026-09-06
 

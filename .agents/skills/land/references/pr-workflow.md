@@ -24,17 +24,11 @@ default. For CLI PR operations, supply the selected PR and repository.
 
 ## Base synchronization
 
-When incorporating changes from the target base, follow repository conventions.
-Inspect repository instructions, contribution guidance, and recent branch/PR
-history. If the repository expects linear history or shows an established rebase
-workflow, rebase onto the verified base ref rather than merging it into the PR
-branch. Explicit repository guidance takes precedence over inferred conventions;
-enabled PR merge methods alone do not establish a branch-sync policy.
-
-If no preference or evidence exists, merge the verified base ref to preserve
-shared history. Preserve collaborator commits and existing authorization for
-branch rewrites; use `--force-with-lease` when an authorized rebase requires a
-non-fast-forward push. Validate the resulting change before pushing.
+Follow repository guidance and recent branch/PR history: rebase onto the verified
+base for linear history or an established rebase workflow. Explicit guidance
+takes precedence; enabled PR merge methods alone do not establish a sync policy.
+Without guidance or evidence, merge the base to preserve shared history.
+Apply the publication safeguards for rewrites and validate before pushing.
 
 ## Publication
 
@@ -42,7 +36,7 @@ Create a focused branch if detached or on the target base. Otherwise retain the
 current branch unless the request requires a different one. Refresh the target
 base ref, and inspect both `git log <base-ref>..HEAD` and
 `git diff <base-ref>...HEAD` so existing commits are included in the scope review.
-If incorporating base changes is needed, apply Base synchronization above.
+For base updates, follow Base synchronization above.
 
 Find an existing PR for the selected head before creating one. Update it when
 the request authorizes that change; do not create a duplicate or alter an
@@ -75,7 +69,7 @@ set the process environment equivalently.
 
 ## Maintenance
 
-Apply Base synchronization above when base changes need incorporating.
+For base updates, follow Base synchronization above.
 
 Read failing-check logs from the repository that owns the check run. Confirm the
 cause before changing code or regenerating a lockfile. Rerun a plausibly transient

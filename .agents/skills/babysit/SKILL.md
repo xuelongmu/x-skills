@@ -8,8 +8,8 @@ description: Keep an existing PR healthy by addressing CI, review feedback, and 
 Address actionable feedback, fix attributable CI failures, and synchronize the
 base as needed. Never merge, enable auto-merge, or delete branches. Return the
 PR URL, readiness, and any remaining blocker; a suggested merge command must use
-the repository's chosen method. When incorporating base changes, follow repository
-conventions: use rebase for linear history or an established rebase workflow.
+the repository's chosen method. Sync the base using repository conventions;
+rebase for linear history or an established rebase workflow.
 
 Use the maintenance section of the shared
 [PR workflow](../land/references/pr-workflow.md) and the

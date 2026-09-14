@@ -9,8 +9,8 @@ Publish the intended change and return the PR URL with a concise account of
 validation and remaining limitations. Create a ready-for-review PR unless the
 user requests a draft; preserve an existing PR's readiness state unless changing
 it is requested. Publication does not include merging or ongoing monitoring.
-When incorporating base changes, follow repository conventions: use rebase for
-linear history or an established rebase workflow.
+Sync the base using repository conventions; rebase for linear history or an
+established rebase workflow.
 
 Use the publication section of the shared
 [PR workflow](../land/references/pr-workflow.md), owned by the sibling `land`
