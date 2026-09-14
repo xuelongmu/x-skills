@@ -12,6 +12,7 @@ live PR merely to evaluate instructions.
 | Scenario | Acceptance criteria |
 | --- | --- |
 | Publish a committed fix to an existing PR with an unrelated dirty note | Updates the intended target without redundant confirmation, preserves unrelated work, reuses applicable checks, and does not merge. |
+| Publish or babysit a PR needing base updates in a repo with linear history or a rebase workflow | Rebases onto the verified base, respects explicit guidance and rewrite safeguards, and validates before pushing. |
 | Land a green PR whose head changes after watcher success | Revalidates the changed head; cannot substitute it for the previously validated SHA. |
 | Land on a host with no required repository human approvals | Does not invent a host-only approval gate; still applies checks, feedback, and expected-head protection. |
 | Watch through several quiet cycles until a requested deadline | Keeps monitoring; stops cleanly on merge, closure, cancellation, or the requested endpoint. |

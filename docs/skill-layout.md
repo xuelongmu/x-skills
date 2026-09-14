@@ -46,6 +46,7 @@ it does not waive required evidence or authorization.
 
 - `land/references/pr-workflow.md` owns publication and maintenance mechanics.
   `publish` and `babysit` link to it relative to their active directories.
+  Repository merge/rebase conventions are shared across hosts.
 - `land/scripts/land_watch.py` remains the deterministic PR watcher.
   `land/references/watcher.md` defines its invocation and readiness contract.
 - `land/references/slack.md` loads only for requested PR sharing.

@@ -5,6 +5,13 @@ entries under the current date. Backfilled entries use mainline commit dates;
 these are not versioned releases. For current installation instructions, see the
 [README](README.md#setup).
 
+## 2026-09-13
+
+### Changed
+
+- PR base updates follow repository conventions, using rebase for linear history
+  or an established rebase workflow.
+
 ## 2026-09-06
 
 ### Added
